@@ -5,6 +5,8 @@
 #include <algorithm/attack.h>
 
 #include <intrin.h>
+#include <QElapsedTimer>
+
 
 using namespace kchess;
 int main(int argc, char *argv[])
@@ -29,8 +31,11 @@ int main(int argc, char *argv[])
         }
         qDebug() << str;
     }
-    attack::init();
 
+    QElapsedTimer timer;
+    timer.start();
+    attack::init();
+    qDebug() << "Time init attack" << (timer.nsecsElapsed() / 1000) << "us";
     MainWindow w;
     w.show();
 

@@ -26,12 +26,12 @@ private:
     QPixmap _pixmaps[16];
 private:
     int _borderSize = 30;
-    QRect canvasRect;
+    QRect _canvasRect;
     QColor _boardColor = Qt::black;
 
     kchess::ChessBoard _board;
-    kchess::Bitboard mobility = 0;
-    kchess::Bitboard mouseSelection = 0;
+    kchess::Bitboard _mobility = 0;
+    kchess::Bitboard _mouseSelection = 0;
 };
 
 #endif // CHESSBOARDVIEW_H

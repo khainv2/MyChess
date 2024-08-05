@@ -3,15 +3,8 @@
 namespace kchess {
 
 struct ChessBoard {
-    Bitboard whites = 0;
-    Bitboard blacks = 0;
-
-    Bitboard pawns = 0;
-    Bitboard bishops = 0;
-    Bitboard knights = 0;
-    Bitboard rooks = 0;
-    Bitboard queens = 0;
-    Bitboard kings = 0;
+    Bitboard colors[Color_NB] = {0};
+    Bitboard pieces[Piece_NB] = {0};
 
     BoardState state = 0;
 
@@ -23,9 +16,13 @@ struct ChessBoard {
         return bb[c] & bb[p + 2];
     }
 
-    constexpr Bitboard occupancy() const { return blacks | whites; }
-    constexpr Bitboard mines() const { return getColorActive(state) == White ? whites : blacks; }
-    constexpr Bitboard enemies() const { return getColorActive(state) == White ? blacks : whites; }
+    constexpr Bitboard occupancy() const { return colors[White] | colors[Black]; }
+    constexpr Bitboard mines() const {
+        return colors[getColorActive(state)];
+    }
+    constexpr Bitboard enemies() const { 
+        return colors[1 - getColorActive(state)];
+    }
     void toggleActive(){
         state ^= 1;
     }

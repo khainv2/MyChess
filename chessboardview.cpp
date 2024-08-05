@@ -20,6 +20,7 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
     _pixmaps[Knight * 2 + Black] = QPixmap(":/b_knight.png");
     _pixmaps[Pawn * 2 + White] = QPixmap(":/w_pawn.png");
     _pixmaps[Pawn * 2 + Black] = QPixmap(":/b_pawn.png");
+    
 
 
     parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
@@ -37,17 +38,17 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
     QRect boundary = w < h ? QRect(0, 0, side, side) : QRect(0, 0, side, side);
     QPainter painter(this);
 
-    canvasRect = boundary - QMargins(_borderSize, _borderSize, _borderSize, _borderSize);
+    _canvasRect = boundary - QMargins(_borderSize, _borderSize, _borderSize, _borderSize);
     QPen pen;
     pen.setWidth(2);
     painter.setPen(pen);
-    painter.drawRect(canvasRect);
+    painter.drawRect(_canvasRect);
 
-    int ss = canvasRect.width() / 8;
+    int ss = _canvasRect.width() / 8;
     for (int i = 0; i < 8; i++){
         for (int j = 0; j < 8; j++){
             if ((i + j) % 2 == 0){
-                QRect square(i * canvasRect.width() / 8 + canvasRect.left(), j * canvasRect.width() / 8 + canvasRect.top(), ss, ss);
+                QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(), j * _canvasRect.width() / 8 + _canvasRect.top(), ss, ss);
                 painter.fillRect(square, QColor(0x29180d));
             }
         }
@@ -57,8 +58,8 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
     QMargins pieceMargin(4, 4, 4, 4);
     for (int i = 0; i < 8; i++){
         for (int j = 0; j < 8; j++){
-            QRect square(i * canvasRect.width() / 8 + canvasRect.left(),
-                         j * canvasRect.width() / 8 + canvasRect.top(),
+            QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(),
+                         j * _canvasRect.width() / 8 + _canvasRect.top(),
                          ss, ss);
             int index = (7 - j) * 8 + i;
             for (int piece = 0; piece < Piece_NB; piece++){
@@ -71,20 +72,20 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
                 }
             }
 
-            if (mouseSelection == squareToBB(index)){
+            if (_mouseSelection == squareToBB(index)){
                 painter.save();
-                QRect square(i * canvasRect.width() / 8 + canvasRect.left(),
-                             j * canvasRect.width() / 8 + canvasRect.top(),
+                QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(),
+                             j * _canvasRect.width() / 8 + _canvasRect.top(),
                              ss, ss);
                 painter.setBrush(QBrush(QColor("#88aa0000")));
                 painter.drawRect(square);
                 painter.restore();
             }
 
-            if (mobility & squareToBB(index)){
+            if (_mobility & squareToBB(index)){
                 painter.save();
-                QRect square(i * canvasRect.width() / 8 + canvasRect.left(),
-                             j * canvasRect.width() / 8 + canvasRect.top(),
+                QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(),
+                             j * _canvasRect.width() / 8 + _canvasRect.top(),
                              ss, ss);
                 painter.setBrush(QBrush(QColor("#8811ffaa")));
                 painter.drawRect(square);
@@ -98,13 +99,13 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
     painter.setFont(f);
     // Draw rank & file
     for (int i = 0; i < 8; i++){
-        int x = i * canvasRect.width() / 8 + canvasRect.left();
-        int y = i * canvasRect.width() / 8 + canvasRect.top();
-        int padding = canvasRect.width() / 16;
+        int x = i * _canvasRect.width() / 8 + _canvasRect.left();
+        int y = i * _canvasRect.width() / 8 + _canvasRect.top();
+        int padding = _canvasRect.width() / 16;
         QString textRank = QString::number(8 - i);
         QString textFile = tr("ABCDEFGH").at(i);
-        painter.drawText(x + padding, canvasRect.bottom() + 16, textFile);
-        painter.drawText(canvasRect.left() - 16, y + padding, textRank);
+        painter.drawText(x + padding, _canvasRect.bottom() + 16, textFile);
+        painter.drawText(_canvasRect.left() - 16, y + padding, textRank);
     }
 }
 
@@ -112,28 +113,28 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
 {
     auto pos = event->pos();
     if (event->button() == Qt::LeftButton){
-        if (canvasRect.contains(pos)){
-            int ss = canvasRect.width() / 8;
-            int i = (pos.x() - canvasRect.left()) / ss;
-            int j = (pos.y() - canvasRect.top()) / ss;
+        if (_canvasRect.contains(pos)){
+            int ss = _canvasRect.width() / 8;
+            int i = (pos.x() - _canvasRect.left()) / ss;
+            int j = (pos.y() - _canvasRect.top()) / ss;
             int index = (7 - j) * 8 + i;
             auto bb = squareToBB(index);
-            if (mobility & bb){
-                auto move = makeMove(bbToSquare(mouseSelection), index);
+            if (_mobility & bb){
+                auto move = makeMove(bbToSquare(_mouseSelection), index);
                 _board.doMove(move);
                 qDebug() << "Chess board state" << toFenString(_board);
                 qDebug() << "Value of board" << eval::estimate(_board);
-                mouseSelection = 0;
-                mobility = 0;
+                _mouseSelection = 0;
+                _mobility = 0;
             } else {
-                mouseSelection = bb;
-                mobility = getMobility(_board, Square(index));
+                _mouseSelection = bb;
+                _mobility = getMobility(_board, Square(index));
             }
             update();
         }
     } else {
-        mouseSelection = 0;
-        mobility = 0;
+        _mouseSelection = 0;
+        _mobility = 0;
         update();
     }
 
