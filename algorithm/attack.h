@@ -1,14 +1,13 @@
 #pragma once
 #include "define.h"
-#include "bitwise.h"
 namespace kchess {
 namespace attack {
 
 extern u64 kings[Square_NB];
 extern u64 knights[Square_NB];
 extern u64 pawns[Color_NB][Square_NB];
-extern u64 pawnsOnMove[Color_NB][Square_NB];
-extern u64 pawnsOnMove2[Color_NB][Square_NB];
+extern u64 pawnPushes[Color_NB][Square_NB];
+extern u64 pawnPushes2[Color_NB][Square_NB];
 struct MagicBitboard {
     u64 mask = 0;
     u64 magic = 0;

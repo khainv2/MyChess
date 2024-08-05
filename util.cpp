@@ -29,6 +29,65 @@ constexpr Color charToColor(char c){
     return c < 'a' ? White : Black;
 }
 
+QString toFenString(const ChessBoard &chessBoard){
+    QString str;
+    for (int rank = Rank_NB - 1; rank >= 0; rank--){
+        int countEmpty = 0;
+        for (int file = 0; file < File_NB; file++){
+            int index = rank * 8 + file;
+            auto bb = squareToBB(index);
+            if (chessBoard.whites & bb){
+                if (countEmpty > 0){
+                    str += QString::number(countEmpty);
+                    countEmpty = 0;
+                }
+
+                if (chessBoard.pawns & bb){
+                    str += 'P';
+                } else if (chessBoard.knights & bb){
+                    str += 'N';
+                } else if (chessBoard.bishops & bb){
+                    str += 'B';
+                } else if (chessBoard.rooks & bb){
+                    str += 'R';
+                } else if (chessBoard.queens & bb){
+                    str += 'Q';
+                } else if (chessBoard.kings & bb){
+                    str += 'K';
+                }
+            } else if (chessBoard.blacks & bb){
+                if (countEmpty > 0){
+                    str += QString::number(countEmpty);
+                    countEmpty = 0;
+                }
+                if (chessBoard.pawns & bb){
+                    str += 'p';
+                } else if (chessBoard.knights & bb){
+                    str += 'n';
+                } else if (chessBoard.bishops & bb){
+                    str += 'b';
+                } else if (chessBoard.rooks & bb){
+                    str += 'r';
+                } else if (chessBoard.queens & bb){
+                    str += 'q';
+                } else if (chessBoard.kings & bb){
+                    str += 'k';
+                }
+            } else {
+                countEmpty++;
+                if (file == File_NB - 1){
+                    str += QString::number(countEmpty);
+                }
+            }
+
+            if (file == File_NB - 1 && rank != 0){
+                str += "/";
+            }
+        }
+    }
+    return str + " w KQkq - 0 1";
+}
+
 bool parseFENString(const QString &fen, ChessBoard *result)
 {
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1

@@ -11,8 +11,8 @@ using namespace kchess;
 u64 kchess::attack::kings[64] = { 0 };
 u64 kchess::attack::knights[64] = { 0 };
 u64 kchess::attack::pawns[2][64] = {};
-u64 kchess::attack::pawnsOnMove[2][64] = {};
-u64 kchess::attack::pawnsOnMove2[2][64] = {};
+u64 kchess::attack::pawnPushes[2][64] = {};
+u64 kchess::attack::pawnPushes2[2][64] = {};
 u64 kchess::attack::rooks[64][262144] = { };
 u64 kchess::attack::bishops[64][262144] = { };
 
@@ -45,10 +45,10 @@ void kchess::attack::init()
                         | oneSquareAttack(square, +9, B_U);
         pawns[Black][i] = oneSquareAttack(square, -7, B_D)
                         | oneSquareAttack(square, -9, B_D);
-        pawnsOnMove[White][i] = oneSquareAttack<+8>(square, B_U);
-        pawnsOnMove[Black][i] = oneSquareAttack<-8>(square, B_D);
-        pawnsOnMove2[White][i] = oneSquareAttack<+16>(square, B_U);
-        pawnsOnMove2[Black][i] = oneSquareAttack<-16>(square, B_D);
+        pawnPushes[White][i] = oneSquareAttack<+8>(square, B_U);
+        pawnPushes[Black][i] = oneSquareAttack<-8>(square, B_D);
+        pawnPushes2[White][i] = oneSquareAttack<+16>(square, ~B_D2);
+        pawnPushes2[Black][i] = oneSquareAttack<-16>(square, ~B_U2);
     }
 }
 
