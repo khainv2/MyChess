@@ -3,11 +3,15 @@
 #include "algorithm/engine.h"
 #include "util.h"
 
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    connect(ui->chessBoard, &ChessBoardView::boardChanged, [=](){
+        ui->label->setText(toFenString(ui->chessBoard->board()));
+    });
 }
 
 MainWindow::~MainWindow()

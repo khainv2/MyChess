@@ -6,6 +6,10 @@
 using namespace kchess;
 void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &count)
 {
+    QElapsedTimer timer;
+    timer.start();
+    u64 t1 = timer.nsecsElapsed();
+
     u64 mines = board.mines();
     u64 notMines = ~mines;
     u64 enemies = board.enemies();
@@ -18,25 +22,35 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
     const u64 *attackPawns = attack::pawns[color];
     const u64 *attackPawnPushes = attack::pawnPushes[color];
     const u64 *attackPawnPushes2 = attack::pawnPushes2[color];
+
+    const auto &pawns = board.pieces[Piece::Pawn];
+    const auto &knights = board.pieces[Piece::Knight];
+    const auto &bishops = board.pieces[Piece::Bishop];
+    const auto &rooks = board.pieces[Piece::Rook];
+    const auto &queens = board.pieces[Piece::Queen];
+    const auto &kings = board.pieces[Piece::King];
+
+    u64 t2 = timer.nsecsElapsed();
+
     count = 0;
     for (int i = 0; i < Square_NB; i++){
         u64 from = squareToBB(i);
         if ((from & mines) == 0)
             continue;
         u64 attack = 0, to = 0;
-        if (from & board.pieces[Piece::Pawn]){
+        if (from & pawns){
             attack = (attackPawns[i] & enemies)
                    | (attackPawnPushes[i] & notOcc)
                    | (attackPawnPushes2[i] & pawnPush2Mask);
-        } else if (from & board.pieces[Piece::Knight]){
+        } else if (from & knights){
             attack = attack::knights[i] & notMines;
-        } else if (from & board.pieces[Piece::Bishop]){
-            attack = attack::getBishopAttacks(i, board.occupancy()) & notMines;
-        } else if (from & board.pieces[Piece::Rook]){
-            attack = attack::getRookAttacks(i, board.occupancy()) & notMines;
-        } else if (from & board.pieces[Piece::Queen]){
-            attack = attack::getQueenAttacks(i, board.occupancy()) & notMines;
-        } else if (from & board.pieces[Piece::King]){
+        } else if (from & bishops){
+            attack = attack::getBishopAttacks(i, occ) & notMines;
+        } else if (from & rooks){
+            attack = attack::getRookAttacks(i, occ) & notMines;
+        } else if (from & queens){
+            attack = attack::getQueenAttacks(i, occ) & notMines;
+        } else if (from & kings){
             attack = attack::kings[i] & notMines;
             if (color == White){
                 if ((occ & CastlingWhiteQueenSideSpace) == 0 && getWhiteOOO(board.state) == 0){
@@ -60,6 +74,11 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
             attack ^= to;
         }
     }
+
+    u64 t3 = timer.nsecsElapsed();
+
+    qDebug() << "Move list" << count;
+    qDebug() << "Time cal" << t1 << t2 << t3;
 }
 
 int kchess::countMoveList(const ChessBoard &board, Color color)
@@ -105,10 +124,7 @@ int kchess::countMoveList(const ChessBoard &board, Color color)
 Bitboard kchess::getMobility(const ChessBoard &board, Square square){
     Move moves[256];
     int count;
-    QElapsedTimer timer;
-    timer.start();
     generateMoveList(board, moves, count);
-    qDebug() << "Time to gen all move list" << timer.nsecsElapsed();
     qDebug() << "Move list" << count << countMoveList(board, White) << countMoveList(board, Black);
     u64 mobility = 0;
     for (int i = 0; i < count; i++){
