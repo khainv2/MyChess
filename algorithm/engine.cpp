@@ -9,7 +9,7 @@
 using namespace kchess;
 Engine::Engine()
 {
-    fixedDepth = 2;
+    fixedDepth = 4;
 }
 
 Move kchess::Engine::calc(const ChessBoard &chessBoard)

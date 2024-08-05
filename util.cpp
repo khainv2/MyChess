@@ -36,41 +36,41 @@ QString toFenString(const ChessBoard &chessBoard){
         for (int file = 0; file < File_NB; file++){
             int index = rank * 8 + file;
             auto bb = squareToBB(index);
-            if (chessBoard.whites & bb){
+            if (chessBoard.colors[Color::White] & bb){
                 if (countEmpty > 0){
                     str += QString::number(countEmpty);
                     countEmpty = 0;
                 }
 
-                if (chessBoard.pawns & bb){
+                if (chessBoard.pieces[Piece::Pawn] & bb){
                     str += 'P';
-                } else if (chessBoard.knights & bb){
+                } else if (chessBoard.pieces[Piece::Knight] & bb){
                     str += 'N';
-                } else if (chessBoard.bishops & bb){
+                } else if (chessBoard.pieces[Piece::Bishop] & bb){
                     str += 'B';
-                } else if (chessBoard.rooks & bb){
+                } else if (chessBoard.pieces[Piece::Rook] & bb){
                     str += 'R';
-                } else if (chessBoard.queens & bb){
+                } else if (chessBoard.pieces[Piece::Queen] & bb){
                     str += 'Q';
-                } else if (chessBoard.kings & bb){
+                } else if (chessBoard.pieces[Piece::King] & bb){
                     str += 'K';
                 }
-            } else if (chessBoard.blacks & bb){
+            } else if (chessBoard.colors[Color::Black] & bb){
                 if (countEmpty > 0){
                     str += QString::number(countEmpty);
                     countEmpty = 0;
                 }
-                if (chessBoard.pawns & bb){
+                if (chessBoard.pieces[Piece::Pawn] & bb){
                     str += 'p';
-                } else if (chessBoard.knights & bb){
+                } else if (chessBoard.pieces[Piece::Knight] & bb){
                     str += 'n';
-                } else if (chessBoard.bishops & bb){
+                } else if (chessBoard.pieces[Piece::Bishop] & bb){
                     str += 'b';
-                } else if (chessBoard.rooks & bb){
+                } else if (chessBoard.pieces[Piece::Rook] & bb){
                     str += 'r';
-                } else if (chessBoard.queens & bb){
+                } else if (chessBoard.pieces[Piece::Queen] & bb){
                     str += 'q';
-                } else if (chessBoard.kings & bb){
+                } else if (chessBoard.pieces[Piece::King] & bb){
                     str += 'k';
                 }
             } else {
@@ -115,15 +115,16 @@ bool parseFENString(const QString &fen, ChessBoard *result)
                 int rank = 7 - i;
                 int file = f;
                 int index = rank * 8 + file;
-                if (color == White) result->whites += (1LL << index);
-                if (color == Black) result->blacks += (1LL << index);
+                if (color == White) result->colors[Color::White] |= (1LL << index);
+                if (color == Black) result->colors[Color::Black] |= (1LL << index);
 
-                if (piece == Pawn) result->pawns += (1LL << index);
-                if (piece == Rook) result->rooks += (1LL << index);
-                if (piece == Knight) result->knights += (1LL << index);
-                if (piece == Bishop) result->bishops += (1LL << index);
-                if (piece == Queen) result->queens += (1LL << index);
-                if (piece == King) result->kings += (1LL << index);
+                if (piece == Pawn) result->pieces[Pawn] |= (1LL << index);
+                if (piece == Rook) result->pieces[Rook] |= (1LL << index);
+                if (piece == Knight) result->pieces[Knight] |= (1LL << index);
+                if (piece == Bishop) result->pieces[Bishop] |= (1LL << index);
+                if (piece == Queen) result->pieces[Queen] |= (1LL << index);
+                if (piece == King) result->pieces[King] |= (1LL << index);
+                
                 f++;
             }
         }
