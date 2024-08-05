@@ -42,7 +42,7 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
             ChessBoard t = chessBoard;
             t.doMove(moves[i]);
             int val = alphabeta(t, depth - 1, toggleColor(color), alpha, beta);
-            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
+//            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
             if (val >= max){
                 if (depth == fixedDepth){
                     if (val > max){
@@ -66,7 +66,7 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
             ChessBoard t = chessBoard;
             t.doMove(moves[i]);
             int val = alphabeta(t, depth - 1, toggleColor(color), alpha, beta);
-            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
+//            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
 
             if (val <= min){
                 if (depth == fixedDepth){

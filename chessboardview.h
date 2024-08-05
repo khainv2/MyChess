@@ -16,6 +16,7 @@ public:
     void setBoard(const kchess::ChessBoard &newBoard);
 
 signals:
+    void boardChanged();
     // QWidget interface
 protected:
     void paintEvent(QPaintEvent *event) override;

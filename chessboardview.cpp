@@ -126,6 +126,7 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
                 qDebug() << "Value of board" << eval::estimate(_board);
                 _mouseSelection = 0;
                 _mobility = 0;
+                emit boardChanged();
             } else {
                 _mouseSelection = bb;
                 _mobility = getMobility(_board, Square(index));
