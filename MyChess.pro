@@ -20,11 +20,11 @@ SOURCES += \
     algorithm/engine.cpp \
     algorithm/evaluation.cpp \
     algorithm/movegenerator.cpp \
+    algorithm/util.cpp \
     chessboardview.cpp \
     main.cpp \
     mainwindow.cpp \
-    test.cpp \
-    util.cpp
+    test.cpp
 
 HEADERS += \
     algorithm/attack.h \
@@ -33,10 +33,10 @@ HEADERS += \
     algorithm/engine.h \
     algorithm/evaluation.h \
     algorithm/movegenerator.h \
+    algorithm/util.h \
     chessboardview.h \
     mainwindow.h \
-    test.h \
-    util.h
+    test.h
 
 FORMS += \
     mainwindow.ui

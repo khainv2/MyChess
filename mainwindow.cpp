@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "algorithm/engine.h"
-#include "util.h"
+#include "algorithm/util.h"
 
 using namespace kchess;
 struct BoardValue {
@@ -15,7 +15,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     connect(ui->chessBoard, &ChessBoardView::boardChanged, [=](){
-        ui->label->setText(toFenString(ui->chessBoard->board()));
+        ui->label->setText(QString::fromStdString(toFenString(ui->chessBoard->board())));
     });
 
 }
@@ -69,7 +69,7 @@ void MainWindow::on_bt_ParseFen_clicked()
 {
     auto boardView = new ChessBoardView;
     kchess::ChessBoard cb;
-    parseFENString(ui->le_Fen->text(), &cb);
+    parseFENString(ui->le_Fen->text().toStdString(), &cb);
     boardView->setBoard(cb);
     boardView->show();
 }

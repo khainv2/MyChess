@@ -18,24 +18,24 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
     u64 occ = board.occupancy();
     u64 notOcc = ~occ;
 
-    Color color = getColorActive(board.state);
+    Color color = board.side;
     u64 notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
     u64 pawnPush2Mask = notOcc & notOccShift8ByColor;
     const u64 *attackPawns = attack::pawns[color];
     const u64 *attackPawnPushes = attack::pawnPushes[color];
     const u64 *attackPawnPushes2 = attack::pawnPushes2[color];
 
-    const auto &pawns = board.pieces[Piece::Pawn];
-    const auto &knights = board.pieces[Piece::Knight];
-    const auto &bishops = board.pieces[Piece::Bishop];
-    const auto &rooks = board.pieces[Piece::Rook];
-    const auto &queens = board.pieces[Piece::Queen];
-    const auto &kings = board.pieces[Piece::King];
+    const auto &pawns = board.types[PieceType::Pawn];
+    const auto &knights = board.types[PieceType::Knight];
+    const auto &bishops = board.types[PieceType::Bishop];
+    const auto &rooks = board.types[PieceType::Rook];
+    const auto &queens = board.types[PieceType::Queen];
+    const auto &kings = board.types[PieceType::King];
 
     u64 t2 = timer.nsecsElapsed();
 
     count = 0;
-    for (int i = 0; i < Square_NB; i++){
+    for (int i = 0; i < Square_Count; i++){
         u64 from = squareToBB(i);
         if ((from & mines) == 0)
             continue;
@@ -55,24 +55,24 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
         } else if (from & kings){
             attack = attack::kings[i] & notMines;
             if (color == White){
-                if ((occ & CastlingWhiteQueenSideSpace) == 0 && getWhiteOOO(board.state) == 0){
-                    moveList[count++] = makeMoveCastling(i, _C1);
+                if ((occ & CastlingWhiteQueenSideSpace) == 0 && board.whiteOOO){
+                    moveList[count++] = Move::makeCastlingMove(i, _C1);
                 }
-                if ((occ & CastlingWhiteKingSideSpace) == 0 && getWhiteOO(board.state) == 0){
-                    moveList[count++] = makeMoveCastling(i, _G1);
+                if ((occ & CastlingWhiteKingSideSpace) == 0 && board.whiteOO){
+                    moveList[count++] = Move::makeCastlingMove(i, _G1);
                 }
             } else {
-                if ((occ & CastlingBlackQueenSideSpace) == 0 && getBlackOOO(board.state) == 0){
-                    moveList[count++] = makeMoveCastling(i, _C8);
+                if ((occ & CastlingBlackQueenSideSpace) == 0 && board.blackOOO){
+                    moveList[count++] = Move::makeCastlingMove(i, _C8);
                 }
-                if ((occ & CastlingBlackKingSideSpace) == 0 && getBlackOO(board.state) == 0){
-                    moveList[count++] = makeMoveCastling(i, _G8);
+                if ((occ & CastlingBlackKingSideSpace) == 0 && board.blackOO){
+                    moveList[count++] = Move::makeCastlingMove(i, _G8);
                 }
             }
         }
         while (attack){
             to = lsbBB(attack);
-            moveList[count++] = makeMove(i, bbToSquare(to));
+            moveList[count++] = Move::makeNormalMove(i, bbToSquare(to));
             attack ^= to;
         }
     }
@@ -103,19 +103,19 @@ int kchess::countMoveList(const ChessBoard &board, Color color)
         if ((from & mines) == 0)
             continue;
         u64 attack = 0;
-        if (from & board.pieces[Piece::Pawn]){
+        if (from & board.types[PieceType::Pawn]){
             attack = (attackPawns[i] & enemies)
                    | (attackPawnPushes[i] & notOcc)
                    | (attackPawnPushes2[i] & pawnPush2Mask);
-        } else if (from & board.pieces[Piece::Knight]){
+        } else if (from & board.types[PieceType::Knight]){
             attack = attack::knights[i] & notMines;
-        } else if (from & board.pieces[Piece::Bishop]){
+        } else if (from & board.types[PieceType::Bishop]){
             attack = attack::getBishopAttacks(i, board.occupancy()) & notMines;
-        } else if (from & board.pieces[Piece::Rook]){
+        } else if (from & board.types[PieceType::Rook]){
             attack = attack::getRookAttacks(i, board.occupancy()) & notMines;
-        } else if (from & board.pieces[Piece::Queen]){
+        } else if (from & board.types[PieceType::Queen]){
             attack = attack::getQueenAttacks(i, board.occupancy()) & notMines;
-        } else if (from & board.pieces[Piece::King]){
+        } else if (from & board.types[PieceType::King]){
             attack = attack::kings[i] & notMines;
         }
         count += popCount(attack);
@@ -130,8 +130,8 @@ Bitboard kchess::getMobility(const ChessBoard &board, Square square){
 //    qDebug() << "Move list" << count << countMoveList(board, White) << countMoveList(board, Black);
     u64 mobility = 0;
     for (int i = 0; i < count; i++){
-        if (square == getSourceFromMove(moves[i]))
-            mobility |= (1ULL << getDestinationFromMove(moves[i]));
+        if (square == moves[i].src())
+            mobility |= (1ULL << moves[i].dst());
     }
     return mobility;
 }

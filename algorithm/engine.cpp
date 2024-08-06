@@ -17,12 +17,12 @@ Move kchess::Engine::calc(const ChessBoard &chessBoard)
     countBestMove = 0;
     QElapsedTimer timer;
     timer.start();
-    alphabeta(chessBoard, fixedDepth, getColorActive(chessBoard.state), -Infinity, Infinity);
+    alphabeta(chessBoard, fixedDepth, chessBoard.side, -Infinity, Infinity);
     int r = countBestMove * rand() / RAND_MAX;
     qDebug() << "Best move count" << countBestMove << "Select" << r;
     Move move = bestMoves[r];
 //    Move move = bestMoves[0];
-    qDebug() << "Select best move" << getMoveDescription(move).c_str();
+    qDebug() << "Select best move" << move.getDescription().c_str();
     qDebug() << "Time to calculate" << (timer.nsecsElapsed() / 1000000);
     return move;
 }
@@ -41,7 +41,7 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
         for (int i = 0; i < count; i++){
             ChessBoard t = chessBoard;
             t.doMove(moves[i]);
-            int val = alphabeta(t, depth - 1, toggleColor(color), alpha, beta);
+            int val = alphabeta(t, depth - 1, !color, alpha, beta);
 //            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
             if (val >= max){
                 if (depth == fixedDepth){
@@ -65,7 +65,7 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
         for (int i = 0; i < count; i++){
             ChessBoard t = chessBoard;
             t.doMove(moves[i]);
-            int val = alphabeta(t, depth - 1, toggleColor(color), alpha, beta);
+            int val = alphabeta(t, depth - 1, !color, alpha, beta);
 //            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
 
             if (val <= min){

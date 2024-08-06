@@ -15,17 +15,40 @@ using u32 = unsigned int;
 using i64 = long long;
 using u64 = unsigned long long;
 
+constexpr u64 pow2(int v){
+    return v == 0 ? 1 : pow2(v - 1) * 2;
+}
+
 constexpr int Infinity = 1000000000;
 
 enum Color: u8 {
     White, Black, Color_NB
 };
-constexpr Color toggleColor(Color c){
-    return Color(c ^ 1);
+// Create toggle operator for color
+constexpr Color operator!(Color c){
+    return Color(!int(c));
 }
-enum Piece : u8 {
-    Pawn, Bishop, Knight, Rook, Queen, King, Piece_NB
+enum PieceType : u8 {
+    PieceTypeNone = 0,
+    Pawn, Bishop, Knight, Rook, Queen, King, PieceType_NB = 8
 };
+enum Piece : u8 {
+    PieceNone = 0,
+    WhitePawn, WhiteBishop, WhiteKnight, WhiteRook, WhiteQueen, WhiteKing,
+    BlackPawn = WhitePawn + 8, BlackBishop, BlackKnight, BlackRook, BlackQueen, BlackKing,
+    Piece_NB = 16
+};
+constexpr PieceType pieceToType(Piece piece){
+    return PieceType(piece % PieceType_NB);
+}
+constexpr Color pieceToColor(Piece piece){
+    return Color(piece / PieceType_NB);
+}
+constexpr Piece makePiece(Color color, PieceType type){
+    return Piece(color * PieceType_NB + type);
+}
+char pieceToChar(Piece piece);
+Piece charToPiece(char c);
 enum Rank : u8 {
     Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8, Rank_NB
 };
@@ -41,7 +64,8 @@ enum Square: u8 {
     _A6, _B6, _C6, _D6, _E6, _F6, _G6, _H6,
     _A7, _B7, _C7, _D7, _E7, _F7, _G7, _H7,
     _A8, _B8, _C8, _D8, _E8, _F8, _G8, _H8,
-    Square_NB = 64
+    SquareNone = 0,
+    Square_Count = 64
 };
 
 constexpr Square makeSquare(Rank r, File f){
@@ -109,56 +133,42 @@ constexpr static Bitboard CastlingBlackKingSideSpace = squareToBB(_F8) | squareT
 
 
 class BoardState {
-private:
-    u8 state;
-
+    u16 state;
 public:
-    inline BoardState(u8 initialState) : state(initialState) {}
+    constexpr BoardState() : state(0) {}
+    constexpr BoardState(u8 initialState) : state(initialState) {}
 
     // Get active
-    inline Color getColorActive() const { return Color(state & 0x01); }
-    inline bool getActive() const { return state & 0x01; }
+    constexpr inline Color getColorActive() const { return Color(state & 0x01); }
+    constexpr inline bool getActive() const { return state & 0x01; }
 
     // Set active
-    inline void setActive(Color c) { state = (state & 0xfe) | c; }
-    inline void setToggleActive() { state ^= 1; }
+    constexpr inline void setActive(Color c) { state = (state & 0xfe) | c; }
+    constexpr inline void setToggleActive() { state ^= 1; }
 
     // Castling
-    inline bool getWhiteOO() const { return state & 0x02; }
-    inline bool getWhiteOOO() const { return state & 0x04; }
-    inline bool getBlackOO() const { return state & 0x04; }
-    inline bool getBlackOOO() const { return state & 0x08; }
+    constexpr inline bool getWhiteOO() const { return state & 0x02; }
+    constexpr inline bool getWhiteOOO() const { return state & 0x04; }
+    constexpr inline bool getBlackOO() const { return state & 0x08; }
+    constexpr inline bool getBlackOOO() const { return state & 0x10; }
 
-    inline void setWhiteOO(bool v) { state = (state & 0xfd) | (v << 1); }
-    inline void setWhiteOOO(bool v) { state = (state & 0xfb) | (v << 2); }
-    inline void setBlackOO(bool v) { state = (state & 0xfb) | (v << 2); }
-    inline void setBlackOOO(bool v) { state = (state & 0xf7) | (v << 3); }
+    constexpr inline void setWhiteOO(bool v) { state = (state & 0xfffd) | (u16(v) << 1); }
+    constexpr inline void setWhiteOOO(bool v) { state = (state & 0xfffb) | (u16(v) << 2); }
+    constexpr inline void setBlackOO(bool v) { state = (state & 0xfff7) | (u16(v) << 3); }
+    constexpr inline void setBlackOOO(bool v) { state = (state & 0xffef) | (u16(v) << 4); }
 
     // Enpassant
-    inline bool getEnpassant() const { return state & 0x10; }
-    inline Square getEnpassantSquare() const { return Square((state >> 4) & 0x3f); }
+    constexpr inline bool getEnpassant() const { return state & 0x20; }
 
-    inline void setEnpassant(bool v) { state = (state & 0xef) | (v << 4); }
-    inline void setEnpassantSquare(Square sq) { state = (state & 0x8f) | (sq << 4); }
 
-    // Count half move
-    inline int getCountHalfMove() const { return (state >> 7) & 0x0f; }
-    inline void setCountHalfMove(int v) { state = (state & 0x7f) | (v << 7); }
 };
 
-
-
-
-
-constexpr u64 pow2(int v){
-    return v == 0 ? 1 : pow2(v - 1) * 2;
-}
-
 class Move {
-private:
-    u16 move;
-
 public:
+    enum MoveValue {
+        NullMove = 0
+    };
+
     enum MoveType {
         Normal,
         Enpassant = (1 << 14),
@@ -166,11 +176,13 @@ public:
         Promotion = (3 << 14),
     };
 
+    Move() : move(NullMove){}
     Move(u16 m) : move(m) {}
 
-    int getSource() const { return move & 0x3f; }
-    int getDestination() const { return (move >> 6) & 0x3f; }
-    int getPiecePromotion() const { return Piece(((move >> 12) & 0x03) + 1); }
+    int src() const { return move & 0x3f; }
+    int dst() const { return (move >> 6) & 0x3f; }
+    // int getPromotionPiece() const { return (move >> 12) & 0x07; }
+    int getPiecePromotion() const { return PieceType(((move >> 12) & 0x03) + 1); }
     int getMoveType() const { return move & (3 << 14); }
 
     std::string getDescription() const;
@@ -178,29 +190,11 @@ public:
     static Move makeNormalMove(int src, int dst) { return Move(src + (dst << 6)); }
     static Move makeEnpassantMove(int src, int dst) { return Move(src + (dst << 6) + Enpassant); }
     static Move makeCastlingMove(int src, int dst) { return Move(src + (dst << 6) + Castling); }
-    static Move makePromotionMove(int src, int dst, Piece p) { return Move(src + (dst << 6) + Promotion + ((p - 1) << 12)); }
+    static Move makePromotionMove(int src, int dst, PieceType p) { return Move(src + (dst << 6) + Promotion + ((p - 1) << 12)); }
+private:
+    u16 move;
 };
-
-std::string Move::getDescription() const {
-    auto src = getSource();
-    auto dst = getDestination();
-    static std::string fileTxt[8] = { "A", "B", "C", "D", "E", "F", "G", "H" };
-    static std::string rankTxt[8] = { "1", "2", "3", "4", "5", "6", "7", "8" };
-
-    int srcFileIdx = src % 8;
-    int srcRankIdx = src / 8;
-    int dstFileIdx = dst % 8;
-    int dstRankIdx = dst / 8;
-    return "From '" + fileTxt[srcFileIdx] + rankTxt[srcRankIdx] + "'"
-            + " to '" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx] + "'";
 }
-
-
-}
-
-
-
-
 
 
 
