@@ -2,28 +2,25 @@
 #include "algorithm/evaluation.h"
 #include <QPainter>
 #include <QDebug>
-#include <util.h>
+#include <algorithm/util.h>
 #include <QMouseEvent>
 #include <algorithm/evaluation.h>
 
 using namespace kchess;
 ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
-{
-    _pixmaps[King * 2 + White] = QPixmap(":/w_king.png");
-    _pixmaps[King * 2 + Black] = QPixmap(":/b_king.png");
-    _pixmaps[Queen * 2 + White] = QPixmap(":/w_queen.png");
-    _pixmaps[Queen * 2 + Black] = QPixmap(":/b_queen.png");
-    _pixmaps[Rook * 2 + White] = QPixmap(":/w_rook.png");
-    _pixmaps[Rook * 2 + Black] = QPixmap(":/b_rook.png");
-    _pixmaps[Bishop * 2 + White] = QPixmap(":/w_bishop.png");
-    _pixmaps[Bishop * 2 + Black] = QPixmap(":/b_bishop.png");
-    _pixmaps[Knight * 2 + White] = QPixmap(":/w_knight.png");
-    _pixmaps[Knight * 2 + Black] = QPixmap(":/b_knight.png");
-    _pixmaps[Pawn * 2 + White] = QPixmap(":/w_pawn.png");
-    _pixmaps[Pawn * 2 + Black] = QPixmap(":/b_pawn.png");
-    
-
-
+{    
+    _pixmaps[WhitePawn] = QPixmap(":/w_pawn.png");
+    _pixmaps[WhiteBishop] = QPixmap(":/w_bishop.png");
+    _pixmaps[WhiteKnight] = QPixmap(":/w_knight.png");
+    _pixmaps[WhiteRook] = QPixmap(":/w_rook.png");
+    _pixmaps[WhiteQueen] = QPixmap(":/w_queen.png");
+    _pixmaps[WhiteKing] = QPixmap(":/w_king.png");
+    _pixmaps[BlackPawn] = QPixmap(":/b_pawn.png");
+    _pixmaps[BlackBishop] = QPixmap(":/b_bishop.png");
+    _pixmaps[BlackKnight] = QPixmap(":/b_knight.png");
+    _pixmaps[BlackRook] = QPixmap(":/b_rook.png");
+    _pixmaps[BlackQueen] = QPixmap(":/b_queen.png");
+    _pixmaps[BlackKing] = QPixmap(":/b_king.png");
     parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
 //    parseFENString("4R3/R7/8/K3R3/R7/1R6/8/8 w KQkq - 0 1", &board);
 //    parseFENString("4B3/B7/8/K3B3/B7/1B6/B7/7B w KQkq - 0 1", &board);
@@ -62,17 +59,14 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
             QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(),
                          j * _canvasRect.width() / 8 + _canvasRect.top(),
                          ss, ss);
+
             int index = (7 - j) * 8 + i;
-            for (int piece = 0; piece < Piece_NB; piece++){
-                for (int color = 0; color < Color_NB; color++){
-                    auto bitboard = _board.getBitBoard(Piece(piece), Color(color));
-                    const auto &pixmap = _pixmaps[piece * 2 + color];
-                    if (bitboard & squareToBB(index)){
-                        painter.drawPixmap(square - pieceMargin, pixmap);
-                    }
-                }
+            auto piece = _board.pieces[index];
+            if (piece != PieceNone){
+                painter.drawPixmap(square - pieceMargin, _pixmaps[piece]);
             }
 
+            
             if (_mouseSelection == squareToBB(index)){
                 painter.save();
                 QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(),
@@ -125,9 +119,9 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
             int index = (7 - j) * 8 + i;
             auto bb = squareToBB(index);
             if (_mobility & bb){
-                auto move = makeMove(bbToSquare(_mouseSelection), index);
+                auto move = Move::makeNormalMove(bbToSquare(_mouseSelection), index);
                 _board.doMove(move);
-                qDebug() << "Chess board state" << toFenString(_board);
+                qDebug() << "Chess board state" << toFenString(_board).c_str();
                 qDebug() << "Value of board" << eval::estimate(_board);
                 _mouseSelection = 0;
                 _mobility = 0;

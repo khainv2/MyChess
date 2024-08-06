@@ -5,7 +5,7 @@
 #include <algorithm/attack.h>
 #include <algorithm/chessboard.h>
 #include <algorithm/movegenerator.h>
-#include <util.h>
+#include <algorithm/util.h>
 #include <test.h>
 
 //#include <intrin.h>
@@ -34,8 +34,6 @@ int main(int argc, char *argv[])
     kchess::ChessBoard board;
     parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
 
-
-    testAll();
 
 
 
