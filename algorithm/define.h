@@ -1,5 +1,7 @@
 #pragma once
+#ifndef __linux__
 #include <intrin.h>
+#endif
 #include <string>
 
 #ifdef _C2
@@ -69,7 +71,6 @@ enum : u64 {
 constexpr u64 lsbBB(u64 input) { return input & (-i64(input)); }
 
 using Bitboard = u64;
-using BoardState = u8;
 
 constexpr Bitboard Rank1_BB = 0xffULL;
 constexpr Bitboard FileA_BB = 0x0101010101010101ULL;
@@ -85,11 +86,19 @@ constexpr Bitboard squareToBB(int idx){
 
 inline int bbToSquare(u64 bb) {
     unsigned long idx;
+#ifdef __linux__
+    idx = __builtin_ctzll(bb);
+#else
     _BitScanForward64(&idx, bb);
+#endif
     return (Square) idx;
 }
 inline int popCount(u64 bb){
+#ifdef __linux__
+    return __builtin_popcountll(bb);
+#else
     return __popcnt64(bb);
+#endif
 }
 
 constexpr static Bitboard CastlingWhiteQueenSideSpace = squareToBB(_B1) | squareToBB(_C1) | squareToBB(_D1);
@@ -98,42 +107,93 @@ constexpr static Bitboard CastlingWhiteKingSideSpace = squareToBB(_F1) | squareT
 constexpr static Bitboard CastlingBlackQueenSideSpace = squareToBB(_B8) | squareToBB(_C8) | squareToBB(_D8);
 constexpr static Bitboard CastlingBlackKingSideSpace = squareToBB(_F8) | squareToBB(_G8);
 
-// 1 bit active color, 4 bit castling,
-// 1 bit is enpassant, 3 bit enpasant position
-// 4 bit count half move (for fifty-move rule)
 
-// Get active
-constexpr Color getColorActive(BoardState state) { return Color(state & 0x01); }
-constexpr bool getActive(BoardState state){ return state & 0x01; }
+class BoardState {
+private:
+    u8 state;
 
-// Castling
-constexpr bool getWhiteOO(BoardState state){ return state & 0x02; }
-constexpr bool getWhiteOOO(BoardState state){ return state & 0x04; }
-constexpr bool getBlackOO(BoardState state){ return state & 0x04; }
-constexpr bool getBlackOOO(BoardState state){ return state & 0x08; }
+public:
+    inline BoardState(u8 initialState) : state(initialState) {}
+
+    // Get active
+    inline Color getColorActive() const { return Color(state & 0x01); }
+    inline bool getActive() const { return state & 0x01; }
+
+    // Set active
+    inline void setActive(Color c) { state = (state & 0xfe) | c; }
+    inline void setToggleActive() { state ^= 1; }
+
+    // Castling
+    inline bool getWhiteOO() const { return state & 0x02; }
+    inline bool getWhiteOOO() const { return state & 0x04; }
+    inline bool getBlackOO() const { return state & 0x04; }
+    inline bool getBlackOOO() const { return state & 0x08; }
+
+    inline void setWhiteOO(bool v) { state = (state & 0xfd) | (v << 1); }
+    inline void setWhiteOOO(bool v) { state = (state & 0xfb) | (v << 2); }
+    inline void setBlackOO(bool v) { state = (state & 0xfb) | (v << 2); }
+    inline void setBlackOOO(bool v) { state = (state & 0xf7) | (v << 3); }
+
+    // Enpassant
+    inline bool getEnpassant() const { return state & 0x10; }
+    inline Square getEnpassantSquare() const { return Square((state >> 4) & 0x3f); }
+
+    inline void setEnpassant(bool v) { state = (state & 0xef) | (v << 4); }
+    inline void setEnpassantSquare(Square sq) { state = (state & 0x8f) | (sq << 4); }
+
+    // Count half move
+    inline int getCountHalfMove() const { return (state >> 7) & 0x0f; }
+    inline void setCountHalfMove(int v) { state = (state & 0x7f) | (v << 7); }
+};
+
+
+
+
 
 constexpr u64 pow2(int v){
     return v == 0 ? 1 : pow2(v - 1) * 2;
 }
 
-// 5 bit source, 5 bit destination, 2 bit move
-using Move = u16;
-enum MoveType {
-    Normal,
-    Enpassant = (1 << 14),
-    Castling = (2 << 14),
-    Promotion = (3 << 14),
-};
-constexpr int getSourceFromMove(Move move){ return move & 0x3f; }
-constexpr int getDestinationFromMove(Move move){ return (move >> 6) & 0x3f; }
-constexpr int getPiecePromotion(Move move){ return Piece(((move >> 12) & 0x03) + 1); }
-constexpr int getMoveType(Move move){ return move & (3 << 14); }
-std::string getMoveDescription(Move move);
+class Move {
+private:
+    u16 move;
 
-constexpr int makeMove(int src, int dst){ return src + (dst << 6); }
-constexpr int makeMoveEnpassant(int src, int dst){ return src + (dst << 6) + Enpassant; }
-constexpr int makeMoveCastling(int src, int dst){ return src + (dst << 6) + Castling; }
-constexpr int makeMovePromotion(int src, int dst, Piece p){ return src + (dst << 6) + Promotion + ((p - 1) << 12); }
+public:
+    enum MoveType {
+        Normal,
+        Enpassant = (1 << 14),
+        Castling = (2 << 14),
+        Promotion = (3 << 14),
+    };
+
+    Move(u16 m) : move(m) {}
+
+    int getSource() const { return move & 0x3f; }
+    int getDestination() const { return (move >> 6) & 0x3f; }
+    int getPiecePromotion() const { return Piece(((move >> 12) & 0x03) + 1); }
+    int getMoveType() const { return move & (3 << 14); }
+
+    std::string getDescription() const;
+
+    static Move makeNormalMove(int src, int dst) { return Move(src + (dst << 6)); }
+    static Move makeEnpassantMove(int src, int dst) { return Move(src + (dst << 6) + Enpassant); }
+    static Move makeCastlingMove(int src, int dst) { return Move(src + (dst << 6) + Castling); }
+    static Move makePromotionMove(int src, int dst, Piece p) { return Move(src + (dst << 6) + Promotion + ((p - 1) << 12)); }
+};
+
+std::string Move::getDescription() const {
+    auto src = getSource();
+    auto dst = getDestination();
+    static std::string fileTxt[8] = { "A", "B", "C", "D", "E", "F", "G", "H" };
+    static std::string rankTxt[8] = { "1", "2", "3", "4", "5", "6", "7", "8" };
+
+    int srcFileIdx = src % 8;
+    int srcRankIdx = src / 8;
+    int dstFileIdx = dst % 8;
+    int dstRankIdx = dst / 8;
+    return "From '" + fileTxt[srcFileIdx] + rankTxt[srcRankIdx] + "'"
+            + " to '" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx] + "'";
+}
 
 
 }

@@ -9,7 +9,7 @@
 using namespace kchess;
 Engine::Engine()
 {
-    fixedDepth = 4;
+    fixedDepth = 6;
 }
 
 Move kchess::Engine::calc(const ChessBoard &chessBoard)
@@ -55,9 +55,9 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
             if (alpha < max){
                 alpha = max;
             }
-//            if (max >= beta){
-//                break;
-//            }
+            if (max >= beta){
+                break;
+            }
         }
         return max;
     } else {
@@ -80,9 +80,9 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
             if (beta > min){
                 beta = min;
             }
-//            if (min <= alpha){
-//                break;
-//            }
+            if (min <= alpha){
+                break;
+            }
         }
         return min;
     }

@@ -3,6 +3,11 @@
 #include "algorithm/engine.h"
 #include "util.h"
 
+using namespace kchess;
+struct BoardValue {
+    Move move = 0;
+    QString fen;
+};
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -12,6 +17,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->chessBoard, &ChessBoardView::boardChanged, [=](){
         ui->label->setText(toFenString(ui->chessBoard->board()));
     });
+
 }
 
 MainWindow::~MainWindow()
@@ -22,10 +28,41 @@ MainWindow::~MainWindow()
 void MainWindow::on_bt_StartCalculate_clicked()
 {
     auto board = ui->chessBoard->board();
-    kchess::Engine engine;
-    auto move = engine.calc(board);
-    board.doMove(move);
-    ui->chessBoard->setBoard(board);
+
+    std::vector<Move> moves;
+    moves.resize(1000000);
+    Move *movePtr = moves.data();
+
+    int countTotal = 0;
+    int count;
+    generateMoveList(board, movePtr, count);
+    countTotal += count;
+
+//    QList<BoardValue> states;
+//    BoardValue val;
+//    val.fen = toFenString(board);
+//    fens.append()
+
+    for (int i = 0; i < count; i++){
+        ChessBoard newBoard = board;
+        newBoard.doMove(movePtr[i]);
+        int ncount;
+        generateMoveList(newBoard, movePtr + countTotal, ncount);
+        for (int j = 0; j < ncount; j++){
+            ChessBoard boardJ = newBoard;
+            boardJ.doMove((movePtr + countTotal)[j]);
+
+        }
+        countTotal += ncount;
+    }
+
+
+
+
+//    kchess::Engine engine;
+//    auto move = engine.calc(board);
+//    board.doMove(move);
+//    ui->chessBoard->setBoard(board);
 }
 
 void MainWindow::on_bt_ParseFen_clicked()

@@ -3,12 +3,16 @@
 #include <QApplication>
 #include <QDebug>
 #include <algorithm/attack.h>
+#include <algorithm/chessboard.h>
+#include <algorithm/movegenerator.h>
+#include <util.h>
+#include <test.h>
 
-#include <intrin.h>
+//#include <intrin.h>
 #include <QElapsedTimer>
 
-
 using namespace kchess;
+
 int main(int argc, char *argv[])
 {
         QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
@@ -22,20 +26,20 @@ int main(int argc, char *argv[])
 
     QApplication a(argc, argv);
 
-    static QString fileTxt[8] = { "A", "B", "C", "D", "E", "F", "G", "H" };
-    static QString rankTxt[8] = { "1", "2", "3", "4", "5", "6", "7", "8" };
-    for (int i = 0; i < 8; i++){
-        QString str;
-        for (int j = 0; j < 8; j++){
-            str =  (str + "_") + fileTxt[j] + rankTxt[i] + ", ";
-        }
-        qDebug() << str;
-    }
-
     QElapsedTimer timer;
     timer.start();
     attack::init();
     qDebug() << "Time init attack" << (timer.nsecsElapsed() / 1000) << "us";
+
+    kchess::ChessBoard board;
+    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
+
+
+    testAll();
+
+
+
+    kchess::generateMove(board);
     MainWindow w;
     w.show();
 

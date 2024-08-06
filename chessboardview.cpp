@@ -4,6 +4,7 @@
 #include <QDebug>
 #include <util.h>
 #include <QMouseEvent>
+#include <algorithm/evaluation.h>
 
 using namespace kchess;
 ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
@@ -107,6 +108,10 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
         painter.drawText(x + padding, _canvasRect.bottom() + 16, textFile);
         painter.drawText(_canvasRect.left() - 16, y + padding, textRank);
     }
+
+    auto val = eval::estimate(_board);
+    painter.drawText(10, 20, tr("Score: %1").arg(val));
+
 }
 
 void ChessBoardView::mousePressEvent(QMouseEvent *event)
