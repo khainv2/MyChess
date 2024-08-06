@@ -3,8 +3,8 @@
 #include <QApplication>
 #include <QDebug>
 #include <algorithm/attack.h>
-#include <algorithm/chessboard.h>
-#include <algorithm/movegenerator.h>
+#include <algorithm/board.h>
+#include <algorithm/movegen.h>
 #include <algorithm/util.h>
 #include <test.h>
 
@@ -31,13 +31,13 @@ int main(int argc, char *argv[])
     attack::init();
     qDebug() << "Time init attack" << (timer.nsecsElapsed() / 1000) << "us";
 
-    kchess::ChessBoard board;
+    kchess::Board board;
     parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
 
 
 
 
-    kchess::generateMove(board);
+//    kchess::generateMove(board);
     MainWindow w;
     w.show();
 

@@ -68,6 +68,7 @@ enum Square: u8 {
     Square_Count = 64
 };
 
+
 constexpr Square makeSquare(Rank r, File f){
     return Square(r * 8 + f);
 }
@@ -94,17 +95,17 @@ enum : u64 {
 
 constexpr u64 lsbBB(u64 input) { return input & (-i64(input)); }
 
-using Bitboard = u64;
+using BB = u64;
 
-constexpr Bitboard Rank1_BB = 0xffULL;
-constexpr Bitboard FileA_BB = 0x0101010101010101ULL;
+constexpr BB Rank1_BB = 0xffULL;
+constexpr BB FileA_BB = 0x0101010101010101ULL;
 
-constexpr Bitboard All_BB = 0xffffffffffffffffULL;
+constexpr BB All_BB = 0xffffffffffffffffULL;
 
-constexpr Bitboard squareToBB(Square sq){
+constexpr static BB squareToBB(Square sq){
     return 1ULL << sq;
 }
-constexpr Bitboard squareToBB(int idx){
+constexpr BB squareToBB(int idx){
     return 1ULL << idx;
 }
 
@@ -125,11 +126,22 @@ inline int popCount(u64 bb){
 #endif
 }
 
-constexpr static Bitboard CastlingWhiteQueenSideSpace = squareToBB(_B1) | squareToBB(_C1) | squareToBB(_D1);
-constexpr static Bitboard CastlingWhiteKingSideSpace = squareToBB(_F1) | squareToBB(_G1);
+// Vị trí của quân nhập thành
+constexpr static Square CastlingWKOO = _G1;
+constexpr static BB CastlingWROO_Toggle = squareToBB(_F1) | squareToBB(_H1);
+constexpr static Square CastlingWKOOO = _C1;
+constexpr static BB CastlingWROOO_Toggle = squareToBB(_A1) | squareToBB(_D1);
 
-constexpr static Bitboard CastlingBlackQueenSideSpace = squareToBB(_B8) | squareToBB(_C8) | squareToBB(_D8);
-constexpr static Bitboard CastlingBlackKingSideSpace = squareToBB(_F8) | squareToBB(_G8);
+constexpr static Square CastlingBKOO = _G8;
+constexpr static BB CastlingBROO_Toggle = squareToBB(_F8) | squareToBB(_H8);
+constexpr static Square CastlingBKOOO = _C8;
+constexpr static BB CastlingBROOO_Toggle = squareToBB(_A8) | squareToBB(_D8);
+
+constexpr static BB CastlingWOOSpace = squareToBB(_F1) | squareToBB(_G1);
+constexpr static BB CastlingWOOOSpace = squareToBB(_B1) | squareToBB(_C1) | squareToBB(_D1);
+
+constexpr static BB CastlingBOOSpace = squareToBB(_F8) | squareToBB(_G8);
+constexpr static BB CastlingBOOOSpace = squareToBB(_B8) | squareToBB(_C8) | squareToBB(_D8);
 
 
 class BoardState {
@@ -169,21 +181,24 @@ public:
         NullMove = 0
     };
 
-    enum MoveType {
+    enum Type : u16 {
         Normal,
         Enpassant = (1 << 14),
         Castling = (2 << 14),
         Promotion = (3 << 14),
     };
 
-    Move() : move(NullMove){}
-    Move(u16 m) : move(m) {}
+    constexpr inline Move() : move(NullMove){}
+    constexpr inline Move(u16 m) : move(m) {}
 
-    int src() const { return move & 0x3f; }
-    int dst() const { return (move >> 6) & 0x3f; }
-    // int getPromotionPiece() const { return (move >> 12) & 0x07; }
-    int getPiecePromotion() const { return PieceType(((move >> 12) & 0x03) + 1); }
-    int getMoveType() const { return move & (3 << 14); }
+    constexpr inline bool operator!=(MoveValue val){
+        return move != val;
+    }
+
+    constexpr inline int src() const { return move & 0x3f; }
+    constexpr inline int dst() const { return (move >> 6) & 0x3f; }
+    constexpr inline int getPiecePromotion() const { return PieceType(((move >> 12) & 0x03) + 1); }
+    constexpr inline int type() const { return move & (3 << 14); }
 
     std::string getDescription() const;
 

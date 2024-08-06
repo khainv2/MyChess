@@ -15,11 +15,11 @@ CONFIG += c++11
 
 SOURCES += \
     algorithm/attack.cpp \
-    algorithm/chessboard.cpp \
+    algorithm/board.cpp \
     algorithm/define.cpp \
     algorithm/engine.cpp \
     algorithm/evaluation.cpp \
-    algorithm/movegenerator.cpp \
+    algorithm/movegen.cpp \
     algorithm/util.cpp \
     chessboardview.cpp \
     main.cpp \
@@ -28,11 +28,11 @@ SOURCES += \
 
 HEADERS += \
     algorithm/attack.h \
-    algorithm/chessboard.h \
+    algorithm/board.h \
     algorithm/define.h \
     algorithm/engine.h \
     algorithm/evaluation.h \
-    algorithm/movegenerator.h \
+    algorithm/movegen.h \
     algorithm/util.h \
     chessboardview.h \
     mainwindow.h \

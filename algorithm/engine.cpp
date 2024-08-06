@@ -1,5 +1,5 @@
 #include "engine.h"
-#include "movegenerator.h"
+#include "movegen.h"
 #include "evaluation.h"
 #include <QElapsedTimer>
 #include <QDebug>
@@ -12,7 +12,7 @@ Engine::Engine()
     fixedDepth = 6;
 }
 
-Move kchess::Engine::calc(const ChessBoard &chessBoard)
+Move kchess::Engine::calc(const Board &chessBoard)
 {
     countBestMove = 0;
     QElapsedTimer timer;
@@ -27,7 +27,7 @@ Move kchess::Engine::calc(const ChessBoard &chessBoard)
     return move;
 }
 
-int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int alpha, int beta){
+int Engine::alphabeta(const Board &chessBoard, int depth, Color color, int alpha, int beta){
     if (depth == 0){
         return eval::estimate(chessBoard);
     }
@@ -39,7 +39,7 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
     if (color == White){
         int max = -Infinity;
         for (int i = 0; i < count; i++){
-            ChessBoard t = chessBoard;
+            Board t = chessBoard;
             t.doMove(moves[i]);
             int val = alphabeta(t, depth - 1, !color, alpha, beta);
 //            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
@@ -63,7 +63,7 @@ int Engine::alphabeta(const ChessBoard &chessBoard, int depth, Color color, int 
     } else {
         int min = Infinity;
         for (int i = 0; i < count; i++){
-            ChessBoard t = chessBoard;
+            Board t = chessBoard;
             t.doMove(moves[i]);
             int val = alphabeta(t, depth - 1, !color, alpha, beta);
 //            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
