@@ -85,7 +85,40 @@ QString toFenString(const ChessBoard &chessBoard){
             }
         }
     }
-    return str + " w KQkq - 0 1";
+    // return str + " w KQkq - 0 1";
+
+    str += " ";
+    str += chessBoard.state.getActiveColor() == White ? "w" : "b";
+    str += " ";
+    if (chessBoard.state.getWhiteOO()){
+        str += "K";
+    }
+    if (chessBoard.state.getWhiteOOO()){
+        str += "Q";
+    }
+    if (chessBoard.state.getBlackOO()){
+        str += "k";
+    }
+    if (chessBoard.state.getBlackOOO()){
+        str += "q";
+    }
+    if (str.at(str.size() - 1) == ' '){
+        str += "-";
+    }
+    str += " ";
+
+    if (chessBoard.state.getEnpassantSquare() == Square(-1)){
+        str += "-";
+    } else {
+        int idx = chessBoard.state.getEnpassantSquare().getIndex();
+        str += QChar('a' + (idx % 8));
+        str += QChar('8' - (idx / 8));
+    }
+    str += " ";
+    str += QString::number(chessBoard.state.getCountHalfMove());
+
+    return str;
+
 }
 
 bool parseFENString(const QString &fen, ChessBoard *result)
@@ -137,5 +170,32 @@ bool parseFENString(const QString &fen, ChessBoard *result)
     auto fullMoveNumber = words.at(FullMoveNumber);
 
 
+    if (activeColor == "w"){
+        result->state.setActive(White);
+    } else {
+        result->state.setActive(Black);
+    }
+
+    if (castlingAvailability.contains('K')){
+        result->state.setWhiteOO(true);
+    }
+    if (castlingAvailability.contains('Q')){
+        result->state.setWhiteOOO(true);
+    }
+    if (castlingAvailability.contains('k')){
+        result->state.setBlackOO(true);
+    }
+    if (castlingAvailability.contains('q')){
+        result->state.setBlackOOO(true);
+    }
+
+    if (enPassantTargetSquare != "-"){
+        int file = enPassantTargetSquare.at(0).toLatin1() - 'a';
+        int rank = 8 - enPassantTargetSquare.at(1).digitValue();
+        int index = rank * 8 + file;
+        result->state.setEnpassantSquare(Square(index));
+    }
+
+    result->state.setCountHalfMove(halfMoveClock.toInt());
     return true;
 }

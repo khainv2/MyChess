@@ -3,6 +3,8 @@
 #include <bitset>
 #include <QDebug>
 #include <QElapsedTimer>
+#include "evaluation.h"
+
 using namespace kchess;
 void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &count)
 {
@@ -77,8 +79,8 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
 
     u64 t3 = timer.nsecsElapsed();
 
-    qDebug() << "Move list" << count;
-    qDebug() << "Time cal" << t1 << t2 << t3;
+//    qDebug() << "Move list" << count;
+//    qDebug() << "Time cal" << t1 << t2 << t3;
 }
 
 int kchess::countMoveList(const ChessBoard &board, Color color)
@@ -125,7 +127,7 @@ Bitboard kchess::getMobility(const ChessBoard &board, Square square){
     Move moves[256];
     int count;
     generateMoveList(board, moves, count);
-    qDebug() << "Move list" << count << countMoveList(board, White) << countMoveList(board, Black);
+//    qDebug() << "Move list" << count << countMoveList(board, White) << countMoveList(board, Black);
     u64 mobility = 0;
     for (int i = 0; i < count; i++){
         if (square == getSourceFromMove(moves[i]))
@@ -133,4 +135,98 @@ Bitboard kchess::getMobility(const ChessBoard &board, Square square){
     }
     return mobility;
 }
+
+
+void kchess::generateMove(const ChessBoard &b)
+{
+    std::vector<Move> moves;
+    moves.resize(1000000);
+    std::vector<int> scores;
+    scores.resize(moves.size());
+    ChessBoard board = b;
+
+//    qDebug() << "Start init move list";
+    QElapsedTimer timer;
+    timer.start();
+
+    Move *movePtr = moves.data();
+    int *scorePtr = scores.data();
+
+    int countTotal = 0;
+    int count;
+    generateMoveList(board, movePtr, count);
+    countTotal += count;
+
+    qDebug() << board.getPrintable().c_str();
+
+    int maxScore = -1000000;
+    std::string boardAtMax;
+    int minScore = 1000000;
+    std::string boardAtMin;
+
+    for (int i = 0; i < count; i++){
+        ChessBoard newBoard = board;
+        newBoard.doMove(movePtr[i]);
+        int ncount;
+        generateMoveList(newBoard, movePtr + countTotal, ncount);
+        for (int j = 0; j < ncount; j++){
+            ChessBoard boardJ = newBoard;
+            boardJ.doMove((movePtr + countTotal)[j]);
+//            int score = eval::estimate(boardJ);
+//            if (score > maxScore){
+//                maxScore = score;
+//                boardAtMax = boardJ.getPrintable();
+//                qDebug() << "Max score" << maxScore;
+//            }
+//            if (score < minScore){
+//                minScore = score;
+//                boardAtMin = boardJ.getPrintable();
+//                qDebug() << "Min score" << minScore;
+//            }
+
+        }
+        countTotal += ncount;
+    }
+
+    qint64 t = timer.nsecsElapsed();
+    qDebug() << "Time for multi board" << t;
+    qDebug() << "Total move calculated" << countTotal;
+    qDebug() << "Max score" << maxScore;
+    qDebug() << "Board at max" << boardAtMax.c_str();
+    qDebug() << "Min score" << minScore;
+    qDebug() << "Board at min" << boardAtMin.c_str();
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

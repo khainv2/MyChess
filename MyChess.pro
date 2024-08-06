@@ -23,6 +23,7 @@ SOURCES += \
     chessboardview.cpp \
     main.cpp \
     mainwindow.cpp \
+    test.cpp \
     util.cpp
 
 HEADERS += \
@@ -34,6 +35,7 @@ HEADERS += \
     algorithm/movegenerator.h \
     chessboardview.h \
     mainwindow.h \
+    test.h \
     util.h
 
 FORMS += \
