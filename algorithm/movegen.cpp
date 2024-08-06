@@ -1,4 +1,4 @@
-#include "movegenerator.h"
+#include "movegen.h"
 #include "attack.h"
 #include <bitset>
 #include <QDebug>
@@ -6,11 +6,10 @@
 #include "evaluation.h"
 
 using namespace kchess;
-void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &count)
+void kchess::generateMoveList(const Board &board, Move *moveList, int &count)
 {
     QElapsedTimer timer;
     timer.start();
-    u64 t1 = timer.nsecsElapsed();
 
     u64 mines = board.mines();
     u64 notMines = ~mines;
@@ -25,14 +24,12 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
     const u64 *attackPawnPushes = attack::pawnPushes[color];
     const u64 *attackPawnPushes2 = attack::pawnPushes2[color];
 
-    const auto &pawns = board.types[PieceType::Pawn];
-    const auto &knights = board.types[PieceType::Knight];
-    const auto &bishops = board.types[PieceType::Bishop];
-    const auto &rooks = board.types[PieceType::Rook];
-    const auto &queens = board.types[PieceType::Queen];
-    const auto &kings = board.types[PieceType::King];
-
-    u64 t2 = timer.nsecsElapsed();
+    const u64 &pawns = board.types[Pawn];
+    const u64 &knights = board.types[Knight];
+    const u64 &bishops = board.types[Bishop];
+    const u64 &rooks = board.types[Rook];
+    const u64 &queens = board.types[Queen];
+    const u64 &kings = board.types[King];
 
     count = 0;
     for (int i = 0; i < Square_Count; i++){
@@ -55,18 +52,18 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
         } else if (from & kings){
             attack = attack::kings[i] & notMines;
             if (color == White){
-                if ((occ & CastlingWhiteQueenSideSpace) == 0 && board.whiteOOO){
-                    moveList[count++] = Move::makeCastlingMove(i, _C1);
+                if ((occ & CastlingWOOSpace) == 0 && board.whiteOO){
+                    moveList[count++] = Move::makeCastlingMove(i, CastlingWKOO);
                 }
-                if ((occ & CastlingWhiteKingSideSpace) == 0 && board.whiteOO){
-                    moveList[count++] = Move::makeCastlingMove(i, _G1);
+                if ((occ & CastlingWOOOSpace) == 0 && board.whiteOOO){
+                    moveList[count++] = Move::makeCastlingMove(i, CastlingWKOOO);
                 }
             } else {
-                if ((occ & CastlingBlackQueenSideSpace) == 0 && board.blackOOO){
-                    moveList[count++] = Move::makeCastlingMove(i, _C8);
+                if ((occ & CastlingBOOSpace) == 0 && board.blackOO){
+                    moveList[count++] = Move::makeCastlingMove(i, CastlingBKOO);
                 }
-                if ((occ & CastlingBlackKingSideSpace) == 0 && board.blackOO){
-                    moveList[count++] = Move::makeCastlingMove(i, _G8);
+                if ((occ & CastlingBOOOSpace) == 0 && board.blackOOO){
+                    moveList[count++] = Move::makeCastlingMove(i, CastlingBKOOO);
                 }
             }
         }
@@ -76,14 +73,9 @@ void kchess::generateMoveList(const ChessBoard &board, Move *moveList, int &coun
             attack ^= to;
         }
     }
-
-    u64 t3 = timer.nsecsElapsed();
-
-//    qDebug() << "Move list" << count;
-//    qDebug() << "Time cal" << t1 << t2 << t3;
 }
 
-int kchess::countMoveList(const ChessBoard &board, Color color)
+int kchess::countMoveList(const Board &board, Color color)
 {
     u64 mines = board.colors[color];
     u64 notMines = ~mines;
@@ -123,27 +115,28 @@ int kchess::countMoveList(const ChessBoard &board, Color color)
     return count;
 }
 
-Bitboard kchess::getMobility(const ChessBoard &board, Square square){
+std::vector<Move> kchess::getMoveListForSquare(const Board &board, Square square){
     Move moves[256];
     int count;
     generateMoveList(board, moves, count);
-//    qDebug() << "Move list" << count << countMoveList(board, White) << countMoveList(board, Black);
-    u64 mobility = 0;
+    std::vector<Move> output;
     for (int i = 0; i < count; i++){
-        if (square == moves[i].src())
-            mobility |= (1ULL << moves[i].dst());
+        const auto &move = moves[i];
+        if (move.src() == square){
+            output.push_back(moves[i]);
+        }
     }
-    return mobility;
+    return output;
 }
 
 
-void kchess::generateMove(const ChessBoard &b)
+void kchess::generateMove(const Board &b)
 {
     std::vector<Move> moves;
     moves.resize(1000000);
     std::vector<int> scores;
     scores.resize(moves.size());
-    ChessBoard board = b;
+    Board board = b;
 
 //    qDebug() << "Start init move list";
     QElapsedTimer timer;
@@ -165,12 +158,12 @@ void kchess::generateMove(const ChessBoard &b)
     std::string boardAtMin;
 
     for (int i = 0; i < count; i++){
-        ChessBoard newBoard = board;
+        Board newBoard = board;
         newBoard.doMove(movePtr[i]);
         int ncount;
         generateMoveList(newBoard, movePtr + countTotal, ncount);
         for (int j = 0; j < ncount; j++){
-            ChessBoard boardJ = newBoard;
+            Board boardJ = newBoard;
             boardJ.doMove((movePtr + countTotal)[j]);
 //            int score = eval::estimate(boardJ);
 //            if (score > maxScore){

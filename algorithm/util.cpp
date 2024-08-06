@@ -2,48 +2,48 @@
 #include <vector>
 using namespace kchess;
 
-std::string toFenString(const ChessBoard &chessBoard){
+std::string toFenString(const Board &board){
     std::string str;
     for (int rank = Rank_NB - 1; rank >= 0; rank--){
         int countEmpty = 0;
         for (int file = 0; file < File_NB; file++){
             int index = rank * 8 + file;
             auto bb = squareToBB(index);
-            if (chessBoard.colors[Color::White] & bb){
+            if (board.colors[Color::White] & bb){
                 if (countEmpty > 0){
                     str += std::to_string(countEmpty);
                     countEmpty = 0;
                 }
 
-                if (chessBoard.types[PieceType::Pawn] & bb){
+                if (board.types[PieceType::Pawn] & bb){
                     str += 'P';
-                } else if (chessBoard.types[PieceType::Knight] & bb){
+                } else if (board.types[PieceType::Knight] & bb){
                     str += 'N';
-                } else if (chessBoard.types[PieceType::Bishop] & bb){
+                } else if (board.types[PieceType::Bishop] & bb){
                     str += 'B';
-                } else if (chessBoard.types[PieceType::Rook] & bb){
+                } else if (board.types[PieceType::Rook] & bb){
                     str += 'R';
-                } else if (chessBoard.types[PieceType::Queen] & bb){
+                } else if (board.types[PieceType::Queen] & bb){
                     str += 'Q';
-                } else if (chessBoard.types[PieceType::King] & bb){
+                } else if (board.types[PieceType::King] & bb){
                     str += 'K';
                 }
-            } else if (chessBoard.colors[Color::Black] & bb){
+            } else if (board.colors[Color::Black] & bb){
                 if (countEmpty > 0){
                     str += std::to_string(countEmpty);
                     countEmpty = 0;
                 }
-                if (chessBoard.types[PieceType::Pawn] & bb){
+                if (board.types[PieceType::Pawn] & bb){
                     str += 'p';
-                } else if (chessBoard.types[PieceType::Knight] & bb){
+                } else if (board.types[PieceType::Knight] & bb){
                     str += 'n';
-                } else if (chessBoard.types[PieceType::Bishop] & bb){
+                } else if (board.types[PieceType::Bishop] & bb){
                     str += 'b';
-                } else if (chessBoard.types[PieceType::Rook] & bb){
+                } else if (board.types[PieceType::Rook] & bb){
                     str += 'r';
-                } else if (chessBoard.types[PieceType::Queen] & bb){
+                } else if (board.types[PieceType::Queen] & bb){
                     str += 'q';
-                } else if (chessBoard.types[PieceType::King] & bb){
+                } else if (board.types[PieceType::King] & bb){
                     str += 'k';
                 }
             } else {
@@ -61,18 +61,18 @@ std::string toFenString(const ChessBoard &chessBoard){
     // return str + " w KQkq - 0 1";
 
     str += " ";
-    str += chessBoard.side == White ? "w" : "b";
+    str += board.side == White ? "w" : "b";
     str += " ";
-    if (chessBoard.whiteOO){
+    if (board.whiteOO){
         str += "K";
     }
-    if (chessBoard.whiteOOO){
+    if (board.whiteOOO){
         str += "Q";
     }
-    if (chessBoard.blackOO){
+    if (board.blackOO){
         str += "k";
     }
-    if (chessBoard.blackOOO){
+    if (board.blackOOO){
         str += "q";
     }
     if (str.at(str.size() - 1) == ' '){
@@ -80,17 +80,17 @@ std::string toFenString(const ChessBoard &chessBoard){
     }
     str += " ";
 
-    if (chessBoard.enPassant == SquareNone){
+    if (board.enPassant == SquareNone){
         str += "-";
     } else {
-        int idx = bbToSquare(chessBoard.enPassant);
+        int idx = bbToSquare(board.enPassant);
         str += 'a' + (idx % 8);
         str += '8' - (idx / 8);
     }
     str += " ";
-    str += std::to_string(chessBoard.halfMoveClock);
+    str += std::to_string(board.halfMoveClock);
     str += " ";
-    str += std::to_string(chessBoard.fullMoveNumber);
+    str += std::to_string(board.fullMoveNumber);
 
     return str;
 
@@ -113,7 +113,7 @@ std::vector<std::string> split(std::string s, std::string delimiter) {
 }
 
 
-bool parseFENString(const std::string &fen, ChessBoard *result)
+bool parseFENString(const std::string &fen, Board *result)
 {
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     // rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1

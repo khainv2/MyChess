@@ -1,8 +1,8 @@
 #ifndef CHESSBOARDVIEW_H
 #define CHESSBOARDVIEW_H
 
-#include "algorithm/chessboard.h"
-#include "algorithm/movegenerator.h"
+#include "algorithm/board.h"
+#include "algorithm/movegen.h"
 
 #include <QColor>
 #include <QWidget>
@@ -12,8 +12,8 @@ class ChessBoardView : public QWidget
     Q_OBJECT
 public:
     explicit ChessBoardView(QWidget *parent = nullptr);
-    const kchess::ChessBoard &board() const;
-    void setBoard(const kchess::ChessBoard &newBoard);
+    const kchess::Board &board() const;
+    void setBoard(const kchess::Board &newBoard);
 
 signals:
     void boardChanged();
@@ -30,9 +30,10 @@ private:
     QRect _canvasRect;
     QColor _boardColor = Qt::black;
 
-    kchess::ChessBoard _board;
-    kchess::Bitboard _mobility = 0;
-    kchess::Bitboard _mouseSelection = 0;
+    kchess::Board _board;
+//    kchess::BB _mobility = 0;
+    std::vector<kchess::Move> _moveList;
+    kchess::BB _mouseSelection = 0;
 };
 
 #endif // CHESSBOARDVIEW_H

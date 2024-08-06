@@ -1,12 +1,12 @@
 #include "test.h"
-#include <algorithm/chessboard.h>
+#include <algorithm/board.h>
 #include <algorithm/util.h>
 #include <QString>
 
 using namespace kchess;
 
 void test_parseFENString() {
-    ChessBoard chessBoard;
+    Board chessBoard;
 
     // Test case 1: Valid FEN string
     std::string fen1 = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";

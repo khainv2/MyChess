@@ -21,7 +21,8 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
     _pixmaps[BlackRook] = QPixmap(":/b_rook.png");
     _pixmaps[BlackQueen] = QPixmap(":/b_queen.png");
     _pixmaps[BlackKing] = QPixmap(":/b_king.png");
-    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
+//    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
+    parseFENString("rnbqkbnr/pppp3p/4p1p1/5p2/2B5/4PN2/PPPP1PPP/RNBQK2R w KQkq - 0 1", &_board);
 //    parseFENString("4R3/R7/8/K3R3/R7/1R6/8/8 w KQkq - 0 1", &board);
 //    parseFENString("4B3/B7/8/K3B3/B7/1B6/B7/7B w KQkq - 0 1", &board);
 //    parseFENString("4N3/N7/8/K3N3/B7/1B6/B7/7B w KQkq - 0 1", &board);
@@ -77,7 +78,13 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
                 painter.restore();
             }
 
-            if (_mobility & squareToBB(index)){
+            bool found = false;
+            for (Move move: _moveList){
+                if (move.dst() == index){
+                    found = true;
+                }
+            }
+            if (found){
                 painter.save();
                 QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(),
                              j * _canvasRect.width() / 8 + _canvasRect.top(),
@@ -118,35 +125,39 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
             int j = (pos.y() - _canvasRect.top()) / ss;
             int index = (7 - j) * 8 + i;
             auto bb = squareToBB(index);
-            if (_mobility & bb){
-                auto move = Move::makeNormalMove(bbToSquare(_mouseSelection), index);
+
+            Move move;
+            for (Move m: _moveList){
+                if (m.dst() == index){
+                    move = m;
+                }
+            }
+            if (move != Move::NullMove){
                 _board.doMove(move);
-                qDebug() << "Chess board state" << toFenString(_board).c_str();
-                qDebug() << "Value of board" << eval::estimate(_board);
                 _mouseSelection = 0;
-                _mobility = 0;
+                _moveList.clear();
                 emit boardChanged();
             } else {
                 _mouseSelection = bb;
-                _mobility = getMobility(_board, Square(index));
+                _moveList = getMoveListForSquare(_board, Square(index));
             }
             update();
         }
     } else {
         _mouseSelection = 0;
-        _mobility = 0;
+        _moveList.clear();
         update();
     }
 
     //    auto b = getMobility(board);
 }
 
-const kchess::ChessBoard &ChessBoardView::board() const
+const kchess::Board &ChessBoardView::board() const
 {
     return _board;
 }
 
-void ChessBoardView::setBoard(const kchess::ChessBoard &newBoard)
+void ChessBoardView::setBoard(const kchess::Board &newBoard)
 {
     _board = newBoard;
     update();

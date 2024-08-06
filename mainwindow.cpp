@@ -44,12 +44,12 @@ void MainWindow::on_bt_StartCalculate_clicked()
 //    fens.append()
 
     for (int i = 0; i < count; i++){
-        ChessBoard newBoard = board;
+        Board newBoard = board;
         newBoard.doMove(movePtr[i]);
         int ncount;
         generateMoveList(newBoard, movePtr + countTotal, ncount);
         for (int j = 0; j < ncount; j++){
-            ChessBoard boardJ = newBoard;
+            Board boardJ = newBoard;
             boardJ.doMove((movePtr + countTotal)[j]);
 
         }
@@ -68,7 +68,7 @@ void MainWindow::on_bt_StartCalculate_clicked()
 void MainWindow::on_bt_ParseFen_clicked()
 {
     auto boardView = new ChessBoardView;
-    kchess::ChessBoard cb;
+    kchess::Board cb;
     parseFENString(ui->le_Fen->text().toStdString(), &cb);
     boardView->setBoard(cb);
     boardView->show();

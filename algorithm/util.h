@@ -1,7 +1,7 @@
 #pragma once
-#include <algorithm/chessboard.h>
+#include <algorithm/board.h>
 
 
-bool parseFENString(const std::string &fen, kchess::ChessBoard *result);
+bool parseFENString(const std::string &fen, kchess::Board *result);
 
-std::string toFenString(const kchess::ChessBoard &chessBoard);
+std::string toFenString(const kchess::Board &chessBoard);

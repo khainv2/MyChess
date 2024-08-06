@@ -1,7 +1,7 @@
 #include "evaluation.h"
-#include "movegenerator.h"
+#include "movegen.h"
 
-int kchess::eval::estimate(const ChessBoard &board)
+int kchess::eval::estimate(const Board &board)
 {
     u64 b = board.colors[Black], w = board.colors[White];
 
@@ -15,5 +15,6 @@ int kchess::eval::estimate(const ChessBoard &board)
 
     
     int mobilityValue = 10 * (countMoveList(board, White) - countMoveList(board, Black));
-    return materialValue + mobilityValue;
+//    materialValue += mobilityValue;
+    return materialValue;
 }
