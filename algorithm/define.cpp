@@ -53,4 +53,24 @@ Piece kchess::charToPiece(char c){
     case 'q': return BlackQueen;
     default: return PieceNone;
     }
+
+}
+char kchess::rankToChar(Rank r)
+{
+    return '1' + r;
+}
+
+Rank kchess::charToRank(char c)
+{
+    return Rank(c - '1');
+}
+
+char kchess::fileToChar(File f)
+{
+    return 'a' + f;
+}
+
+File kchess::charToFile(char c)
+{
+    return File(c - 'a');
 }

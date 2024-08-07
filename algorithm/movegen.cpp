@@ -41,6 +41,23 @@ void kchess::generateMoveList(const Board &board, Move *moveList, int &count)
             attack = (attackPawns[i] & enemies)
                    | (attackPawnPushes[i] & notOcc)
                    | (attackPawnPushes2[i] & pawnPush2Mask);
+            bool enPassantCond = board.enPassant != SquareNone // Có trạng thái một tốt vừa được push 2
+                    && ((board.enPassant / 8) == (i / 8)) // Ô tốt push 2 ở cùng hàng với ô from
+                    && ((board.enPassant - i) == 1 || (i - board.enPassant == 1)); // 2 ô cách nhau 1 đơn vị
+            if (enPassantCond){
+                moveList[count++] = Move::makeEnpassantMove(i, color == White ? board.enPassant + 8 : board.enPassant - 8);
+            }
+            bool promotionCond = color == White ? (i / 8) == 6 : (i / 8) == 1;
+            if (promotionCond){
+                while (attack){
+                    to = lsbBB(attack);
+                    moveList[count++] = Move::makePromotionMove(i, bbToSquare(to), Queen);
+                    moveList[count++] = Move::makePromotionMove(i, bbToSquare(to), Rook);
+                    moveList[count++] = Move::makePromotionMove(i, bbToSquare(to), Bishop);
+                    moveList[count++] = Move::makePromotionMove(i, bbToSquare(to), Knight);
+                    attack ^= to;
+                }
+            }
         } else if (from & knights){
             attack = attack::knights[i] & notMines;
         } else if (from & bishops){

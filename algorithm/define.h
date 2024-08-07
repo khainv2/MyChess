@@ -52,9 +52,13 @@ Piece charToPiece(char c);
 enum Rank : u8 {
     Rank1, Rank2, Rank3, Rank4, Rank5, Rank6, Rank7, Rank8, Rank_NB
 };
+char rankToChar(Rank r);
+Rank charToRank(char c);
 enum File : u8 {
     FileA, FileB, FileC, FileD, FileE, FileF, FileG, FileH, File_NB
 };
+char fileToChar(File f);
+File charToFile(char c);
 enum Square: u8 {
     _A1, _B1, _C1, _D1, _E1, _F1, _G1, _H1,
     _A2, _B2, _C2, _D2, _E2, _F2, _G2, _H2,
@@ -67,10 +71,14 @@ enum Square: u8 {
     SquareNone = 0,
     Square_Count = 64
 };
-
-
-constexpr Square makeSquare(Rank r, File f){
+constexpr static Square makeSquare(Rank r, File f){
     return Square(r * 8 + f);
+}
+constexpr static Rank getRank(Square square){
+    return Rank(square / 8);
+}
+constexpr static File getFile(Square square){
+    return File(square % 8);
 }
 enum Value {
     Value_Pawn = 100,
@@ -99,6 +107,14 @@ using BB = u64;
 
 constexpr BB Rank1_BB = 0xffULL;
 constexpr BB FileA_BB = 0x0101010101010101ULL;
+
+constexpr static BB rankBB(Rank r){
+    return Rank1_BB << (r * 8);
+}
+
+constexpr static BB fileBB(File f){
+    return FileA_BB << f;
+}
 
 constexpr BB All_BB = 0xffffffffffffffffULL;
 
