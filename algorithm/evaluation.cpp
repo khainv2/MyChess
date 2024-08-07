@@ -1,7 +1,7 @@
 #include "evaluation.h"
 #include "movegen.h"
 
-int kchess::eval::estimate(const Board &board)
+int kc::eval::estimate(const Board &board)
 {
     u64 b = board.colors[Black], w = board.colors[White];
 

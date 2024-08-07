@@ -3,7 +3,7 @@
 #include <algorithm/util.h>
 #include <QString>
 
-using namespace kchess;
+using namespace kc;
 
 void test_parseFENString() {
     Board chessBoard;

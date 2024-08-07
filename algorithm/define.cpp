@@ -2,10 +2,10 @@
 #include "attack.h"
 #include <QDebug>
 
-using namespace kchess;
+using namespace kc;
 
 
-std::string kchess::Move::getDescription() const {
+std::string kc::Move::getDescription() const {
     auto s = src();
     auto d = dst();
     static std::string fileTxt[8] = { "A", "B", "C", "D", "E", "F", "G", "H" };
@@ -15,11 +15,17 @@ std::string kchess::Move::getDescription() const {
     int srcRankIdx = s / 8;
     int dstFileIdx = d % 8;
     int dstRankIdx = d / 8;
+    if (type() == Promotion){
+        auto p = getPromotionPieceType();
+        return fileTxt[srcFileIdx] + rankTxt[srcRankIdx]
+             + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx]
+             + "[P]" + pieceToChar(makePiece(White, PieceType(p)));
+    }
     return fileTxt[srcFileIdx] + rankTxt[srcRankIdx]
          + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx];
 }
 
-char kchess::pieceToChar(Piece piece){
+char kc::pieceToChar(Piece piece){
     switch (piece){
     case WhitePawn: return 'P';
     case WhiteRook: return 'R';
@@ -37,7 +43,7 @@ char kchess::pieceToChar(Piece piece){
     }
 }
 
-Piece kchess::charToPiece(char c){
+Piece kc::charToPiece(char c){
     switch (c){
     case 'P': return WhitePawn;
     case 'R': return WhiteRook;
@@ -55,22 +61,22 @@ Piece kchess::charToPiece(char c){
     }
 
 }
-char kchess::rankToChar(Rank r)
+char kc::rankToChar(Rank r)
 {
     return '1' + r;
 }
 
-Rank kchess::charToRank(char c)
+Rank kc::charToRank(char c)
 {
     return Rank(c - '1');
 }
 
-char kchess::fileToChar(File f)
+char kc::fileToChar(File f)
 {
     return 'a' + f;
 }
 
-File kchess::charToFile(char c)
+File kc::charToFile(char c)
 {
     return File(c - 'a');
 }

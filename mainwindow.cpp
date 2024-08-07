@@ -3,7 +3,7 @@
 #include "algorithm/engine.h"
 #include "algorithm/util.h"
 
-using namespace kchess;
+using namespace kc;
 struct BoardValue {
     Move move = 0;
     QString fen;
@@ -68,7 +68,7 @@ void MainWindow::on_bt_StartCalculate_clicked()
 void MainWindow::on_bt_ParseFen_clicked()
 {
     auto boardView = new ChessBoardView;
-    kchess::Board cb;
+    kc::Board cb;
     parseFENString(ui->le_Fen->text().toStdString(), &cb);
     boardView->setBoard(cb);
     boardView->show();

@@ -12,8 +12,8 @@ class ChessBoardView : public QWidget
     Q_OBJECT
 public:
     explicit ChessBoardView(QWidget *parent = nullptr);
-    const kchess::Board &board() const;
-    void setBoard(const kchess::Board &newBoard);
+    const kc::Board &board() const;
+    void setBoard(const kc::Board &newBoard);
 
 signals:
     void boardChanged();
@@ -30,10 +30,10 @@ private:
     QRect _canvasRect;
     QColor _boardColor = Qt::black;
 
-    kchess::Board _board;
+    kc::Board _board;
 //    kchess::BB _mobility = 0;
-    std::vector<kchess::Move> _moveList;
-    kchess::BB _mouseSelection = 0;
+    std::vector<kc::Move> _moveList;
+    kc::BB _mouseSelection = 0;
 };
 
 #endif // CHESSBOARDVIEW_H

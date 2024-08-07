@@ -6,19 +6,19 @@
 #include <vector>
 #include <QElapsedTimer>
 
-using namespace kchess;
+using namespace kc;
 
-u64 kchess::attack::kings[64] = { 0 };
-u64 kchess::attack::knights[64] = { 0 };
-u64 kchess::attack::pawns[2][64] = {};
-u64 kchess::attack::pawnPushes[2][64] = {};
-u64 kchess::attack::pawnPushes2[2][64] = {};
-u64 kchess::attack::rooks[64][262144] = { };
-u64 kchess::attack::bishops[64][262144] = { };
+u64 kc::attack::kings[64] = { 0 };
+u64 kc::attack::knights[64] = { 0 };
+u64 kc::attack::pawns[2][64] = {};
+u64 kc::attack::pawnPushes[2][64] = {};
+u64 kc::attack::pawnPushes2[2][64] = {};
+u64 kc::attack::rooks[64][262144] = { };
+u64 kc::attack::bishops[64][262144] = { };
 
-kchess::attack::MagicBitboard kchess::attack::rookMagicBitboards[64] = { };
-kchess::attack::MagicBitboard kchess::attack::bishopMagicBitboards[64] = { };
-void kchess::attack::init()
+kc::attack::MagicBitboard kc::attack::rookMagicBitboards[64] = { };
+kc::attack::MagicBitboard kc::attack::bishopMagicBitboards[64] = { };
+void kc::attack::init()
 {
     initMagicTable();
     for (int i = 0; i < 64; i++){
