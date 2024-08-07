@@ -83,9 +83,11 @@ std::string toFenString(const Board &board){
     if (board.enPassant == SquareNone){
         str += "-";
     } else {
-        int idx = bbToSquare(board.enPassant);
-        str += 'a' + (idx % 8);
-        str += '8' - (idx / 8);
+        auto r = getRank(board.enPassant);
+        auto f = getFile(board.enPassant);
+
+        str += fileToChar(f);
+        str += rankToChar(r);
     }
     str += " ";
     str += std::to_string(board.halfMoveClock);
@@ -217,8 +219,8 @@ bool parseFENString(const std::string &fen, Board *result)
     if (enPassant == "-"){
         result->enPassant = SquareNone;
     } else {
-        auto rank = Rank(8 - (enPassant.at(1) - '0'));
-        auto file = File(enPassant.at(0) - 'a');
+        auto file = charToFile(enPassant.at(0));
+        auto rank = charToRank(enPassant.at(1));
         result->enPassant = makeSquare(rank, file);
     }
 
