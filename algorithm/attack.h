@@ -1,6 +1,6 @@
 #pragma once
 #include "define.h"
-namespace kchess {
+namespace kc {
 namespace attack {
 
 extern u64 kings[Square_Count];

@@ -5,12 +5,9 @@
 #include <QElapsedTimer>
 #include "evaluation.h"
 
-using namespace kchess;
-void kchess::generateMoveList(const Board &board, Move *moveList, int &count)
+using namespace kc;
+void kc::generateMoveList(const Board &board, Move *moveList, int &count)
 {
-    QElapsedTimer timer;
-    timer.start();
-
     u64 mines = board.mines();
     u64 notMines = ~mines;
     u64 enemies = board.enemies();
@@ -92,7 +89,7 @@ void kchess::generateMoveList(const Board &board, Move *moveList, int &count)
     }
 }
 
-int kchess::countMoveList(const Board &board, Color color)
+int kc::countMoveList(const Board &board, Color color)
 {
     u64 mines = board.colors[color];
     u64 notMines = ~mines;
@@ -132,7 +129,7 @@ int kchess::countMoveList(const Board &board, Color color)
     return count;
 }
 
-std::vector<Move> kchess::getMoveListForSquare(const Board &board, Square square){
+std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     Move moves[256];
     int count;
     generateMoveList(board, moves, count);
@@ -147,7 +144,7 @@ std::vector<Move> kchess::getMoveListForSquare(const Board &board, Square square
 }
 
 
-void kchess::generateMove(const Board &b)
+void kc::generateMove(const Board &b)
 {
     std::vector<Move> moves;
     moves.resize(1000000);

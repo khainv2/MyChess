@@ -24,6 +24,7 @@ SOURCES += \
     chessboardview.cpp \
     main.cpp \
     mainwindow.cpp \
+    promotionselectoindialog.cpp \
     test.cpp
 
 HEADERS += \
@@ -36,10 +37,12 @@ HEADERS += \
     algorithm/util.h \
     chessboardview.h \
     mainwindow.h \
+    promotionselectoindialog.h \
     test.h
 
 FORMS += \
-    mainwindow.ui
+    mainwindow.ui \
+    promotionselectoindialog.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

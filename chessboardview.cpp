@@ -1,4 +1,5 @@
 #include "chessboardview.h"
+#include "promotionselectoindialog.h"
 #include "algorithm/evaluation.h"
 #include <QPainter>
 #include <QDebug>
@@ -7,7 +8,7 @@
 #include <algorithm/evaluation.h>
 #include <algorithm>
 
-using namespace kchess;
+using namespace kc;
 ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
 {    
     _pixmaps[WhitePawn] = QPixmap(":/w_pawn.png");
@@ -23,7 +24,8 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
     _pixmaps[BlackQueen] = QPixmap(":/b_queen.png");
     _pixmaps[BlackKing] = QPixmap(":/b_king.png");
 //    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
-    parseFENString("r3k2r/pppp3p/4p1p1/5p2/2B5/4PN2/PPPP1PPP/R3K2R w KQkq - 0 1", &_board); // Has castling
+//    parseFENString("r3k2r/pppp3p/4p1p1/5p2/2B5/4PN2/PPPP1PPP/R3K2R w KQkq - 0 1", &_board); // Has castling
+    parseFENString("1r4r1/ppPp2kp/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 0 1", &_board); // promotion
 //    parseFENString("4R3/R7/8/K3R3/R7/1R6/8/8 w KQkq - 0 1", &board);
 //    parseFENString("4B3/B7/8/K3B3/B7/1B6/B7/7B w KQkq - 0 1", &board);
 //    parseFENString("4N3/N7/8/K3N3/B7/1B6/B7/7B w KQkq - 0 1", &board);
@@ -127,21 +129,36 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
             int index = (7 - j) * 8 + i;
             auto bb = squareToBB(index);
 
-            auto m = std::find_if(_moveList.begin(), _moveList.end(), [=](auto m){
+            std::vector<Move> availables(_moveList.size());
+            auto it = std::copy_if(_moveList.begin(), _moveList.end(),
+                                  availables.begin(), [=](auto m){
                 return m.dst() == index;
             });
-            if (m != _moveList.end()){
-                auto move = *m;
+            availables.resize(std::distance(availables.begin(), it));  // shrink container to new size
+
+            if (availables.size()){
+                // Kiểm tra với trường hợp promotion
+                Move move;
+                if (availables.size() > 1){
+                    PromotionSelectionDialog dialog;
+                    dialog.exec();
+                    auto piece = dialog.type();
+                    auto it = std::find_if(availables.begin(), availables.end(), [=](Move m){
+                        return m.getPromotionPieceType() == piece;
+                    });
+                    move = *it;
+                    // qDebug() << "Promotion to" << move.getPiecePromotion() << move.getDescription().c_str();
+                } else {
+                    move = availables.at(0);
+                }
                 _board.doMove(move);
                 _mouseSelection = 0;
                 _moveList.clear();
                 emit boardChanged();
-                if (move.type() == Move::Promotion){
-             
-                } 
+
             } else {
-                    _mouseSelection = bb;
-                    _moveList = getMoveListForSquare(_board, Square(index));
+                _mouseSelection = bb;
+                _moveList = getMoveListForSquare(_board, Square(index));
             }
             update();
         }
@@ -154,12 +171,12 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
     //    auto b = getMobility(board);
 }
 
-const kchess::Board &ChessBoardView::board() const
+const kc::Board &ChessBoardView::board() const
 {
     return _board;
 }
 
-void ChessBoardView::setBoard(const kchess::Board &newBoard)
+void ChessBoardView::setBoard(const kc::Board &newBoard)
 {
     _board = newBoard;
     update();

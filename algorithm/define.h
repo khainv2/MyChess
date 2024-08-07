@@ -4,11 +4,11 @@
 #endif
 #include <string>
 
-#ifdef _C2
-#undef _C2
+#ifdef C2
+#undef C2
 #endif
 
-namespace kchess {
+namespace kc {
 using u8 = unsigned char;
 using u16 = unsigned int;
 using u32 = unsigned int;
@@ -60,14 +60,14 @@ enum File : u8 {
 char fileToChar(File f);
 File charToFile(char c);
 enum Square: u8 {
-    _A1, _B1, _C1, _D1, _E1, _F1, _G1, _H1,
-    _A2, _B2, _C2, _D2, _E2, _F2, _G2, _H2,
-    _A3, _B3, _C3, _D3, _E3, _F3, _G3, _H3,
-    _A4, _B4, _C4, _D4, _E4, _F4, _G4, _H4,
-    _A5, _B5, _C5, _D5, _E5, _F5, _G5, _H5,
-    _A6, _B6, _C6, _D6, _E6, _F6, _G6, _H6,
-    _A7, _B7, _C7, _D7, _E7, _F7, _G7, _H7,
-    _A8, _B8, _C8, _D8, _E8, _F8, _G8, _H8,
+    A1, B1, C1, D1, E1, F1, G1, H1,
+    A2, B2, C2, D2, E2, F2, G2, H2,
+    A3, B3, C3, D3, E3, F3, G3, H3,
+    A4, B4, C4, D4, E4, F4, G4, H4,
+    A5, B5, C5, D5, E5, F5, G5, H5,
+    A6, B6, C6, D6, E6, F6, G6, H6,
+    A7, B7, C7, D7, E7, F7, G7, H7,
+    A8, B8, C8, D8, E8, F8, G8, H8,
     SquareNone = 0,
     Square_Count = 64
 };
@@ -143,21 +143,21 @@ inline int popCount(u64 bb){
 }
 
 // Vị trí của quân nhập thành
-constexpr static Square CastlingWKOO = _G1;
-constexpr static BB CastlingWROO_Toggle = squareToBB(_F1) | squareToBB(_H1);
-constexpr static Square CastlingWKOOO = _C1;
-constexpr static BB CastlingWROOO_Toggle = squareToBB(_A1) | squareToBB(_D1);
+constexpr static Square CastlingWKOO = G1;
+constexpr static BB CastlingWROO_Toggle = squareToBB(F1) | squareToBB(H1);
+constexpr static Square CastlingWKOOO = C1;
+constexpr static BB CastlingWROOO_Toggle = squareToBB(A1) | squareToBB(D1);
 
-constexpr static Square CastlingBKOO = _G8;
-constexpr static BB CastlingBROO_Toggle = squareToBB(_F8) | squareToBB(_H8);
-constexpr static Square CastlingBKOOO = _C8;
-constexpr static BB CastlingBROOO_Toggle = squareToBB(_A8) | squareToBB(_D8);
+constexpr static Square CastlingBKOO = G8;
+constexpr static BB CastlingBROO_Toggle = squareToBB(F8) | squareToBB(H8);
+constexpr static Square CastlingBKOOO = C8;
+constexpr static BB CastlingBROOO_Toggle = squareToBB(A8) | squareToBB(D8);
 
-constexpr static BB CastlingWOOSpace = squareToBB(_F1) | squareToBB(_G1);
-constexpr static BB CastlingWOOOSpace = squareToBB(_B1) | squareToBB(_C1) | squareToBB(_D1);
+constexpr static BB CastlingWOOSpace = squareToBB(F1) | squareToBB(G1);
+constexpr static BB CastlingWOOOSpace = squareToBB(B1) | squareToBB(C1) | squareToBB(D1);
 
-constexpr static BB CastlingBOOSpace = squareToBB(_F8) | squareToBB(_G8);
-constexpr static BB CastlingBOOOSpace = squareToBB(_B8) | squareToBB(_C8) | squareToBB(_D8);
+constexpr static BB CastlingBOOSpace = squareToBB(F8) | squareToBB(G8);
+constexpr static BB CastlingBOOOSpace = squareToBB(B8) | squareToBB(C8) | squareToBB(D8);
 
 
 class BoardState {
@@ -213,7 +213,7 @@ public:
 
     constexpr inline int src() const { return move & 0x3f; }
     constexpr inline int dst() const { return (move >> 6) & 0x3f; }
-    constexpr inline int getPiecePromotion() const { return PieceType(((move >> 12) & 0x03) + 1); }
+    constexpr inline PieceType getPromotionPieceType() const { return PieceType(((move >> 12) & 0x03) + 2); }
     constexpr inline int type() const { return move & (3 << 14); }
 
     std::string getDescription() const;
@@ -221,7 +221,7 @@ public:
     static Move makeNormalMove(int src, int dst) { return Move(src + (dst << 6)); }
     static Move makeEnpassantMove(int src, int dst) { return Move(src + (dst << 6) + Enpassant); }
     static Move makeCastlingMove(int src, int dst) { return Move(src + (dst << 6) + Castling); }
-    static Move makePromotionMove(int src, int dst, PieceType p) { return Move(src + (dst << 6) + Promotion + ((p - 1) << 12)); }
+    static Move makePromotionMove(int src, int dst, PieceType p) { return Move(src + (dst << 6) + Promotion + ((p - 2) << 12)); }
 private:
     u16 move;
 };

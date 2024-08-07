@@ -1,6 +1,6 @@
 #include "util.h"
 #include <vector>
-using namespace kchess;
+using namespace kc;
 
 std::string toFenString(const Board &board){
     std::string str;

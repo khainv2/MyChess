@@ -2,6 +2,6 @@
 #include <algorithm/board.h>
 
 
-bool parseFENString(const std::string &fen, kchess::Board *result);
+bool parseFENString(const std::string &fen, kc::Board *result);
 
-std::string toFenString(const kchess::Board &chessBoard);
+std::string toFenString(const kc::Board &chessBoard);

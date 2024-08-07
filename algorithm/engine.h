@@ -1,7 +1,7 @@
 #pragma once
 #include "board.h"
 #include "define.h"
-namespace kchess {
+namespace kc {
 class Engine {
 public:
     Engine();

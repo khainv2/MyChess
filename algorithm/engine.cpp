@@ -6,13 +6,13 @@
 #include <random>
 #include "util.h"
 
-using namespace kchess;
+using namespace kc;
 Engine::Engine()
 {
     fixedDepth = 6;
 }
 
-Move kchess::Engine::calc(const Board &chessBoard)
+Move kc::Engine::calc(const Board &chessBoard)
 {
     countBestMove = 0;
     QElapsedTimer timer;

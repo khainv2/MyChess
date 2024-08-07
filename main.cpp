@@ -11,7 +11,7 @@
 //#include <intrin.h>
 #include <QElapsedTimer>
 
-using namespace kchess;
+using namespace kc;
 
 int main(int argc, char *argv[])
 {
@@ -31,7 +31,7 @@ int main(int argc, char *argv[])
     attack::init();
     qDebug() << "Time init attack" << (timer.nsecsElapsed() / 1000) << "us";
 
-    kchess::Board board;
+    kc::Board board;
     parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
 
 
