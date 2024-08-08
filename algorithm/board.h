@@ -16,7 +16,7 @@ struct Board {
     bool blackOO = true;
 
     // En passant target square
-    Square enPassant = A1;
+    Square enPassant = SquareNone;
     // Half move clock
     int halfMoveClock = 0;
     // Full move number
@@ -47,18 +47,6 @@ struct Board {
 
     void doMove(Move move);
 
-    std::string getPrintable() const {
-         std::string res = "";
-         for (int i = 0; i < 64; i++){
-             if (i % 8 == 0) res += "\n";
-             for (int j = 0; j < Piece_NB; j++){
-                 if (types[j] & squareToBB(i)){
-                     res += pieceToChar(Piece(j));
-                     break;
-                 }
-             }
-         }
-         return res;
-     }
+    std::string getPrintable(int tab = 0) const;
 };
 }

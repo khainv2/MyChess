@@ -1,5 +1,7 @@
 #include "board.h"
 #include <math.h>
+#include "util.h"
+#include "evaluation.h"
 
 void kc::Board::doMove(Move move){
     const auto &src = move.src();
@@ -87,6 +89,69 @@ void kc::Board::doMove(Move move){
 
     // Chuyển màu
     side = !side;
+}
+
+std::string kc::Board::getPrintable(int tab) const {
+    std::string newLine = "\n";
+    while (tab > 0){
+        newLine += "\t";
+        tab--;
+    }
+    std::string str = newLine;
+
+    for (int index = 0; index < 64; index++){
+        int r = index / 8;
+        int c = index % 8;
+        int i = (7 - r) * 8 + c;
+        str += (pieceToChar(pieces[i]));
+        str += " ";
+        if (index % 8 == 7){
+            if (index == 15){
+                str += " | "; str += (side == White ? "w" : "b");
+                str += " ";
+                if (whiteOO){
+                    str += "K";
+                }
+                if (whiteOOO){
+                    str += "Q";
+                }
+                if (blackOO){
+                    str += "k";
+                }
+                if (blackOOO){
+                    str += "q";
+                }
+                if (str.at(str.size() - 1) == ' '){
+                    str += "-";
+                }
+                str += " ";
+
+                if (enPassant == SquareNone){
+                    str += "-";
+                } else {
+                    auto r = getRank(enPassant);
+                    auto f = getFile(enPassant);
+
+                    str += fileToChar(f);
+                    str += rankToChar(r);
+                }
+                str += " ";
+                str += std::to_string(halfMoveClock);
+                str += " ";
+                str += std::to_string(fullMoveNumber);
+
+            }
+
+            if (index == 31){
+                str += " | eval: ";
+                str += std::to_string(eval::estimate(*this));
+            }
+
+            if (index != 63)
+                str += newLine;
+        }
+    }
+    return str;
 }
 
 

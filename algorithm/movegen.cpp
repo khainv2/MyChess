@@ -8,26 +8,64 @@
 using namespace kc;
 void kc::generateMoveList(const Board &board, Move *moveList, int &count)
 {
-    u64 mines = board.mines();
-    u64 notMines = ~mines;
-    u64 enemies = board.enemies();
-    u64 occ = board.occupancy();
-    u64 notOcc = ~occ;
-
+    BB mines = board.mines();
+    BB notMines = ~mines;
+    BB enemies = board.enemies();
+    BB occ = board.occupancy();
+    BB notOcc = ~occ;
     Color color = board.side;
-    u64 notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
-    u64 pawnPush2Mask = notOcc & notOccShift8ByColor;
-    const u64 *attackPawns = attack::pawns[color];
-    const u64 *attackPawnPushes = attack::pawnPushes[color];
-    const u64 *attackPawnPushes2 = attack::pawnPushes2[color];
+    BB notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
+    BB pawnPush2Mask = notOcc & notOccShift8ByColor;
+    const BB *attackPawns = attack::pawns[color];
+    const BB *attackPawnPushes = attack::pawnPushes[color];
+    const BB *attackPawnPushes2 = attack::pawnPushes2[color];
+    const BB &pawns = board.types[Pawn];
+    const BB &knights = board.types[Knight];
+    const BB &bishops = board.types[Bishop];
+    const BB &rooks = board.types[Rook];
+    const BB &queens = board.types[Queen];
+    const BB &kings = board.types[King];
 
-    const u64 &pawns = board.types[Pawn];
-    const u64 &knights = board.types[Knight];
-    const u64 &bishops = board.types[Bishop];
-    const u64 &rooks = board.types[Rook];
-    const u64 &queens = board.types[Queen];
-    const u64 &kings = board.types[King];
+    BB ourKing = kings & mines;
+    BB occWithoutOurKing = occ & (~ourKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
+    BB enemyAttackOurKing = 0;
+    BB checkMask = 0; // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
+    for (int i = 0; i < Square_Count; i++){
+        u64 from = squareToBB(i);
+        if ((from & enemies) == 0)
+            continue;
+        if (from & pawns){
+            BB eAttack = attack::pawns[!color][i];
+            enemyAttackOurKing |= eAttack;
+            if (eAttack & ourKing){
+                checkMask |= from;
+            }
+        } else if (from & knights){
+            BB eAttack = attack::knights[i];
+            enemyAttackOurKing |= eAttack;
+            if (eAttack & ourKing){
+                checkMask |= from;
+            }
+        } else if (from & bishops){
+            BB eAttack = attack::getBishopAttacks(i, occWithoutOurKing);
+            enemyAttackOurKing |= eAttack;
+            if (eAttack & ourKing){
+                BB sliding = attack::getBishopAttacks(i, occ);
 
+            }
+        } else if (from & rooks){
+            enemyAttackOurKing |= attack::getRookAttacks(i, occWithoutOurKing);
+        } else if (from & queens){
+            enemyAttackOurKing |= attack::getQueenAttacks(i, occWithoutOurKing);
+        } else if (from & kings){
+            enemyAttackOurKing |= attack::kings[i];
+            // Một quân vua không thể 'chiếu' quân vua khác
+        }
+    }
+
+//    if (checkMask)
+    bool isCheck = (enemyAttackOurKing & ourKing) != 0;
+    
     count = 0;
     for (int i = 0; i < Square_Count; i++){
         u64 from = squareToBB(i);
@@ -64,7 +102,7 @@ void kc::generateMoveList(const Board &board, Move *moveList, int &count)
         } else if (from & queens){
             attack = attack::getQueenAttacks(i, occ) & notMines;
         } else if (from & kings){
-            attack = attack::kings[i] & notMines;
+            attack = attack::kings[i] & notMines & (~enemyAttackOurKing);
             if (color == White){
                 if ((occ & CastlingWOOSpace) == 0 && board.whiteOO){
                     moveList[count++] = Move::makeCastlingMove(i, CastlingWKOO);
@@ -143,68 +181,51 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     return output;
 }
 
+constexpr static int FixedDepth = 6;
 
 void kc::generateMove(const Board &b)
 {
-    std::vector<Move> moves;
-    moves.resize(1000000);
-    std::vector<int> scores;
-    scores.resize(moves.size());
-    Board board = b;
-
-//    qDebug() << "Start init move list";
     QElapsedTimer timer;
     timer.start();
 
-    Move *movePtr = moves.data();
-    int *scorePtr = scores.data();
+//    std::vector<Move> moves;
+    constexpr int MaxMoveSize = 1000000000;
+    Move *moves = reinterpret_cast<Move *>(malloc(sizeof(Move) * MaxMoveSize));
+    Board board = b;
+
+    qint64 t1 = timer.nsecsElapsed() / 1000000;
+
+//    qDebug() << "Start init move list";
 
     int countTotal = 0;
-    int count;
-    generateMoveList(board, movePtr, count);
-    countTotal += count;
+    genMoveRecur(board, moves, countTotal, FixedDepth);
 
-    qDebug() << board.getPrintable().c_str();
-
-    int maxScore = -1000000;
-    std::string boardAtMax;
-    int minScore = 1000000;
-    std::string boardAtMin;
-
-    for (int i = 0; i < count; i++){
-        Board newBoard = board;
-        newBoard.doMove(movePtr[i]);
-        int ncount;
-        generateMoveList(newBoard, movePtr + countTotal, ncount);
-        for (int j = 0; j < ncount; j++){
-            Board boardJ = newBoard;
-            boardJ.doMove((movePtr + countTotal)[j]);
-//            int score = eval::estimate(boardJ);
-//            if (score > maxScore){
-//                maxScore = score;
-//                boardAtMax = boardJ.getPrintable();
-//                qDebug() << "Max score" << maxScore;
-//            }
-//            if (score < minScore){
-//                minScore = score;
-//                boardAtMin = boardJ.getPrintable();
-//                qDebug() << "Min score" << minScore;
-//            }
-
-        }
-        countTotal += ncount;
-    }
-
-    qint64 t = timer.nsecsElapsed();
-    qDebug() << "Time for multi board" << t;
+    qint64 t = timer.nsecsElapsed() / 1000000;
+    qDebug() << "Time for allocate mem" << t1 << "ms";
+    qDebug() << "Time for multi board" << t << "ms";
     qDebug() << "Total move calculated" << countTotal;
-    qDebug() << "Max score" << maxScore;
-    qDebug() << "Board at max" << boardAtMax.c_str();
-    qDebug() << "Min score" << minScore;
-    qDebug() << "Board at min" << boardAtMin.c_str();
 
 }
 
+void kc::genMoveRecur(const Board &board, Move *ptr, int &totalCount, int depth)
+{
+//    qDebug() << board.getPrintable(FixedDepth - depth).c_str();
+
+    if (depth == 0){
+        return;
+    }
+
+    int count;
+    auto moves = ptr + totalCount;
+    generateMoveList(board, moves, count);
+    totalCount += count;
+
+    for (int i = 0; i < count; i++){
+        Board newBoard = board;
+        newBoard.doMove(moves[i]);
+        genMoveRecur(newBoard, ptr, totalCount, depth - 1);
+    }
+}
 
 
 

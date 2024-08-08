@@ -41,10 +41,10 @@ void kc::attack::init()
                     | oneSquareAttack(square,  -6, B_D  | B_R2)
                     | oneSquareAttack(square, -10, B_D  | B_L2);
 
-        pawns[White][i] = oneSquareAttack(square, +7, B_U)
-                        | oneSquareAttack(square, +9, B_U);
-        pawns[Black][i] = oneSquareAttack(square, -7, B_D)
-                        | oneSquareAttack(square, -9, B_D);
+        pawns[White][i] = oneSquareAttack(square, +7, B_U | B_L)
+                        | oneSquareAttack(square, +9, B_U | B_R);
+        pawns[Black][i] = oneSquareAttack(square, -7, B_D | B_R)
+                        | oneSquareAttack(square, -9, B_D | B_L);
         pawnPushes[White][i] = oneSquareAttack<+8>(square, B_U);
         pawnPushes[Black][i] = oneSquareAttack<-8>(square, B_D);
         pawnPushes2[White][i] = oneSquareAttack<+16>(square, ~B_D2);
