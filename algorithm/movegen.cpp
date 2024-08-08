@@ -27,9 +27,10 @@ void kc::generateMoveList(const Board &board, Move *moveList, int &count)
     const BB &kings = board.types[King];
 
     BB ourKing = kings & mines;
+    int ourKingIdx = bbToSquare(ourKing);
     BB occWithoutOurKing = occ & (~ourKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
     BB enemyAttackOurKing = 0;
-    BB checkMask = 0; // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
+    BB checkMask = All_BB; // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
     for (int i = 0; i < Square_Count; i++){
         u64 from = squareToBB(i);
         if ((from & enemies) == 0)
@@ -38,34 +39,47 @@ void kc::generateMoveList(const Board &board, Move *moveList, int &count)
             BB eAttack = attack::pawns[!color][i];
             enemyAttackOurKing |= eAttack;
             if (eAttack & ourKing){
-                checkMask |= from;
+                checkMask &= from;
             }
         } else if (from & knights){
             BB eAttack = attack::knights[i];
             enemyAttackOurKing |= eAttack;
             if (eAttack & ourKing){
-                checkMask |= from;
+                checkMask &= from;
             }
         } else if (from & bishops){
             BB eAttack = attack::getBishopAttacks(i, occWithoutOurKing);
             enemyAttackOurKing |= eAttack;
             if (eAttack & ourKing){
-                BB sliding = attack::getBishopAttacks(i, occ);
-
+                checkMask &= ((attack::bishopMagicBitboards[i].mask
+                              & attack::bishopMagicBitboards[ourKingIdx].mask) | from);
             }
         } else if (from & rooks){
-            enemyAttackOurKing |= attack::getRookAttacks(i, occWithoutOurKing);
+            BB eAttack = attack::getRookAttacks(i, occWithoutOurKing);
+            enemyAttackOurKing |= eAttack;
+            if (eAttack & ourKing){
+                checkMask &= (attack::getRookAttacks(ourKingIdx, occ)
+                              & attack::rookMagicBitboards[i].mask);
+            }
         } else if (from & queens){
-            enemyAttackOurKing |= attack::getQueenAttacks(i, occWithoutOurKing);
+            BB eAttack = attack::getQueenAttacks(i, occWithoutOurKing);
+            enemyAttackOurKing |= eAttack;
+            if (eAttack & ourKing){
+
+                checkMask &= (attack::getQueenAttacks(ourKingIdx, occ)
+                              & (attack::rookMagicBitboards[i].mask | attack::bishopMagicBitboards[i].mask));
+            }
         } else if (from & kings){
             enemyAttackOurKing |= attack::kings[i];
             // Một quân vua không thể 'chiếu' quân vua khác
         }
     }
 
+    qDebug() << "Print checkmask" << bbToString(checkMask).c_str();
+
 //    if (checkMask)
     bool isCheck = (enemyAttackOurKing & ourKing) != 0;
-    
+
     count = 0;
     for (int i = 0; i < Square_Count; i++){
         u64 from = squareToBB(i);
