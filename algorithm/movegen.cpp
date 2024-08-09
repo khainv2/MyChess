@@ -51,15 +51,15 @@ void kc::generateMoveList(const Board &board, Move *moveList, int &count)
             BB eAttack = attack::getBishopAttacks(i, occWithoutOurKing);
             enemyAttackOurKing |= eAttack;
             if (eAttack & ourKing){
-                checkMask &= ((attack::bishopMagicBitboards[i].mask
-                              & attack::bishopMagicBitboards[ourKingIdx].mask) | from);
+                checkMask &= ((attack::getBishopAttacks(i, occ)
+                              & attack::getBishopAttacks(ourKingIdx, occ)) | from);
             }
         } else if (from & rooks){
             BB eAttack = attack::getRookAttacks(i, occWithoutOurKing);
             enemyAttackOurKing |= eAttack;
             if (eAttack & ourKing){
-                checkMask &= (attack::getRookAttacks(ourKingIdx, occ)
-                              & attack::rookMagicBitboards[i].mask);
+                checkMask &= ((attack::getRookAttacks(i, occ)
+                              & attack::getRookAttacks(ourKingIdx, occ)) | from);
             }
         } else if (from & queens){
             BB eAttack = attack::getQueenAttacks(i, occWithoutOurKing);
