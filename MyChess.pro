@@ -22,6 +22,7 @@ SOURCES += \
     algorithm/movegen.cpp \
     algorithm/util.cpp \
     chessboardview.cpp \
+    logger.cpp \
     main.cpp \
     mainwindow.cpp \
     promotionselectoindialog.cpp \
@@ -36,6 +37,7 @@ HEADERS += \
     algorithm/movegen.h \
     algorithm/util.h \
     chessboardview.h \
+    logger.h \
     mainwindow.h \
     promotionselectoindialog.h \
     test.h

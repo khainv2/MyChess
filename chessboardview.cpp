@@ -23,9 +23,18 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
     _pixmaps[BlackRook] = QPixmap(":/b_rook.png");
     _pixmaps[BlackQueen] = QPixmap(":/b_queen.png");
     _pixmaps[BlackKing] = QPixmap(":/b_king.png");
-//    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
+    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
 //    parseFENString("r3k2r/pppp3p/4p1p1/5p2/2B5/4PN2/PPPP1PPP/R3K2R w KQkq - 0 1", &_board); // Has castling
-    parseFENString("1r4r1/ppPp2kp/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 0 1", &_board); // promotion
+//    parseFENString("1rnb2r1/ppPp2kp/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 0 1", &_board); // promotion
+
+//    parseFENString("1rnQ2r1/pp1p1k1p/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 1 2", &_board); // check
+//    parseFENString("1rn1r3/pp3k1p/3p2p1/Q4p2/8/4QN2/PPP2PPP/R3K2R w KQ - 0 6", &_board); // mask
+
+//    parseFENString("8/6Q1/1K6/8/4p3/8/1k1P4/8 w - - 0 1", &_board); // En passsant 1
+//    parseFENString("8/8/1K6/8/k3p2N/8/3P4/8 w - - 0 1", &_board); // EP2
+
+//    parseFENString("k1K5/8/2Q5/8/8/5r2/8/8 w - - 0 1", &_board); // Chieu het
+//    ""
 //    parseFENString("4R3/R7/8/K3R3/R7/1R6/8/8 w KQkq - 0 1", &board);
 //    parseFENString("4B3/B7/8/K3B3/B7/1B6/B7/7B w KQkq - 0 1", &board);
 //    parseFENString("4N3/N7/8/K3N3/B7/1B6/B7/7B w KQkq - 0 1", &board);

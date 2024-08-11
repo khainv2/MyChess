@@ -53,9 +53,12 @@ constexpr u64 getSlideAttack(u64 square, int shift, u64 border){
     return t;
 }
 
-u64 getRookAttacks(int index, u64 occ);
-u64 getBishopAttacks(int index, u64 all);
-u64 getPawnAttacks(int index, u64 occ);
-u64 getQueenAttacks(int index, u64 occ);
+BB getRookAttacks(int index, u64 occ);
+BB getBishopAttacks(int index, u64 all);
+BB getQueenAttacks(int index, u64 occ);
+
+BB getRookXRay(int index, BB occ);
+BB getBishopXRay(int index, BB occ);
+
 }
 }

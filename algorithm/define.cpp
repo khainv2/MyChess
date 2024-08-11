@@ -4,6 +4,22 @@
 
 using namespace kc;
 
+std::string kc::bbToString(BB bb){
+    std::string s;
+    for (int r = 7; r >= 0; r--){
+        s += '\n';
+        for (int c = 0; c < 8; c++){
+            int idx = r * 8 + c;
+            s += (bb & (1ULL << idx)) ? 'x' : '_';
+            s += ' ';
+        }
+    }
+    // for (int i = 0; i < 64; i++){
+    //     s += (bb & 1) ? 'x' : '_';
+    //     bb >>= 1;
+    // }
+    return s;
+}
 
 std::string kc::Move::getDescription() const {
     auto s = src();

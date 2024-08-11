@@ -8,6 +8,21 @@ struct Board {
     BB colors[Color_NB] = {0};
     BB types[PieceType_NB] = {0};
 
+    bool isPieceAndColorTypeMatch() const {
+        for (int i = 0; i < Square_Count; i++){
+            auto piece = pieces[i];
+            if (piece == PieceNone)
+                continue;
+            auto color = pieceToColor(piece);
+            auto type = pieceToType(piece);
+            if (!(colors[color] & squareToBB(i)) || !(types[type] & squareToBB(i))){
+                qDebug() << "Piece and color/type mismatch at square " << i;
+                return false;
+            }
+        }
+        return true;
+    }
+
     Color side = White;
 
     bool whiteOOO = true;
@@ -16,7 +31,7 @@ struct Board {
     bool blackOO = true;
 
     // En passant target square
-    Square enPassant = A1;
+    Square enPassant = SquareNone;
     // Half move clock
     int halfMoveClock = 0;
     // Full move number
@@ -24,6 +39,9 @@ struct Board {
 
     Board(){}
 
+    constexpr inline int enPassantTarget(Color color) const {
+        return color == White ? enPassant + 8 : enPassant - 8;
+    }
     constexpr inline BB occupancy() const {
         return colors[White] | colors[Black]; 
     }
@@ -43,22 +61,11 @@ struct Board {
         return ~colors[1 - side];
     }
 
+    // 0 : No check, 1: 1 check, > 2: double check
+    int getCheckState() const;
 
+    int doMove(Move move);
 
-    void doMove(Move move);
-
-    std::string getPrintable() const {
-         std::string res = "";
-         for (int i = 0; i < 64; i++){
-             if (i % 8 == 0) res += "\n";
-             for (int j = 0; j < Piece_NB; j++){
-                 if (types[j] & squareToBB(i)){
-                     res += pieceToChar(Piece(j));
-                     break;
-                 }
-             }
-         }
-         return res;
-     }
+    std::string getPrintable(int tab = 0) const;
 };
 }

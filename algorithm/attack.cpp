@@ -41,10 +41,10 @@ void kc::attack::init()
                     | oneSquareAttack(square,  -6, B_D  | B_R2)
                     | oneSquareAttack(square, -10, B_D  | B_L2);
 
-        pawns[White][i] = oneSquareAttack(square, +7, B_U)
-                        | oneSquareAttack(square, +9, B_U);
-        pawns[Black][i] = oneSquareAttack(square, -7, B_D)
-                        | oneSquareAttack(square, -9, B_D);
+        pawns[White][i] = oneSquareAttack(square, +7, B_U | B_L)
+                        | oneSquareAttack(square, +9, B_U | B_R);
+        pawns[Black][i] = oneSquareAttack(square, -7, B_D | B_R)
+                        | oneSquareAttack(square, -9, B_D | B_L);
         pawnPushes[White][i] = oneSquareAttack<+8>(square, B_U);
         pawnPushes[Black][i] = oneSquareAttack<-8>(square, B_D);
         pawnPushes2[White][i] = oneSquareAttack<+16>(square, ~B_D2);
@@ -188,30 +188,41 @@ void attack::initMagicTable()
 }
 
 
-
-
-
-
-u64 attack::getPawnAttacks(int index, u64 occ)
-{
-    return 0;
-}
-
-u64 attack::getBishopAttacks(int index, u64 occ) {
+BB attack::getBishopAttacks(int index, u64 occ) {
     occ &= bishopMagicBitboards[index].mask;
     occ *= bishopMagicBitboards[index].magic;
     occ >>= BishopMagicShiftLength;
     return bishops[index][occ];
 }
 
-u64 attack::getRookAttacks(int index, u64 occ){
+BB attack::getRookAttacks(int index, u64 occ){
     occ &= rookMagicBitboards[index].mask;
     occ *= rookMagicBitboards[index].magic;
     occ >>= RookMagicShiftLength;
     return rooks[index][occ];
 }
 
-u64 attack::getQueenAttacks(int index, u64 occ)
-{
+BB attack::getQueenAttacks(int index, u64 occ){
     return getBishopAttacks(index, occ) | getRookAttacks(index, occ);
 }
+
+BB attack::getRookXRay(int index, BB occ){
+    BB attack = getRookAttacks(index, occ);
+    return getRookAttacks(index, (occ & ~(attack & occ)));
+}
+
+BB attack::getBishopXRay(int index, BB occ){
+    BB attack = getBishopAttacks(index, occ);
+    return getBishopAttacks(index, (occ & ~(attack & occ)));
+}
+
+
+
+
+
+
+
+
+
+
+
