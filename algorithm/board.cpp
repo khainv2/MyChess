@@ -227,3 +227,4 @@ std::string kc::Board::getPrintable(int tab) const {
 
 
 
+
