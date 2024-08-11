@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>578</width>
-    <height>292</height>
+    <width>596</width>
+    <height>307</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -36,6 +36,9 @@
           <string>Parse FEN</string>
          </property>
         </widget>
+       </item>
+       <item row="1" column="0">
+        <widget class="QLineEdit" name="le_Fen"/>
        </item>
        <item row="3" column="0">
         <widget class="QLabel" name="label">
@@ -100,7 +103,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>578</width>
+     <width>596</width>
      <height>21</height>
     </rect>
    </property>
