@@ -105,6 +105,7 @@ constexpr u64 lsbBB(u64 input) { return input & (-i64(input)); }
 
 using BB = u64;
 
+std::string bbToString(BB bb);
 constexpr BB Rank1_BB = 0xffULL;
 constexpr BB FileA_BB = 0x0101010101010101ULL;
 

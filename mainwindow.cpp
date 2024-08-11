@@ -34,8 +34,7 @@ void MainWindow::on_bt_StartCalculate_clicked()
     Move *movePtr = moves.data();
 
     int countTotal = 0;
-    int count;
-    generateMoveList(board, movePtr, count);
+    int count = generateMoveList(board, movePtr);
     countTotal += count;
 
 //    QList<BoardValue> states;
@@ -46,8 +45,7 @@ void MainWindow::on_bt_StartCalculate_clicked()
     for (int i = 0; i < count; i++){
         Board newBoard = board;
         newBoard.doMove(movePtr[i]);
-        int ncount;
-        generateMoveList(newBoard, movePtr + countTotal, ncount);
+        int ncount = generateMoveList(newBoard, movePtr + countTotal);
         for (int j = 0; j < ncount; j++){
             Board boardJ = newBoard;
             boardJ.doMove((movePtr + countTotal)[j]);
@@ -67,10 +65,8 @@ void MainWindow::on_bt_StartCalculate_clicked()
 
 void MainWindow::on_bt_ParseFen_clicked()
 {
-    auto boardView = new ChessBoardView;
     kc::Board cb;
     parseFENString(ui->le_Fen->text().toStdString(), &cb);
-    boardView->setBoard(cb);
-    boardView->show();
+    ui->chessBoard->setBoard(cb);
 }
 
