@@ -15,6 +15,40 @@
 
 using namespace kc;
 
+
+#include <iostream>
+#include <chrono>
+
+const int NUM_OPERATIONS = 1000000000;  // Số lượng phép toán lớn để thử nghiệm
+
+void testCpuPerformance() {
+    // Bắt đầu thời gian
+    auto start = std::chrono::high_resolution_clock::now();
+
+    // Số phép toán thực hiện
+    long long operationCount = 0;
+
+    // Thực hiện phép toán liên tục trong vòng 10 giây
+    while (true) {
+        // Thực hiện phép cộng đơn giản
+        int a = 1;
+        int b = 2;
+        int c = a + b;
+
+        operationCount++;
+
+        // Kiểm tra thời gian đã trôi qua
+        auto now = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = now - start;
+
+        if (elapsed.count() >= 10.0) { // Đoạn mã chạy trong 10 giây
+            break;
+        }
+    }
+
+    std::cout << "Number of operations in 10 seconds: " << operationCount << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
         QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
@@ -34,12 +68,11 @@ int main(int argc, char *argv[])
     attack::init();
     qDebug() << "Time init attack" << (timer.nsecsElapsed() / 1000) << "us";
 
-    kc::Board board;
-    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
+//    testCpuPerformance();
 
 //    qDebug() << "King board" << bbToString(board.types[King]).c_str();
 
-    kc::generateMove(board);
+    kc::generateMove();
     MainWindow w;
     w.show();
 
