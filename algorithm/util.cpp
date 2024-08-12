@@ -120,11 +120,14 @@ bool parseFENString(const std::string &fen, Board *result)
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     // rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1
 
-    if (fen.empty())
+    if (fen.empty()){
+        qDebug( )<< "fen empty";
         return false;
+    }
     
     auto segments = split(fen, " ");
     if (segments.size() != 6){
+        qDebug() << "error num of segment not valid";
         return false;
     }
 
@@ -132,6 +135,7 @@ bool parseFENString(const std::string &fen, Board *result)
     auto pieceData = segments.at(0);
     auto pieceRowList = split(pieceData, "/");
     if (pieceRowList.size() != Rank_NB){
+        qDebug() << "Num rank not valid";
         return false;
     }
 

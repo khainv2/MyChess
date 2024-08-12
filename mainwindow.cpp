@@ -65,6 +65,7 @@ void MainWindow::on_bt_StartCalculate_clicked()
 
 void MainWindow::on_bt_ParseFen_clicked()
 {
+    qDebug() << "Parse fen" << ui->le_Fen->text();
     kc::Board cb;
     parseFENString(ui->le_Fen->text().toStdString(), &cb);
     ui->chessBoard->setBoard(cb);

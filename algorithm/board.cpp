@@ -6,15 +6,24 @@
 
 int kc::Board::getCheckState() const {
     BB ourKing = types[King] & mines();
-    int ourKingIdx = bbToSquare(ourKing);
+
+
     BB occ = occupancy();
     BB enem = enemies();
+
     const BB &pawns = types[Pawn];
     const BB &knights = types[Knight];
     const BB &bishops = types[Bishop];
     const BB &rooks = types[Rook];
     const BB &queens = types[Queen];
     const BB &kings = types[King];
+
+    // Kiểm tra xem các tốt có đang chiếu hay không
+
+    BB enemiesPawn = enem & pawns;
+//    BB enemiesPawnAttack = (enemiesPawn << 7)
+
+
     int countCheck = 0;
     for (int i = 0; i < Square_Count; i++){
         u64 from = squareToBB(i);

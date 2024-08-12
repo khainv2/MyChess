@@ -59,7 +59,7 @@ int kc::generateMoveList(const Board &board, Move *moveList)
             }
             BB xrayAttack = attack::getBishopXRay(i, occ);
             if (xrayAttack & ourKing){
-                pinMaskDiagonal |= ((xrayAttack & attack::bishopMagicBitboards[ourKingIdx].mask & (~ourKing)) | from);
+                pinMaskDiagonal |= ((xrayAttack & attack::getBishopXRay(ourKingIdx, occ)& (~ourKing)) | from);
             }
         } else if (from & rooks){
             BB eAttack = attack::getRookAttacks(i, occWithoutOurKing);
@@ -70,7 +70,7 @@ int kc::generateMoveList(const Board &board, Move *moveList)
             }
             BB xrayAttack = attack::getRookXRay(i, occ);
             if (xrayAttack & ourKing){
-                pinMaskCross |= ((xrayAttack & attack::rookMagicBitboards[ourKingIdx].mask & (~ourKing)) | from);
+                pinMaskCross |= ((xrayAttack & attack::getRookXRay(ourKingIdx, occ) & (~ourKing)) | from);
             }
         } else if (from & queens){
             BB eAttack = attack::getQueenAttacks(i, occWithoutOurKing);
@@ -88,11 +88,11 @@ int kc::generateMoveList(const Board &board, Move *moveList)
             }
             BB xrayRookAttack = attack::getRookXRay(i, occ);
             if (xrayRookAttack & ourKing){
-                pinMaskCross |= ((xrayRookAttack & attack::rookMagicBitboards[ourKingIdx].mask & (~ourKing)) | from);
+                pinMaskCross |= ((xrayRookAttack & attack::getRookXRay(ourKingIdx, occ) & (~ourKing)) | from);
             }
             BB xrayBishopAttack = attack::getBishopXRay(i, occ);
             if (xrayBishopAttack & ourKing){
-                pinMaskDiagonal |= ((xrayBishopAttack & attack::bishopMagicBitboards[ourKingIdx].mask & (~ourKing)) | from);
+                pinMaskDiagonal |= ((xrayBishopAttack & attack::getBishopXRay(ourKingIdx, occ) & (~ourKing)) | from);
             }
         } else if (from & kings){
             enemyAttackOurKing |= attack::kings[i];
@@ -100,10 +100,6 @@ int kc::generateMoveList(const Board &board, Move *moveList)
         }
     }
 
-    bool isCheck = (enemyAttackOurKing & ourKing) != 0;
-    if (!isCheck){
-
-    }
 //    qDebug() << "Pin mask diag" << bbToString(pinMaskDiagonal).c_str();
 
     int count = 0;
@@ -117,7 +113,7 @@ int kc::generateMoveList(const Board &board, Move *moveList)
                 attack = attackPawns[i] & enemies & checkMask & pinMaskDiagonal;
             } else if (pinMaskCross & from){
                 attack = ((attackPawnPushes[i] & notOcc)
-                        | (attackPawnPushes2[i] & pawnPush2Mask)) & checkMask;
+                        | (attackPawnPushes2[i] & pawnPush2Mask)) & checkMask & pinMaskCross;
             } else {
                 attack = (attackPawns[i] & enemies)
                        | (attackPawnPushes[i] & notOcc)
@@ -218,7 +214,6 @@ int kc::generateMoveList(const Board &board, Move *moveList)
             attack ^= to;
         }
     }
-//    qDebug() << "Next count" << count;
     return count;
 }
 
@@ -282,21 +277,31 @@ int countCapture = 0;
 int countCheck = 0;
 std::map<std::string, int> divideCount;
 std::string currMove;
-void kc::generateMove(const Board &b)
+
+QElapsedTimer myTimer;
+qint64 genTick = 0;
+qint64 moveTick = 0;
+void kc::generateMove()
 {
+//    return;
+    kc::Board board;
+    // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+    // rnbqk1nr/pppp1ppp/8/P3p3/1b6/8/1PPPPPPP/RNBQKBNR w KQkq - 1 3
+    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
+
     QElapsedTimer timer;
     timer.start();
 
 //    std::vector<Move> moves;
     constexpr int MaxMoveSize = 1000000000;
     Move *moves = reinterpret_cast<Move *>(malloc(sizeof(Move) * MaxMoveSize));
-    Board board = b;
 
     qint64 t1 = timer.nsecsElapsed() / 1000000;
 
 //    qDebug() << "Start init move list";
 
     int countTotal = 0;
+    myTimer.start();
     genMoveRecur(board, moves, countTotal, FixedDepth);
 
     qint64 t = timer.nsecsElapsed() / 1000000;
@@ -305,35 +310,50 @@ void kc::generateMove(const Board &b)
     qDebug() << "Time for multi board" << t << "ms";
     qDebug() << "Total move calculated" << countPerft << countMate << countCapture << countCheck;
 
-    QList<QPair<std::string, std::string>> vals;
-    for  (auto &it : divideCount){
-        vals.append(qMakePair(it.first.c_str(), std::to_string(it.second)));
+    qDebug() << "Count tick" << (genTick / 1000000) << (moveTick / 1000000);
 
+    return;
+
+
+
+    for (auto it = divideCount.begin(); it != divideCount.end(); it++){
+        qDebug() << it->first.c_str() << it->second;
     }
 
-    // Sort the list
-    std::sort(vals.begin(), vals.end(), [](const QPair<std::string, std::string> &a, const QPair<std::string, std::string> &b){
-        // return a.second.toInt() > b.second.toInt();
-        std::string keyA = a.first;
-        // Key is in the form of "e2>e4"
-        std::string srcA = keyA.substr(0, 2);
-        std::string dstA = keyA.substr(3, 2);
-        std::string keyB = b.first;
-        std::string srcB = keyB.substr(0, 2);
-        std::string dstB = keyB.substr(3, 2);
-
-        int srcIndexA = srcA[0] - 'A' + (srcA[1] - '1') * 8;
-        int dstIndexA = dstA[0] - 'A' + (dstA[1] - '1') * 8;
-        int srcIndexB = srcB[0] - 'A' + (srcB[1] - '1') * 8;
-        int dstIndexB = dstB[0] - 'A' + (dstB[1] - '1') * 8;
-
-        return srcIndexA < srcIndexB || (srcIndexA == srcIndexB && dstIndexA < dstIndexB);
+    // COnvert divide count keys: A1>A2 to a1a2
+    std::map<std::string, int> newDivideCount;
+    for (auto it = divideCount.begin(); it != divideCount.end(); it++){
+        auto key = it->first;
+        auto value = it->second;
+        std::string newKey = "";
+        newKey += key[0] + 32;
+        newKey += key[1];
+        newKey += key[3] + 32;
+        newKey += key[4];
+        newDivideCount[newKey] = value;
+    }
+    divideCount = newDivideCount;
 
 
-    });
+    QString sample = "a2a3: 22 b2b3: 22 c2c3: 22 d2d3: 22 f2f3: 22 g2g3: 22 h2h3: 22 a2a4: 22 b2b4: 22 c2c4: 22 d2d4: 23 f2f4: 23 h2h4: 22 b1a3: 22 b1c3: 22 g1e2: 22 g1f3: 22 g1h3: 22 f1e2: 22 f1d3: 22 f1c4: 22 f1b5: 21 f1a6: 21 g4d1: 23 g4e2: 23 g4f3: 22 g4g3: 23 g4h3: 22 g4f4: 23 g4h4: 6 g4f5: 20 g4g5: 5 g4h5: 22 g4e6: 3 g4g6: 20 g4d7: 5 g4g7: 19 e1d1: 22 e1e2: 22";
 
-    for (auto &it : vals){
-        qDebug() << it.first.c_str() << it.second.c_str();
+    sample = sample.replace(':', "");
+
+    std::map<std::string, int> sampleDivide;
+    auto sp = sample.split(' ');
+    for (int i = 0; i < sp.size(); i++){
+        if (i % 2 == 0){
+            sampleDivide[sp[i].toStdString()] = sp[i + 1].toInt();
+        }
+    }
+
+    // Compare sample divide count with divide count
+    for (auto it = divideCount.begin(); it != divideCount.end(); it++){
+        auto key = it->first;
+        auto value = it->second;
+        if (sampleDivide[key] != value){
+            qDebug() << "Error at" << key.c_str() << "expected" << sampleDivide[key] << "but got" << value;
+        }
     }
 
 }
@@ -341,11 +361,14 @@ void kc::generateMove(const Board &b)
 void kc::genMoveRecur(const Board &board, Move *ptr, int &totalCount, int depth)
 {
     // qDebug() << board.getPrintable(FixedDepth - depth).c_str();
+    qint64 startGen = myTimer.nsecsElapsed();
     auto moves = ptr + totalCount;
     int count = generateMoveList(board, moves);
     if (count == 0){
         countMate++;
     }
+    qint64 endGen = myTimer.nsecsElapsed();
+    genTick += (endGen - startGen);
 
     if (depth == 0){
         countPerft++;
@@ -355,12 +378,15 @@ void kc::genMoveRecur(const Board &board, Move *ptr, int &totalCount, int depth)
     totalCount += count;
 
     for (int i = 0; i < count; i++){
+        qint64 startMove = myTimer.nsecsElapsed();
         Board newBoard = board;
         if (depth == FixedDepth){
             currMove = moves[i].getDescription();
             qDebug() << "Start cal for move" << moves[i].getDescription().c_str();
         }
         countCapture += newBoard.doMove(moves[i]);
+        qint64 endMove = myTimer.nsecsElapsed();
+        moveTick += (endMove - startMove);
         genMoveRecur(newBoard, ptr, totalCount, depth - 1);
     }
 }
