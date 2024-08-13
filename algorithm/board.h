@@ -61,8 +61,8 @@ struct Board {
         return ~colors[1 - side];
     }
 
-    // 0 : No check, 1: 1 check, > 2: double check
-    int getCheckState() const;
+    template <Color color>
+    BB getCheckMask() const;
 
     int doMove(Move move);
 

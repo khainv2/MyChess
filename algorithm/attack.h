@@ -35,6 +35,7 @@ constexpr u64 oneSquareAttack(u64 square, u64 border){
             return square >> -shift;
     }
 }
+
 constexpr u64 oneSquareAttack(u64 square, int shift, u64 border){
     if ((square & border) == 0){
         if (shift > 0) square <<= shift;
@@ -43,6 +44,16 @@ constexpr u64 oneSquareAttack(u64 square, int shift, u64 border){
     }
     return 0;
 }
+
+template <int shift, BB border>
+static constexpr inline BB oneAttack(BB square){
+    if constexpr (shift > 0){
+        return (square & ~border) << shift;
+    } else {
+        return (square & ~border) >> (-shift);
+    }
+}
+
 constexpr u64 getSlideAttack(u64 square, int shift, u64 border){
     u64 t = 0;
     while ((square & border) == 0) {
@@ -53,12 +64,58 @@ constexpr u64 getSlideAttack(u64 square, int shift, u64 border){
     return t;
 }
 
-BB getRookAttacks(int index, u64 occ);
-BB getBishopAttacks(int index, u64 all);
-BB getQueenAttacks(int index, u64 occ);
+template <Color color>
+static constexpr inline BB getPawnAttacks(BB pawn){
+    if constexpr (color == White){
+        return oneAttack<+7, B_U | B_L>(pawn) | oneAttack<+9, B_U | B_R>(pawn);
+    } else {
+        return oneAttack<-7, B_D | B_R>(pawn) | oneAttack<-9, B_D | B_L>(pawn);
+    }
+}
 
-BB getRookXRay(int index, BB occ);
-BB getBishopXRay(int index, BB occ);
+static constexpr inline BB getKnightAttacks(BB square){
+    return oneAttack<+17, B_U2 | B_R >(square)
+        | oneAttack<+15, B_U2 | B_L >(square)
+        | oneAttack<-15, B_D2 | B_R >(square)
+        | oneAttack<-17, B_D2 | B_L >(square)
+        | oneAttack<+10, B_U  | B_R2>(square)
+        | oneAttack< +6, B_U  | B_L2>(square)
+        | oneAttack< -6, B_D  | B_R2>(square)
+        | oneAttack<-10, B_D  | B_L2>(square);
+    // return oneSquareAttack(square, +17, B_U2 | B_R )
+    //     | oneSquareAttack(square, +15, B_U2 | B_L )
+    //     | oneSquareAttack(square, -15, B_D2 | B_R )
+    //     | oneSquareAttack(square, -17, B_D2 | B_L )
+    //     | oneSquareAttack(square, +10, B_U  | B_R2)
+    //     | oneSquareAttack(square,  +6, B_U  | B_L2)
+    //     | oneSquareAttack(square,  -6, B_D  | B_R2)
+    //     | oneSquareAttack(square, -10, B_D  | B_L2);
+}
+
+inline static constexpr BB getRookAttacks(int index, u64 occ){
+    occ &= rookMagicBitboards[index].mask;
+    occ *= rookMagicBitboards[index].magic;
+    occ >>= RookMagicShiftLength;
+    return rooks[index][occ];
+}
+inline static constexpr BB getBishopAttacks(int index, u64 occ) {
+    occ &= bishopMagicBitboards[index].mask;
+    occ *= bishopMagicBitboards[index].magic;
+    occ >>= BishopMagicShiftLength;
+    return bishops[index][occ];
+}
+inline static constexpr BB getQueenAttacks(int index, u64 occ){
+    return getBishopAttacks(index, occ) | getRookAttacks(index, occ);
+}
+
+inline static constexpr BB getRookXRay(int index, BB occ){
+    BB attack = getRookAttacks(index, occ);
+    return getRookAttacks(index, (occ & ~(attack & occ)));
+}
+inline static constexpr BB getBishopXRay(int index, BB occ){
+    BB attack = getBishopAttacks(index, occ);
+    return getBishopAttacks(index, (occ & ~(attack & occ)));
+}
 
 }
 }

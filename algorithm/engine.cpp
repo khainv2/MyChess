@@ -33,7 +33,7 @@ int Engine::alphabeta(const Board &chessBoard, int depth, Color color, int alpha
     }
 
     Move moves[256];
-    int count = generateMoveList(chessBoard, moves);
+    int count = /*generateMoveList(chessBoard, moves);*/ 0;
 
     if (color == White){
         int max = -Infinity;

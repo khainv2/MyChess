@@ -7,16 +7,27 @@
 #include "util.h"
 
 using namespace kc;
+
+
+//template
 int kc::generateMoveList(const Board &board, Move *moveList)
+{
+    if (board.side == White){
+        return genMoveList<White>(board, moveList);
+    } else {
+        return genMoveList<Black>(board, moveList);
+    }
+}
+
+template<Color color>
+int kc::genMoveList(const Board &board, Move *moveList)
 {
     BB mines = board.mines();
     BB notMines = ~mines;
     BB enemies = board.enemies();
     BB occ = board.occupancy();
     BB notOcc = ~occ;
-    Color color = board.side;
-    BB notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
-    BB pawnPush2Mask = notOcc & notOccShift8ByColor;
+//    Color color = board.side;
     const BB *attackPawns = attack::pawns[color];
     const BB *attackPawnPushes = attack::pawnPushes[color];
     const BB *attackPawnPushes2 = attack::pawnPushes2[color];
@@ -34,6 +45,19 @@ int kc::generateMoveList(const Board &board, Move *moveList)
     BB checkMask = All_BB; // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
     BB pinMaskCross = 0;
     BB pinMaskDiagonal = 0;
+
+    BB enemyPawnAttacks = attack::getPawnAttacks<color>(enemies & pawns);
+    BB enemyKnightAttacks = attack::getKnightAttacks(enemies & knights);
+    BB enemyBishops = enemies & bishops;
+    while (enemyBishops) {
+        BB bishop = lsbBB(enemyBishops);
+
+        enemyBishops ^= bishop;
+    }
+
+//    qDebug() << "enemyPawnAttacks" << bbToString(enemy/*P*/awnAttacks).c_str();
+
+
     for (int i = 0; i < Square_Count; i++){
         u64 from = squareToBB(i);
         if ((from & enemies) == 0)
@@ -102,6 +126,8 @@ int kc::generateMoveList(const Board &board, Move *moveList)
 
 //    qDebug() << "Pin mask diag" << bbToString(pinMaskDiagonal).c_str();
 
+    BB notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
+    BB pawnPush2Mask = notOcc & notOccShift8ByColor;
     int count = 0;
     for (int i = 0; i < Square_Count; i++){
         u64 from = squareToBB(i);
@@ -139,7 +165,6 @@ int kc::generateMoveList(const Board &board, Move *moveList)
                     enemyRookOrQueen = lsbBB(enemieRookOrQueenInRanks);
                     int sqRQ = bbToSquare(enemyRookOrQueen);
                     BB rookQueenAttack = attack::getRookAttacks(sqRQ, occWithout2Pawn);
-                    qDebug() << "rookQueenAttack" << bbToString(rookQueenAttack).c_str();
                     if (rookQueenAttack & ourKing){
                         isKingSeenByEnemyRookOrQueen = true;
                         break;
@@ -217,6 +242,7 @@ int kc::generateMoveList(const Board &board, Move *moveList)
     return count;
 }
 
+
 int kc::countMoveList(const Board &board, Color color)
 {
     u64 mines = board.colors[color];
@@ -270,8 +296,7 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     return output;
 }
 
-constexpr static int FixedDepth = 5;
-int countPerft = 0;
+constexpr static int FixedDepth = 4;
 int countMate = 0;
 int countCapture = 0;
 int countCheck = 0;
@@ -281,7 +306,7 @@ std::string currMove;
 QElapsedTimer myTimer;
 qint64 genTick = 0;
 qint64 moveTick = 0;
-void kc::generateMove()
+void kc::testPerft()
 {
 //    return;
     kc::Board board;
@@ -293,22 +318,18 @@ void kc::generateMove()
     timer.start();
 
 //    std::vector<Move> moves;
-    constexpr int MaxMoveSize = 1000000000;
-    Move *moves = reinterpret_cast<Move *>(malloc(sizeof(Move) * MaxMoveSize));
+//    constexpr int MaxMoveSize = 1000000000;
 
-    qint64 t1 = timer.nsecsElapsed() / 1000000;
+
 
 //    qDebug() << "Start init move list";
 
-    int countTotal = 0;
     myTimer.start();
-    genMoveRecur(board, moves, countTotal, FixedDepth);
+    int countTotal = genMoveRecur(board, FixedDepth);
 
     qint64 t = timer.nsecsElapsed() / 1000000;
-    free(moves);
-    qDebug() << "Time for allocate mem" << t1 << "ms";
     qDebug() << "Time for multi board" << t << "ms";
-    qDebug() << "Total move calculated" << countPerft << countMate << countCapture << countCheck;
+    qDebug() << "Total move calculated" << countMate << countCapture << countCheck << countTotal;
 
     qDebug() << "Count tick" << (genTick / 1000000) << (moveTick / 1000000);
 
@@ -358,11 +379,11 @@ void kc::generateMove()
 
 }
 
-void kc::genMoveRecur(const Board &board, Move *ptr, int &totalCount, int depth)
+int kc::genMoveRecur(const Board &board, int depth)
 {
     // qDebug() << board.getPrintable(FixedDepth - depth).c_str();
     qint64 startGen = myTimer.nsecsElapsed();
-    auto moves = ptr + totalCount;
+    Move *moves = reinterpret_cast<Move *>(malloc(sizeof(Move) * 256));
     int count = generateMoveList(board, moves);
     if (count == 0){
         countMate++;
@@ -371,12 +392,11 @@ void kc::genMoveRecur(const Board &board, Move *ptr, int &totalCount, int depth)
     genTick += (endGen - startGen);
 
     if (depth == 0){
-        countPerft++;
         divideCount[currMove]++;
-        return;
+        return 1;
     }
-    totalCount += count;
 
+    int total = 0;
     for (int i = 0; i < count; i++){
         qint64 startMove = myTimer.nsecsElapsed();
         Board newBoard = board;
@@ -387,10 +407,12 @@ void kc::genMoveRecur(const Board &board, Move *ptr, int &totalCount, int depth)
         countCapture += newBoard.doMove(moves[i]);
         qint64 endMove = myTimer.nsecsElapsed();
         moveTick += (endMove - startMove);
-        genMoveRecur(newBoard, ptr, totalCount, depth - 1);
+        total += genMoveRecur(newBoard, depth - 1);
     }
-}
+    free(moves);
 
+    return total;
+}
 
 
 

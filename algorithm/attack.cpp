@@ -32,19 +32,10 @@ void kc::attack::init()
                     | oneSquareAttack(square, -7, B_D | B_R)
                     | oneSquareAttack(square, -9, B_D | B_L);
 
-        knights[i] =  oneSquareAttack(square, +17, B_U2 | B_R )
-                    | oneSquareAttack(square, +15, B_U2 | B_L )
-                    | oneSquareAttack(square, -15, B_D2 | B_R )
-                    | oneSquareAttack(square, -17, B_D2 | B_L )
-                    | oneSquareAttack(square, +10, B_U  | B_R2)
-                    | oneSquareAttack(square,  +6, B_U  | B_L2)
-                    | oneSquareAttack(square,  -6, B_D  | B_R2)
-                    | oneSquareAttack(square, -10, B_D  | B_L2);
+        knights[i] = getKnightAttacks(square);
 
-        pawns[White][i] = oneSquareAttack(square, +7, B_U | B_L)
-                        | oneSquareAttack(square, +9, B_U | B_R);
-        pawns[Black][i] = oneSquareAttack(square, -7, B_D | B_R)
-                        | oneSquareAttack(square, -9, B_D | B_L);
+        pawns[White][i] = getPawnAttacks<White>(square);
+        pawns[Black][i] = getPawnAttacks<Black>(square);
         pawnPushes[White][i] = oneSquareAttack<+8>(square, B_U);
         pawnPushes[Black][i] = oneSquareAttack<-8>(square, B_D);
         pawnPushes2[White][i] = oneSquareAttack<+16>(square, ~B_D2);
@@ -188,33 +179,15 @@ void attack::initMagicTable()
 }
 
 
-BB attack::getBishopAttacks(int index, u64 occ) {
-    occ &= bishopMagicBitboards[index].mask;
-    occ *= bishopMagicBitboards[index].magic;
-    occ >>= BishopMagicShiftLength;
-    return bishops[index][occ];
-}
 
-BB attack::getRookAttacks(int index, u64 occ){
-    occ &= rookMagicBitboards[index].mask;
-    occ *= rookMagicBitboards[index].magic;
-    occ >>= RookMagicShiftLength;
-    return rooks[index][occ];
-}
 
-BB attack::getQueenAttacks(int index, u64 occ){
-    return getBishopAttacks(index, occ) | getRookAttacks(index, occ);
-}
 
-BB attack::getRookXRay(int index, BB occ){
-    BB attack = getRookAttacks(index, occ);
-    return getRookAttacks(index, (occ & ~(attack & occ)));
-}
 
-BB attack::getBishopXRay(int index, BB occ){
-    BB attack = getBishopAttacks(index, occ);
-    return getBishopAttacks(index, (occ & ~(attack & occ)));
-}
+
+
+
+
+
 
 
 
