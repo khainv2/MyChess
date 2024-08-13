@@ -219,10 +219,10 @@ public:
 
     std::string getDescription() const;
 
-    static Move makeNormalMove(int src, int dst) { return Move(src + (dst << 6)); }
-    static Move makeEnpassantMove(int src, int dst) { return Move(src + (dst << 6) + Enpassant); }
-    static Move makeCastlingMove(int src, int dst) { return Move(src + (dst << 6) + Castling); }
-    static Move makePromotionMove(int src, int dst, PieceType p) { return Move(src + (dst << 6) + Promotion + ((p - 2) << 12)); }
+    static constexpr inline Move makeNormalMove(int src, int dst) { return Move(src + (dst << 6)); }
+    static constexpr inline Move makeEnpassantMove(int src, int dst) { return Move(src + (dst << 6) + Enpassant); }
+    static constexpr inline Move makeCastlingMove(int src, int dst) { return Move(src + (dst << 6) + Castling); }
+    static constexpr inline Move makePromotionMove(int src, int dst, PieceType p) { return Move(src + (dst << 6) + Promotion + ((p - 2) << 12)); }
 private:
     u16 move;
 };

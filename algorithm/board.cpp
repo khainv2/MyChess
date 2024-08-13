@@ -4,9 +4,11 @@
 #include "evaluation.h"
 #include "attack.h"
 
-int kc::Board::getCheckState() const {
-    BB ourKing = types[King] & mines();
+using namespace kc;
 
+template <Color color>
+BB kc::Board::getCheckMask() const {
+    BB ourKing = types[King] & colors[color];
 
     BB occ = occupancy();
     BB enem = enemies();

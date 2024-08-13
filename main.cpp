@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 
 //    qDebug() << "King board" << bbToString(board.types[King]).c_str();
 
-    kc::generateMove();
+    kc::testPerft();
     MainWindow w;
     w.show();
 
