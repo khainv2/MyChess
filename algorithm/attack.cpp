@@ -23,14 +23,7 @@ void kc::attack::init()
     initMagicTable();
     for (int i = 0; i < 64; i++){
         u64 square = squareToBB(i);
-        kings[i] =    oneSquareAttack(square,  8, B_U)
-                    | oneSquareAttack(square, -8, B_D)
-                    | oneSquareAttack(square, -1, B_L)
-                    | oneSquareAttack(square,  1, B_R)
-                    | oneSquareAttack(square,  9, B_U | B_R)
-                    | oneSquareAttack(square,  7, B_U | B_L)
-                    | oneSquareAttack(square, -7, B_D | B_R)
-                    | oneSquareAttack(square, -9, B_D | B_L);
+        kings[i] = getKingAttacks(square);
 
         knights[i] = getKnightAttacks(square);
 
