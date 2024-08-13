@@ -82,14 +82,17 @@ static constexpr inline BB getKnightAttacks(BB square){
         | oneAttack< +6, B_U  | B_L2>(square)
         | oneAttack< -6, B_D  | B_R2>(square)
         | oneAttack<-10, B_D  | B_L2>(square);
-    // return oneSquareAttack(square, +17, B_U2 | B_R )
-    //     | oneSquareAttack(square, +15, B_U2 | B_L )
-    //     | oneSquareAttack(square, -15, B_D2 | B_R )
-    //     | oneSquareAttack(square, -17, B_D2 | B_L )
-    //     | oneSquareAttack(square, +10, B_U  | B_R2)
-    //     | oneSquareAttack(square,  +6, B_U  | B_L2)
-    //     | oneSquareAttack(square,  -6, B_D  | B_R2)
-    //     | oneSquareAttack(square, -10, B_D  | B_L2);
+}
+
+static constexpr inline BB getKingAttacks(BB square){
+    return oneAttack<+8, B_U>(square)
+        | oneAttack<-8, B_D>(square)
+        | oneAttack<-1, B_L>(square)
+        | oneAttack<+1, B_R>(square)
+        | oneAttack<+9, B_U | B_R>(square)
+        | oneAttack<+7, B_U | B_L>(square)
+        | oneAttack<-7, B_D | B_R>(square)
+        | oneAttack<-9, B_D | B_L>(square);
 }
 
 inline static constexpr BB getRookAttacks(int index, u64 occ){

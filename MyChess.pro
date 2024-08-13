@@ -15,6 +15,7 @@ CONFIG += c++11
 
 SOURCES += \
     algorithm/attack.cpp \
+    algorithm/bitwise.cpp \
     algorithm/board.cpp \
     algorithm/define.cpp \
     algorithm/engine.cpp \
@@ -30,6 +31,7 @@ SOURCES += \
 
 HEADERS += \
     algorithm/attack.h \
+    algorithm/bitwise.h \
     algorithm/board.h \
     algorithm/define.h \
     algorithm/engine.h \
