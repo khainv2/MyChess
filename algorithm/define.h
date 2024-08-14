@@ -27,7 +27,7 @@ enum Color: u8 {
     White, Black, Color_NB
 };
 // Create toggle operator for color
-constexpr Color operator!(Color c){
+static constexpr Color operator!(Color c){
     return Color(!int(c));
 }
 enum PieceType : u8 {

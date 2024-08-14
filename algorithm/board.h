@@ -37,6 +37,8 @@ struct Board {
     // Full move number
     int fullMoveNumber = 0;
 
+    Piece capturedPiece;
+
     Board(){}
 
     constexpr inline int enPassantTarget(Color color) const {
@@ -48,6 +50,18 @@ struct Board {
     constexpr inline BB occupancy(Color color) const {
         return colors[color];
     }
+
+    template <Color color>
+    constexpr inline BB getMines() const {
+        return colors[color];
+    }
+
+    template <Color color>
+    constexpr inline BB getEnemies() const {
+        return colors[!color];
+    }
+
+
     constexpr inline BB mines() const {
         return colors[side];
     }
@@ -65,6 +79,7 @@ struct Board {
     BB getCheckMask() const;
 
     int doMove(Move move);
+    int undoMove(Move move);
 
     std::string getPrintable(int tab = 0) const;
 };
