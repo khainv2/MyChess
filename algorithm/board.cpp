@@ -6,71 +6,20 @@
 
 using namespace kc;
 
-template <Color color>
-BB kc::Board::getCheckMask() const {
-    BB ourKing = types[King] & colors[color];
-
-    BB occ = occupancy();
-    BB enem = enemies();
-
-    const BB &pawns = types[Pawn];
-    const BB &knights = types[Knight];
-    const BB &bishops = types[Bishop];
-    const BB &rooks = types[Rook];
-    const BB &queens = types[Queen];
-    const BB &kings = types[King];
-
-    // Kiểm tra xem các tốt có đang chiếu hay không
-
-    BB enemiesPawn = enem & pawns;
-//    BB enemiesPawnAttack = (enemiesPawn << 7)
-
-
-    int countCheck = 0;
-    for (int i = 0; i < Square_Count; i++){
-        u64 from = squareToBB(i);
-        if ((from & enem) == 0)
-            continue;
-        if (from & pawns){
-            if (attack::pawns[!side][i] & ourKing){
-                countCheck++;
-            }
-        } else if (from & knights){
-            if (attack::knights[i] & ourKing){
-                countCheck++;
-            }
-        } else if (from & bishops){
-            BB eAttack = attack::getBishopAttacks(i, occ);
-            if (eAttack & ourKing){
-                countCheck++;
-            }
-        } else if (from & rooks){
-            BB eAttack = attack::getRookAttacks(i, occ);
-            if (eAttack & ourKing){
-                countCheck++;
-            }
-        } else if (from & queens){
-            BB eAttack = attack::getQueenAttacks(i, occ);
-            if (eAttack & ourKing){
-                countCheck++;
-            }
-        }
-    }
-    return countCheck;
-}
-
 int kc::Board::doMove(Move move){
-    int capture = 0;
-    const auto &src = move.src();
-    const auto &dst = move.dst();
+    
+
+    const int src = move.src();
+    const int dst = move.dst();
+
     auto pieceSrc = pieces[src];
     auto srcColor = pieceToColor(pieceSrc);
     auto srcType = pieceToType(pieceSrc);
 
     auto enemyColor = !srcColor;
 
-    const auto &srcBB = squareToBB(src);
-    const auto &dstBB = squareToBB(dst);
+    const auto &srcBB = indexToBB(src);
+    const auto &dstBB = indexToBB(dst);
     const auto &toggleBB = srcBB | dstBB;
 
     // Di chuyển bitboard (xóa một ô trong trường hợp ô đến trống)
@@ -130,7 +79,7 @@ int kc::Board::doMove(Move move){
 
     if (move.type() == Move::Enpassant){
         int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
-        BB enemyPawnBB = squareToBB(enemyPawn);
+        BB enemyPawnBB = indexToBB(enemyPawn);
         colors[enemyColor] &= ~enemyPawnBB;
         types[Pawn] &= ~enemyPawnBB;
         pieces[enemyPawn] = PieceNone;
@@ -157,6 +106,8 @@ int kc::Board::doMove(Move move){
 int Board::undoMove(Move move)
 {
 
+
+    return 0;
 }
 
 std::string kc::Board::getPrintable(int tab) const {

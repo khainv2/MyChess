@@ -4,10 +4,6 @@
 #endif
 #include <string>
 
-#ifdef C2
-#undef C2
-#endif
-
 namespace kc {
 using u8 = unsigned char;
 using u16 = unsigned int;
@@ -121,12 +117,14 @@ constexpr static BB fileBB(File f){
 
 constexpr BB All_BB = 0xffffffffffffffffULL;
 
-constexpr static BB squareToBB(Square sq){
+constexpr static BB indexToBB(Square sq){
     return 1ULL << sq;
 }
-constexpr BB squareToBB(int idx){
+constexpr BB indexToBB(int idx){
     return 1ULL << idx;
 }
+template <int index>
+constexpr static BB toBB(){ return 1ULL << index; }
 
 static inline Square lsb(u64 bb) {
     unsigned long idx;
@@ -154,51 +152,31 @@ inline Square popLsb(BB& b) {
 
 // Vị trí của quân nhập thành
 constexpr static Square CastlingWKOO = G1;
-constexpr static BB CastlingWROO_Toggle = squareToBB(F1) | squareToBB(H1);
+constexpr static BB CastlingWROO_Toggle = indexToBB(F1) | indexToBB(H1);
 constexpr static Square CastlingWKOOO = C1;
-constexpr static BB CastlingWROOO_Toggle = squareToBB(A1) | squareToBB(D1);
+constexpr static BB CastlingWROOO_Toggle = indexToBB(A1) | indexToBB(D1);
 
 constexpr static Square CastlingBKOO = G8;
-constexpr static BB CastlingBROO_Toggle = squareToBB(F8) | squareToBB(H8);
+constexpr static BB CastlingBROO_Toggle = indexToBB(F8) | indexToBB(H8);
 constexpr static Square CastlingBKOOO = C8;
-constexpr static BB CastlingBROOO_Toggle = squareToBB(A8) | squareToBB(D8);
+constexpr static BB CastlingBROOO_Toggle = indexToBB(A8) | indexToBB(D8);
 
-constexpr static BB CastlingWOOSpace = squareToBB(F1) | squareToBB(G1);
-constexpr static BB CastlingWOOOSpace = squareToBB(B1) | squareToBB(C1) | squareToBB(D1);
+constexpr static BB CastlingWOOSpace = indexToBB(F1) | indexToBB(G1);
+constexpr static BB CastlingWOOOSpace = indexToBB(B1) | indexToBB(C1) | indexToBB(D1);
 
-constexpr static BB CastlingBOOSpace = squareToBB(F8) | squareToBB(G8);
-constexpr static BB CastlingBOOOSpace = squareToBB(B8) | squareToBB(C8) | squareToBB(D8);
+constexpr static BB CastlingBOOSpace = indexToBB(F8) | indexToBB(G8);
+constexpr static BB CastlingBOOOSpace = indexToBB(B8) | indexToBB(C8) | indexToBB(D8);
 
-
-class BoardState {
-    u16 state;
-public:
-    constexpr BoardState() : state(0) {}
-    constexpr BoardState(u8 initialState) : state(initialState) {}
-
-    // Get active
-    constexpr inline Color getColorActive() const { return Color(state & 0x01); }
-    constexpr inline bool getActive() const { return state & 0x01; }
-
-    // Set active
-    constexpr inline void setActive(Color c) { state = (state & 0xfe) | c; }
-    constexpr inline void setToggleActive() { state ^= 1; }
-
-    // Castling
-    constexpr inline bool getWhiteOO() const { return state & 0x02; }
-    constexpr inline bool getWhiteOOO() const { return state & 0x04; }
-    constexpr inline bool getBlackOO() const { return state & 0x08; }
-    constexpr inline bool getBlackOOO() const { return state & 0x10; }
-
-    constexpr inline void setWhiteOO(bool v) { state = (state & 0xfffd) | (u16(v) << 1); }
-    constexpr inline void setWhiteOOO(bool v) { state = (state & 0xfffb) | (u16(v) << 2); }
-    constexpr inline void setBlackOO(bool v) { state = (state & 0xfff7) | (u16(v) << 3); }
-    constexpr inline void setBlackOOO(bool v) { state = (state & 0xffef) | (u16(v) << 4); }
-
-    // Enpassant
-    constexpr inline bool getEnpassant() const { return state & 0x20; }
-
-
+enum CastlingRights : int {
+    NoCastling = 0,
+    CastlingWK = 1,
+    CastlingWQ = 2,
+    CastlingBK = 4,
+    CastlingBQ = 8,
+    CastlingWhite = CastlingWK | CastlingWQ,
+    CastlingBlack = CastlingBK | CastlingBQ,
+    CastlingRightsAny = CastlingWhite | CastlingBlack,
+    CastlingRights_NB = 16
 };
 
 class Move {

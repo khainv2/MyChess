@@ -8,7 +8,7 @@ std::string toFenString(const Board &board){
         int countEmpty = 0;
         for (int file = 0; file < File_NB; file++){
             int index = rank * 8 + file;
-            auto bb = squareToBB(index);
+            auto bb = indexToBB(index);
             if (board.colors[Color::White] & bb){
                 if (countEmpty > 0){
                     str += std::to_string(countEmpty);
@@ -60,19 +60,21 @@ std::string toFenString(const Board &board){
     }
     // return str + " w KQkq - 0 1";
 
+    auto state = board.state;
+
     str += " ";
     str += board.side == White ? "w" : "b";
     str += " ";
-    if (board.whiteOO){
+    if (state->castlingRights & CastlingWK){
         str += "K";
     }
-    if (board.whiteOOO){
+    if (state->castlingRights & CastlingWQ){
         str += "Q";
     }
-    if (board.blackOO){
+    if (state->castlingRights & CastlingBK){
         str += "k";
     }
-    if (board.blackOOO){
+    if (state->castlingRights & CastlingBQ){
         str += "q";
     }
     if (str.at(str.size() - 1) == ' '){
@@ -80,19 +82,19 @@ std::string toFenString(const Board &board){
     }
     str += " ";
 
-    if (board.enPassant == SquareNone){
+    if (state->enPassant == SquareNone){
         str += "-";
     } else {
-        auto r = getRank(board.enPassant);
-        auto f = getFile(board.enPassant);
+        auto r = getRank(state->enPassant);
+        auto f = getFile(state->enPassant);
 
         str += fileToChar(f);
         str += rankToChar(r);
     }
     str += " ";
-    str += std::to_string(board.halfMoveClock);
+    str += std::to_string(state->halfMoveClock);
     str += " ";
-    str += std::to_string(board.fullMoveNumber);
+    str += std::to_string(state->fullMoveNumber);
 
     return str;
 
@@ -207,29 +209,34 @@ bool parseFENString(const std::string &fen, Board *result)
         result->side = Black;
     }
 
-    if (castlingAvailability.find("K") != std::string::npos){
-        result->whiteOO = true;
-    }
-    if (castlingAvailability.find("Q") != std::string::npos){
-        result->whiteOOO = true;
-    }
-    if (castlingAvailability.find("k") != std::string::npos){
-        result->blackOO = true;
-    }
-    if (castlingAvailability.find("q") != std::string::npos){
-        result->blackOOO = true;
+    if (result->state != nullptr){
+        delete result->state;
     }
 
+    result->state = new BoardState();
+    result->state->castlingRights = NoCastling;
+
+    if (castlingAvailability.find("K") != std::string::npos){
+        result->state->castlingRights |= CastlingWK;
+    }
+    if (castlingAvailability.find("Q") != std::string::npos){
+        result->state->castlingRights |= CastlingWQ;
+    }
+    if (castlingAvailability.find("k") != std::string::npos){
+        result->state->castlingRights |= CastlingBK;
+    }
+    if (castlingAvailability.find("q") != std::string::npos){
+        result->state->castlingRights |= CastlingBQ;
+    }
+    
     if (enPassant == "-"){
-        result->enPassant = SquareNone;
+        result->state->enPassant = SquareNone;
     } else {
         auto file = charToFile(enPassant.at(0));
         auto rank = charToRank(enPassant.at(1));
-        result->enPassant = makeSquare(rank, file);
+        result->state->enPassant = makeSquare(rank, file);
     }
-
-    result->halfMoveClock = std::stoi(halfMoveClock);
-    result->fullMoveNumber = std::stoi(fullMoveNumber);
-
+    result->state->halfMoveClock = std::stoi(halfMoveClock);
+    result->state->fullMoveNumber = std::stoi(fullMoveNumber);
     return true;
 }
