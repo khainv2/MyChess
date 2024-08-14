@@ -59,6 +59,10 @@ struct Board {
         return colors[!color];
     }
 
+    constexpr inline BB getOccupancy() const {
+        return colors[Black] | colors[White];
+    }
+
 
     int doMove(Move move);
     int undoMove(Move move);
