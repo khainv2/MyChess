@@ -76,11 +76,14 @@ int kc::Board::doMove(Move move){
     // Di chuyển bitboard (xóa một ô trong trường hợp ô đến trống)
     auto pieceDst = pieces[dst];
     if (pieceDst != PieceNone){
+        capturedPiece = pieceDst;
         auto dstColor = pieceToColor(pieceDst);
         auto dstType = pieceToType(pieceDst);
         colors[dstColor] &= ~dstBB;
         types[dstType] &= ~dstBB;
         capture = 1;
+    } else {
+        capturedPiece = PieceNone;
     }
 
     colors[srcColor] ^= toggleBB;
@@ -149,6 +152,11 @@ int kc::Board::doMove(Move move){
     // Chuyển màu
     side = !side;
     return capture;
+}
+
+int Board::undoMove(Move move)
+{
+
 }
 
 std::string kc::Board::getPrintable(int tab) const {

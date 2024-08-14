@@ -21,9 +21,9 @@ int kc::generateMoveList(const Board &board, Move *moveList)
 template<Color color>
 int kc::genMoveList(const Board &board, Move *moveList)
 {
-    BB mines = board.mines();
+    BB mines = board.getMines<color>();
     BB notMines = ~mines;
-    BB enemies = board.enemies();
+    BB enemies = board.getEnemies<color>();
     BB occ = board.occupancy();
     BB notOcc = ~occ;
     const BB *attackPawns = attack::pawns[color];
