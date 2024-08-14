@@ -22,7 +22,7 @@ void kc::attack::init()
 {
     initMagicTable();
     for (int i = 0; i < 64; i++){
-        u64 square = squareToBB(i);
+        u64 square = indexToBB(i);
         kings[i] = getKingAttacks(square);
 
         knights[i] = getKnightAttacks(square);
@@ -48,7 +48,7 @@ void attack::initMagicTable()
 
     // Tìm kiếm số magic cho các quân xe
     for (int i = 0; i < 64; i++){
-        u64 sqbb = squareToBB(i);
+        u64 sqbb = indexToBB(i);
         u64 mask = ((Rank1_BB << (i / 8 * 8)) | (FileA_BB << (i % 8))) & (~sqbb);
         rookMagicBitboards[i].mask = mask;
 
@@ -106,7 +106,7 @@ void attack::initMagicTable()
     qDebug() << "Found all magic for rook" << (timer.nsecsElapsed() / 1000000) << "ms";
     timer.restart();
     for (int i = 0; i < 64; i++){
-        u64 sqbb = squareToBB(i);
+        u64 sqbb = indexToBB(i);
         u64 mask = getSlideAttack(sqbb, +7, B_U | B_L)
                 | getSlideAttack(sqbb, -7, B_D | B_R)
                 | getSlideAttack(sqbb, +9, B_U | B_R)

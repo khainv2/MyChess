@@ -80,7 +80,7 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
             }
 
             
-            if (_mouseSelection == squareToBB(index)){
+            if (_mouseSelection == indexToBB(index)){
                 painter.save();
                 QRect square(i * _canvasRect.width() / 8 + _canvasRect.left(),
                              j * _canvasRect.width() / 8 + _canvasRect.top(),
@@ -136,7 +136,7 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
             int i = (pos.x() - _canvasRect.left()) / ss;
             int j = (pos.y() - _canvasRect.top()) / ss;
             int index = (7 - j) * 8 + i;
-            auto bb = squareToBB(index);
+            auto bb = indexToBB(index);
 
             std::vector<Move> availables(_moveList.size());
             auto it = std::copy_if(_moveList.begin(), _moveList.end(),

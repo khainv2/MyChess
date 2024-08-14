@@ -67,11 +67,11 @@ int kc::genMoveList(const Board &board, Move *moveList)
         kingBan |= eAttack;
         if (eAttack & ourKing){
             checkMask &= ((attack::getBishopAttacks(i, occ)
-                          & attack::getBishopAttacks(ourKingIdx, occ)) | squareToBB(i));
+                          & attack::getBishopAttacks(ourKingIdx, occ)) | indexToBB(i));
         }
         BB xrayAttack = attack::getBishopXRay(i, occ);
         if (xrayAttack & ourKing){
-            pinMaskDiagonal |= ((xrayAttack & attack::getBishopXRay(ourKingIdx, occ)& (~ourKing)) | squareToBB(i));
+            pinMaskDiagonal |= ((xrayAttack & attack::getBishopXRay(ourKingIdx, occ)& (~ourKing)) | indexToBB(i));
         }
     }
     BB enemyRooks = enemies & (rooks | queens);
@@ -81,11 +81,11 @@ int kc::genMoveList(const Board &board, Move *moveList)
         kingBan |= eAttack;
         if (eAttack & ourKing){
             checkMask &= ((attack::getRookAttacks(i, occ)
-                          & attack::getRookAttacks(ourKingIdx, occ)) | squareToBB(i));
+                          & attack::getRookAttacks(ourKingIdx, occ)) | indexToBB(i));
         }
         BB xrayAttack = attack::getRookXRay(i, occ);
         if (xrayAttack & ourKing){
-            pinMaskCross |= ((xrayAttack & attack::getRookXRay(ourKingIdx, occ) & (~ourKing)) | squareToBB(i));
+            pinMaskCross |= ((xrayAttack & attack::getRookXRay(ourKingIdx, occ) & (~ourKing)) | indexToBB(i));
         }
     }
 
@@ -93,7 +93,7 @@ int kc::genMoveList(const Board &board, Move *moveList)
     BB pawnPush2Mask = notOcc & notOccShift8ByColor;
     int count = 0;
     for (int i = 0; i < Square_Count; i++){
-        u64 from = squareToBB(i);
+        u64 from = indexToBB(i);
         if ((from & mines) == 0)
             continue;
         u64 attack = 0, to = 0;
@@ -112,7 +112,7 @@ int kc::genMoveList(const Board &board, Move *moveList)
             bool enPassantCond = board.enPassant != SquareNone // Có trạng thái một tốt vừa được push 2
                     && ((board.enPassant / 8) == (i / 8)) // Ô tốt push 2 ở cùng hàng với ô from
                     && ((board.enPassant - i) == 1 || (i - board.enPassant == 1)) // 2 ô cách nhau 1 đơn vị
-                    && ((pinMaskDiagonal & squareToBB(board.enPassant)) == 0) // Ô tấn công không bị pin theo đường chéow
+                    && ((pinMaskDiagonal & indexToBB(board.enPassant)) == 0) // Ô tấn công không bị pin theo đường chéow
                     ;
             if (enPassantCond){
                 // Kiểm tra thêm trường hợp ngang hàng tốt có hậu hoặc xe đang tấn công xuyên 2 tốt
@@ -122,7 +122,7 @@ int kc::genMoveList(const Board &board, Move *moveList)
                 BB enemieRookOrQueenInRanks = (queens | rooks) & ourKingRankBB & enemies;
 
                 BB enemyRookOrQueen;
-                BB occWithout2Pawn = occ & (~squareToBB(board.enPassant)) & (~from);
+                BB occWithout2Pawn = occ & (~indexToBB(board.enPassant)) & (~from);
                 bool isKingSeenByEnemyRookOrQueen = false;
                 while (enemieRookOrQueenInRanks){
                     enemyRookOrQueen = lsbBB(enemieRookOrQueenInRanks);
@@ -222,7 +222,7 @@ int kc::countMoveList(const Board &board, Color color)
     int count = 0;
 
     for (int i = 0; i < 64; i++){
-        u64 from = squareToBB(i);
+        u64 from = indexToBB(i);
         if ((from & mines) == 0)
             continue;
         u64 attack = 0;
