@@ -8,9 +8,8 @@ int generateMoveList(const Board &board, Move *moveList);
 template <Color color>
 int genMoveList(const Board &board, Move *moveList);
 
-int countMoveList(const Board &board, Color color);
 std::vector<Move> getMoveListForSquare(const Board &board, Square square);
 
 void testPerft();
-int genMoveRecur(const Board &board, int depth);
+int genMoveRecur(Board &board, int depth);
 }

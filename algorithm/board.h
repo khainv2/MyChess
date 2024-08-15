@@ -45,7 +45,8 @@ struct Board {
     Color side = White;
     BoardState *state = nullptr;
 
-    Board(){}
+    Board();
+    ~Board();
 
 
 
@@ -64,7 +65,7 @@ struct Board {
     }
 
 
-    int doMove(Move move);
+    int doMove(Move move, BoardState &state);
     int undoMove(Move move);
 
     std::string getPrintable(int tab = 0) const;

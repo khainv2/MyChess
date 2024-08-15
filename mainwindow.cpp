@@ -42,17 +42,17 @@ void MainWindow::on_bt_StartCalculate_clicked()
 //    val.fen = toFenString(board);
 //    fens.append()
 
-    for (int i = 0; i < count; i++){
-        Board newBoard = board;
-        newBoard.doMove(movePtr[i]);
-        int ncount = generateMoveList(newBoard, movePtr + countTotal);
-        for (int j = 0; j < ncount; j++){
-            Board boardJ = newBoard;
-            boardJ.doMove((movePtr + countTotal)[j]);
+//    for (int i = 0; i < count; i++){
+//        Board newBoard = board;
+//        newBoard.doMove(movePtr[i]);
+//        int ncount = generateMoveList(newBoard, movePtr + countTotal);
+//        for (int j = 0; j < ncount; j++){
+//            Board boardJ = newBoard;
+//            boardJ.doMove((movePtr + countTotal)[j]);
 
-        }
-        countTotal += ncount;
-    }
+//        }
+//        countTotal += ncount;
+//    }
 
 
 

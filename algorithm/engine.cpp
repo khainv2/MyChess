@@ -39,7 +39,8 @@ int Engine::alphabeta(const Board &chessBoard, int depth, Color color, int alpha
         int max = -Infinity;
         for (int i = 0; i < count; i++){
             Board t = chessBoard;
-            t.doMove(moves[i]);
+            BoardState state;
+            t.doMove(moves[i], state);
             int val = alphabeta(t, depth - 1, !color, alpha, beta);
 //            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
             if (val >= max){
@@ -63,7 +64,8 @@ int Engine::alphabeta(const Board &chessBoard, int depth, Color color, int alpha
         int min = Infinity;
         for (int i = 0; i < count; i++){
             Board t = chessBoard;
-            t.doMove(moves[i]);
+            BoardState state;
+            t.doMove(moves[i], state);
             int val = alphabeta(t, depth - 1, !color, alpha, beta);
 //            qDebug() << "Depth" << depth << val << getMoveDescription(moves[i]).c_str() << toFenString(t);
 
