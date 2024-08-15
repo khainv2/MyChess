@@ -8,7 +8,6 @@
 #include <algorithm/util.h>
 #include <test.h>
 
-#include <algorithm/bitwise.h>
 
 #include "logger.h"
 
@@ -70,12 +69,12 @@ int main(int argc, char *argv[])
     attack::init();
     qDebug() << "Time init attack" << (timer.nsecsElapsed() / 1000) << "us";
 
-    qDebug() << "BIt scan" << kc::bitScanForward(0x11000111000);
+//    qDebug() << "BIt scan" << kc::bitScanForward(0x11000111000);
 //    testCpuPerformance();
 
 //    qDebug() << "King board" << bbToString(board.types[King]).c_str();
 
-    kc::testPerft();
+//    kc::testPerft();
     MainWindow w;
     w.show();
 
