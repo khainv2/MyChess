@@ -130,18 +130,18 @@ int Board::undoMove(Move move)
     const int src = move.src();
     const int dst = move.dst();
 
-    auto pieceSrc = pieces[src];
-    auto srcColor = pieceToColor(pieceSrc);
-    auto srcType = pieceToType(pieceSrc);
+    auto pieceDst = pieces[dst];
+    auto dstColor = pieceToColor(pieceDst);
+    auto dstType = pieceToType(pieceDst);
 
     const auto &srcBB = indexToBB(src);
     const auto &dstBB = indexToBB(dst);
     const auto &toggleBB = srcBB | dstBB;
 
-    colors[srcColor] ^= toggleBB;
-    types[srcType] ^= toggleBB;
+    colors[dstColor] ^= toggleBB;
+    types[dstType] ^= toggleBB;
 
-    pieces[src] = pieceSrc;
+    pieces[src] = pieceDst;
     
     if (state->capturedPiece != PieceNone){
         auto dstColor = pieceToColor(state->capturedPiece);
@@ -178,16 +178,16 @@ int Board::undoMove(Move move)
     }
 
     if (move.type() == Move::Enpassant){
-        int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
+        int enemyPawn = dstColor == White ? dst - 8 : dst + 8;
         BB enemyPawnBB = indexToBB(enemyPawn);
-        colors[!srcColor] |= enemyPawnBB;
+        colors[!dstColor] |= enemyPawnBB;
         types[Pawn] |= enemyPawnBB;
-        pieces[enemyPawn] = makePiece(!srcColor, Pawn);
+        pieces[enemyPawn] = makePiece(!dstColor, Pawn);
     }
 
     if (move.type() == Move::Promotion){
-        pieces[src] = makePiece(srcColor, Pawn);
-        types[srcType] ^= srcBB;
+        pieces[src] = makePiece(dstColor, Pawn);
+        types[dstColor] ^= srcBB;
         types[Pawn] |= srcBB;
     }
 

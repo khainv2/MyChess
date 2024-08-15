@@ -91,7 +91,7 @@ void ChessBoardView::paintEvent(QPaintEvent *event)
             }
 
             bool found = false;
-            for (Move move: _moveList){
+            for (Move move: _moveAbility){
                 if (move.dst() == index){
                     found = true;
                 }
@@ -138,8 +138,8 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
             int index = (7 - j) * 8 + i;
             auto bb = indexToBB(index);
 
-            std::vector<Move> availables(_moveList.size());
-            auto it = std::copy_if(_moveList.begin(), _moveList.end(),
+            std::vector<Move> availables(_moveAbility.size());
+            auto it = std::copy_if(_moveAbility.begin(), _moveAbility.end(),
                                   availables.begin(), [=](auto m){
                 return m.dst() == index;
             });
@@ -156,25 +156,25 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
                         return m.getPromotionPieceType() == piece;
                     });
                     move = *it;
-                    // qDebug() << "Promotion to" << move.getPiecePromotion() << move.getDescription().c_str();
                 } else {
                     move = availables.at(0);
                 }
-                BoardState state;
-                _board.doMove(move, state);
+                _boardStates.push_back(BoardState());
+                _board.doMove(move, _boardStates[_boardStates.size() - 1]);
+                _moveList.push_back(move);
                 _mouseSelection = 0;
-                _moveList.clear();
+                _moveAbility.clear();
                 emit boardChanged();
 
             } else {
                 _mouseSelection = bb;
-                _moveList = getMoveListForSquare(_board, Square(index));
+                _moveAbility = getMoveListForSquare(_board, Square(index));
             }
             update();
         }
     } else {
         _mouseSelection = 0;
-        _moveList.clear();
+        _moveAbility.clear();
         update();
     }
 
@@ -189,5 +189,16 @@ const kc::Board &ChessBoardView::board() const
 void ChessBoardView::setBoard(const kc::Board &newBoard)
 {
     _board = newBoard;
+    update();
+}
+
+void ChessBoardView::undoMove()
+{
+    if (_moveList.size() == 0){
+        return;
+    }
+    _board.undoMove(_moveList.at(_moveList.size() - 1));
+    _boardStates.pop_back();
+    _moveList.pop_back();
     update();
 }

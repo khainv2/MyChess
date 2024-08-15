@@ -71,3 +71,9 @@ void MainWindow::on_bt_ParseFen_clicked()
     ui->chessBoard->setBoard(cb);
 }
 
+
+void MainWindow::on_bt_Undo_clicked()
+{
+    ui->chessBoard->undoMove();
+}
+
