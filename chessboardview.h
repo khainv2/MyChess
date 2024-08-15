@@ -15,6 +15,7 @@ public:
     const kc::Board &board() const;
     void setBoard(const kc::Board &newBoard);
 
+    void undoMove();
 signals:
     void boardChanged();
     // QWidget interface
@@ -32,7 +33,9 @@ private:
 
     kc::Board _board;
 //    kchess::BB _mobility = 0;
+    std::vector<kc::Move> _moveAbility;
     std::vector<kc::Move> _moveList;
+    std::vector<kc::BoardState> _boardStates;
     kc::BB _mouseSelection = 0;
 };
 

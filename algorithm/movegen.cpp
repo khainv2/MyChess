@@ -219,7 +219,7 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     return output;
 }
 
-constexpr static int FixedDepth = 5;
+constexpr static int FixedDepth = 2;
 int countMate = 0;
 int countCapture = 0;
 int countCheck = 0;
@@ -307,7 +307,7 @@ void kc::testPerft()
 
 int kc::genMoveRecur(Board &board, int depth)
 {
-    // qDebug() << board.getPrintable(FixedDepth - depth).c_str();
+     qDebug() << board.getPrintable(FixedDepth - depth).c_str();
     qint64 startGen = myTimer.nsecsElapsed();
     Move *moves = reinterpret_cast<Move *>(malloc(sizeof(Move) * 256));
     int count = generateMoveList(board, moves);
