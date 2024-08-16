@@ -197,9 +197,8 @@ int kc::genMoveList(const Board &board, Move *moveList)
             }
         }
         while (attack){
-            to = lsbBB(attack);
+            to = popLsb(attack);
             moveList[count++] = Move::makeNormalMove(i, lsb(to));
-            attack ^= to;
         }
     }
     return count;
@@ -219,7 +218,7 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     return output;
 }
 
-constexpr static int FixedDepth = 2;
+constexpr static int FixedDepth = 5;
 int countMate = 0;
 int countCapture = 0;
 int countCheck = 0;
@@ -307,9 +306,9 @@ void kc::testPerft()
 
 int kc::genMoveRecur(Board &board, int depth)
 {
-     qDebug() << board.getPrintable(FixedDepth - depth).c_str();
+//     qDebug() << board.getPrintable(FixedDepth - depth).c_str();
     qint64 startGen = myTimer.nsecsElapsed();
-    Move *moves = reinterpret_cast<Move *>(malloc(sizeof(Move) * 256));
+    Move moves[256];
     int count = generateMoveList(board, moves);
     if (count == 0){
         countMate++;
@@ -338,7 +337,7 @@ int kc::genMoveRecur(Board &board, int depth)
         total += genMoveRecur(board, depth - 1);
         board.undoMove(moves[i]);
     }
-    free(moves);
+//    free(moves);
 
     return total;
 }
