@@ -95,27 +95,27 @@ static constexpr inline BB getKingAttacks(BB square){
         | oneAttack<-9, B_D | B_L>(square);
 }
 
-inline static constexpr BB getRookAttacks(int index, u64 occ){
+inline static BB getRookAttacks(int index, u64 occ){
     occ &= rookMagicBitboards[index].mask;
     occ *= rookMagicBitboards[index].magic;
     occ >>= RookMagicShiftLength;
     return rooks[index][occ];
 }
-inline static constexpr BB getBishopAttacks(int index, u64 occ) {
+inline static BB getBishopAttacks(int index, u64 occ) {
     occ &= bishopMagicBitboards[index].mask;
     occ *= bishopMagicBitboards[index].magic;
     occ >>= BishopMagicShiftLength;
     return bishops[index][occ];
 }
-inline static constexpr BB getQueenAttacks(int index, u64 occ){
+inline static BB getQueenAttacks(int index, u64 occ){
     return getBishopAttacks(index, occ) | getRookAttacks(index, occ);
 }
 
-inline static constexpr BB getRookXRay(int index, BB occ){
+inline static BB getRookXRay(int index, BB occ){
     BB attack = getRookAttacks(index, occ);
     return getRookAttacks(index, (occ & ~(attack & occ)));
 }
-inline static constexpr BB getBishopXRay(int index, BB occ){
+inline static BB getBishopXRay(int index, BB occ){
     BB attack = getBishopAttacks(index, occ);
     return getBishopAttacks(index, (occ & ~(attack & occ)));
 }

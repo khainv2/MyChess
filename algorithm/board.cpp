@@ -7,12 +7,12 @@
 using namespace kc;
 
 Board::Board(){
-    state = new BoardState;
+//    state = new BoardState;
 }
 
 Board::~Board()
 {
-    delete state;
+//    delete state;
 }
 
 int kc::Board::doMove(Move move, BoardState &newState){

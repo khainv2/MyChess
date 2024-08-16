@@ -159,8 +159,8 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
                 } else {
                     move = availables.at(0);
                 }
-                _boardStates.push_back(BoardState());
-                _board.doMove(move, _boardStates[_boardStates.size() - 1]);
+                _boardStates.push_back(new BoardState);
+                _board.doMove(move, *_boardStates[_boardStates.size() - 1]);
                 _moveList.push_back(move);
                 _mouseSelection = 0;
                 _moveAbility.clear();

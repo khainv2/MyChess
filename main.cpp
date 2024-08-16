@@ -50,6 +50,14 @@ void testCpuPerformance() {
     std::cout << "Number of operations in 10 seconds: " << operationCount << std::endl;
 }
 
+
+void testMallocFree(){
+    auto a = malloc(520000000);
+    for (int i = 0; i < 1000; i++){
+
+    }
+    free(a);
+}
 int main(int argc, char *argv[])
 {
         QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
@@ -73,10 +81,10 @@ int main(int argc, char *argv[])
 //    testCpuPerformance();
 
 //    qDebug() << "King board" << bbToString(board.types[King]).c_str();
-
+    testMallocFree();
     kc::testPerft();
-    MainWindow w;
-    w.show();
+//    MainWindow w;
+//    w.show();
 
     return a.exec();
 }

@@ -35,7 +35,7 @@ private:
 //    kchess::BB _mobility = 0;
     std::vector<kc::Move> _moveAbility;
     std::vector<kc::Move> _moveList;
-    std::vector<kc::BoardState> _boardStates;
+    std::vector<kc::BoardState *> _boardStates;
     kc::BB _mouseSelection = 0;
 };
 

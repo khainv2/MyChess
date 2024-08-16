@@ -69,5 +69,6 @@ struct Board {
     int undoMove(Move move);
 
     std::string getPrintable(int tab = 0) const;
+
 };
 }
