@@ -38,7 +38,7 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
 //    parseFENString("4R3/R7/8/K3R3/R7/1R6/8/8 w KQkq - 0 1", &board);
 //    parseFENString("4B3/B7/8/K3B3/B7/1B6/B7/7B w KQkq - 0 1", &board);
 //    parseFENString("4N3/N7/8/K3N3/B7/1B6/B7/7B w KQkq - 0 1", &board);
-    parseFENString("rnbq1bnr/ppppkpQp/8/4p3/4P3/8/PPPP1PPP/RNB1KBNR b KQ - 0 3", &_board);
+    parseFENString(testFenPerft(), &_board);
 }
 
 void ChessBoardView::paintEvent(QPaintEvent *event)

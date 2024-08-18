@@ -150,23 +150,6 @@ inline Square popLsb(BB& b) {
     return s;
 }
 
-// Vị trí của quân nhập thành
-constexpr static Square CastlingWKOO = G1;
-constexpr static BB CastlingWROO_Toggle = indexToBB(F1) | indexToBB(H1);
-constexpr static Square CastlingWKOOO = C1;
-constexpr static BB CastlingWROOO_Toggle = indexToBB(A1) | indexToBB(D1);
-
-constexpr static Square CastlingBKOO = G8;
-constexpr static BB CastlingBROO_Toggle = indexToBB(F8) | indexToBB(H8);
-constexpr static Square CastlingBKOOO = C8;
-constexpr static BB CastlingBROOO_Toggle = indexToBB(A8) | indexToBB(D8);
-
-constexpr static BB CastlingWOOSpace = indexToBB(F1) | indexToBB(G1);
-constexpr static BB CastlingWOOOSpace = indexToBB(B1) | indexToBB(C1) | indexToBB(D1);
-
-constexpr static BB CastlingBOOSpace = indexToBB(F8) | indexToBB(G8);
-constexpr static BB CastlingBOOOSpace = indexToBB(B8) | indexToBB(C8) | indexToBB(D8);
-
 enum CastlingRights : int {
     NoCastling = 0,
     CastlingWK = 1,
@@ -178,6 +161,60 @@ enum CastlingRights : int {
     CastlingRightsAny = CastlingWhite | CastlingBlack,
     CastlingRights_NB = 16
 };
+
+template <CastlingRights c, PieceType type, bool isSrc>
+constexpr static Square getCastlingIndex(){
+    if constexpr (type == King){
+        if constexpr (c == CastlingWK){
+            return isSrc ? E1 : G1;
+        } else if constexpr (c == CastlingWQ){
+            return isSrc ? E1 : C1;
+        } else if constexpr (c == CastlingBK){
+            return isSrc ? E8 : G8;
+        } else if constexpr (c == CastlingBQ){
+            return isSrc ? E8 : C8;
+        }
+    } else if constexpr (type == Rook){
+        if constexpr (c == CastlingWK){
+            return isSrc ? H1 : F1;
+        } else if constexpr (c == CastlingWQ){
+            return isSrc ? A1 : D1;
+        } else if constexpr (c == CastlingBK){
+            return isSrc ? H8 : F8;
+        } else if constexpr (c == CastlingBQ){
+            return isSrc ? A8 : D8;
+        }
+    } else if constexpr (type == Knight){ // Sử dụng để tính & trả về vị trí mà quân xe đi ngang qua quân mã khi nhập thành
+        if constexpr (c == CastlingWQ){
+            return B1;
+        } else if constexpr (c == CastlingBQ){
+            return B8;
+        }
+    }
+}
+
+template<CastlingRights c, PieceType type>
+constexpr static BB getCastlingToggle(){
+    return toBB<getCastlingIndex<c, type, true>()>() | toBB<getCastlingIndex<c, type, false>()>();
+}
+
+template<CastlingRights c>
+constexpr static BB castlingKingPath(){
+    return toBB<getCastlingIndex<c, King, true>()>() 
+        | toBB<getCastlingIndex<c, Rook, false>()>()
+        | toBB<getCastlingIndex<c, King, false>()>();
+}
+template<CastlingRights c>
+constexpr static BB castlingSpace(){
+    if constexpr (c == CastlingWK || c == CastlingBK){
+        return toBB<getCastlingIndex<c, King, false>()>()
+            | toBB<getCastlingIndex<c, Rook, false>()>();
+    } else {
+        return toBB<getCastlingIndex<c, King, false>()>()
+            | toBB<getCastlingIndex<c, Rook, false>()>()
+            | toBB<getCastlingIndex<c, Knight, false>()>();
+    }
+}
 
 class Move {
 public:

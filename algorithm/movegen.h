@@ -12,4 +12,6 @@ std::vector<Move> getMoveListForSquare(const Board &board, Square square);
 
 void testPerft();
 int genMoveRecur(Board &board, int depth);
+
+std::string testFenPerft();
 }

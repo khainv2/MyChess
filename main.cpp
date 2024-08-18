@@ -51,13 +51,6 @@ void testCpuPerformance() {
 }
 
 
-void testMallocFree(){
-    auto a = malloc(520000000);
-    for (int i = 0; i < 1000; i++){
-
-    }
-    free(a);
-}
 int main(int argc, char *argv[])
 {
         QCoreApplication::setAttribute(Qt::AA_DontCreateNativeWidgetSiblings);
@@ -81,10 +74,20 @@ int main(int argc, char *argv[])
 //    testCpuPerformance();
 
 //    qDebug() << "King board" << bbToString(board.types[King]).c_str();
-    testMallocFree();
+
+    kc::Board board1, board2;
+    parseFENString("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 2 1", &board1);
+    Move move = Move::makeNormalMove(A1, C1);
+    kc::BoardState state;
+//    board1.doMove(move, state);
+    parseFENString("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/2R1K2R b Kkq - 3 1", &board2);
+
+
+//    board1.compareTo(board2);
+
     kc::testPerft();
-//    MainWindow w;
-//    w.show();
+    MainWindow w;
+    w.show();
 
     return a.exec();
 }
