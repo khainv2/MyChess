@@ -70,5 +70,55 @@ struct Board {
 
     std::string getPrintable(int tab = 0) const;
 
+    void compareTo(const Board &other) const {
+        for (int i = 0; i < Square_Count; i++) {
+            if (pieces[i] != other.pieces[i]) {
+                qDebug() << "Mismatch at square " << i << " " << pieceToChar(pieces[i]) << " != " << pieceToChar(other.pieces[i]);
+            }
+        }
+
+        for (int i = 0; i < Color_NB; i++) {
+            if (colors[i] != other.colors[i]) {
+                qDebug() << "Mismatch at color " << i << " " << colors[i] << " != " << other.colors[i];
+            }
+        }
+
+        for (int i = 0; i < PieceType_NB; i++) {
+            if (types[i] != other.types[i]) {
+                qDebug() << "Mismatch at type " << i << " " << types[i] << " != " << other.types[i];
+            }
+        }
+
+        if (side != other.side) {
+            qDebug() << "Mismatch at side " << side << " != " << other.side;
+        }
+
+        if (state->castlingRights != other.state->castlingRights) {
+            qDebug() << "Mismatch at castling rights " << state->castlingRights << " != " << other.state->castlingRights;
+        }
+
+        if (state->enPassant != other.state->enPassant) {
+            qDebug() << "Mismatch at en passant " << state->enPassant << " != " << other.state->enPassant;
+        }
+
+        if (state->halfMoveClock != other.state->halfMoveClock) {
+            qDebug() << "Mismatch at half move clock " << state->halfMoveClock << " != " << other.state->halfMoveClock;
+        }
+
+        if (state->fullMoveNumber != other.state->fullMoveNumber) {
+            qDebug() << "Mismatch at full move number " << state->fullMoveNumber << " != " << other.state->fullMoveNumber;
+        }
+
+        if (state->capturedPiece != other.state->capturedPiece) {
+            qDebug() << "Mismatch at captured piece " << pieceToChar(state->capturedPiece) << " != " << pieceToChar(other.state->capturedPiece);
+        }
+
+        // if (state->previous != other.state->previous) {
+        //     qDebug() << "Mismatch at previous state " << state->previous << " != " << other.state->previous;
+        // }
+
+
+    }
+
 };
 }

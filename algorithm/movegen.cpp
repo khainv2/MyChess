@@ -180,25 +180,46 @@ int kc::genMoveList(const Board &board, Move *moveList)
             }
         } else if (from & kings) {
             attack = attack::kings[i] & notMines & (~kingBan);
-            if (color == White) {
-                if ((occ & CastlingWOOSpace) == 0 && (board.state->castlingRights & CastlingWK)){
-                    moveList[count++] = Move::makeCastlingMove(i, CastlingWKOO);
+            if constexpr (color == White) {
+                if ((occ & castlingSpace<CastlingWK>()) == 0
+                        && (kingBan & castlingKingPath<CastlingWK>()) == 0
+                        && (board.state->castlingRights & CastlingWK) ){
+                    constexpr static auto castlingSrc = getCastlingIndex<CastlingWK, King, true>();
+                    constexpr static auto castlingDst = getCastlingIndex<CastlingWK, King, false>();
+                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                    moveList[count++] = castlingMove;
                 }
-                if ((occ & CastlingWOOOSpace) == 0 && (board.state->castlingRights & CastlingWQ)){
-                    moveList[count++] = Move::makeCastlingMove(i, CastlingWKOOO);
+                if ((occ & castlingSpace<CastlingWQ>()) == 0
+                        && (kingBan & castlingKingPath<CastlingWQ>()) == 0
+                        && (board.state->castlingRights & CastlingWQ)){
+                    constexpr static auto castlingSrc = getCastlingIndex<CastlingWQ, King, true>();
+                    constexpr static auto castlingDst = getCastlingIndex<CastlingWQ, King, false>();
+                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                    moveList[count++] = castlingMove;
                 }
             } else {
-                if ((occ & CastlingBOOSpace) == 0 && (board.state->castlingRights & CastlingBK)){
-                    moveList[count++] = Move::makeCastlingMove(i, CastlingBKOO);
+                if ((occ & castlingSpace<CastlingBK>()) == 0
+                        && (kingBan & castlingKingPath<CastlingBK>()) == 0
+                        && (board.state->castlingRights & CastlingBK)){
+                    constexpr static auto castlingSrc = getCastlingIndex<CastlingBK, King, true>();
+                    constexpr static auto castlingDst = getCastlingIndex<CastlingBK, King, false>();
+                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                    moveList[count++] = castlingMove;
                 }
-                if ((occ & CastlingBOOOSpace) == 0 && (board.state->castlingRights & CastlingBQ)){
-                    moveList[count++] = Move::makeCastlingMove(i, CastlingBKOOO);
+                if ((occ & castlingSpace<CastlingBQ>()) == 0
+                        && (kingBan & castlingKingPath<CastlingBQ>()) == 0
+                        && (board.state->castlingRights & CastlingBQ)){
+                    constexpr static auto castlingSrc = getCastlingIndex<CastlingBQ, King, true>();
+                    constexpr static auto castlingDst = getCastlingIndex<CastlingBQ, King, false>();
+                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                    moveList[count++] = castlingMove;
                 }
             }
         }
         while (attack){
-            to = popLsb(attack);
+            to = lsbBB(attack);
             moveList[count++] = Move::makeNormalMove(i, lsb(to));
+            attack ^= to;
         }
     }
     return count;
@@ -208,6 +229,7 @@ int kc::genMoveList(const Board &board, Move *moveList)
 std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     Move moves[256];
     int count = generateMoveList(board, moves);
+    qDebug() << "Gen move list " << count;
     std::vector<Move> output;
     for (int i = 0; i < count; i++){
         const auto &move = moves[i];
@@ -218,53 +240,50 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     return output;
 }
 
-constexpr static int FixedDepth = 5;
+constexpr static int FixedDepth = 3;
 int countMate = 0;
 int countCapture = 0;
 int countCheck = 0;
 std::map<std::string, int> divideCount;
 std::string currMove;
-
 QElapsedTimer myTimer;
 qint64 genTick = 0;
 qint64 moveTick = 0;
+
+
+std::string kc::testFenPerft()
+{
+//    return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    return "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 2 1"; // Root
+//    return "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/2R1K2R b Kkq - 3 1"; // A1 c1 81114 (ep: 83263)
+}
+
+
 void kc::testPerft()
 {
 //    return;
     kc::Board board;
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     // rnbqk1nr/pppp1ppp/8/P3p3/1b6/8/1PPPPPPP/RNBQKBNR w KQkq - 1 3
-    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
+//    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
+    parseFENString(testFenPerft(), &board);
 
     QElapsedTimer timer;
     timer.start();
-
-//    std::vector<Move> moves;
-//    constexpr int MaxMoveSize = 1000000000;
-
-
-
-//    qDebug() << "Start init move list";
-
     myTimer.start();
     int countTotal = genMoveRecur(board, FixedDepth);
 
     qint64 t = timer.nsecsElapsed() / 1000000;
     qDebug() << "Time for multi board" << t << "ms";
     qDebug() << "Total move calculated" << countMate << countCapture << countCheck << countTotal;
-
     qDebug() << "Count tick" << (genTick / 1000000) << (moveTick / 1000000);
 
-    return;
-
+//    return;
 
     {
-
-        for (auto it = divideCount.begin(); it != divideCount.end(); it++){
-            qDebug() << it->first.c_str() << it->second;
-        }
-
-        // COnvert divide count keys: A1>A2 to a1a2
+//        for (auto it = divideCount.begin(); it != divideCount.end(); it++){
+//            qDebug() << it->first.c_str() << it->second;
+//        }
         std::map<std::string, int> newDivideCount;
         for (auto it = divideCount.begin(); it != divideCount.end(); it++){
             auto key = it->first;
@@ -278,8 +297,7 @@ void kc::testPerft()
         }
         divideCount = newDivideCount;
 
-
-        QString sample = "a2a3: 22 b2b3: 22 c2c3: 22 d2d3: 22 f2f3: 22 g2g3: 22 h2h3: 22 a2a4: 22 b2b4: 22 c2c4: 22 d2d4: 23 f2f4: 23 h2h4: 22 b1a3: 22 b1c3: 22 g1e2: 22 g1f3: 22 g1h3: 22 f1e2: 22 f1d3: 22 f1c4: 22 f1b5: 21 f1a6: 21 g4d1: 23 g4e2: 23 g4f3: 22 g4g3: 23 g4h3: 22 g4f4: 23 g4h4: 6 g4f5: 20 g4g5: 5 g4h5: 22 g4e6: 3 g4g6: 20 g4d7: 5 g4g7: 19 e1d1: 22 e1e2: 22";
+        QString sample = "a2a3: 94405 b2b3: 81066 g2g3: 77468 d5d6: 79551 a2a4: 90978 g2g4: 75677 g2h3: 82759 d5e6: 97464 c3b1: 84773 c3d1: 84782 c3a4: 91447 c3b5: 81498 e5d3: 77431 e5c4: 77752 e5g4: 79912 e5c6: 83885 e5g6: 83866 e5d7: 93913 e5f7: 88799 d2c1: 83037 d2e3: 90274 d2f4: 84869 d2g5: 87951 d2h6: 82323 e2d1: 74963 e2f1: 88728 e2d3: 85119 e2c4: 84835 e2b5: 79739 e2a6: 69334 a1b1: 83348 a1c1: 83263 a1d1: 79695 h1f1: 81563 h1g1: 84876 f3d3: 83727 f3e3: 92505 f3g3: 94461 f3h3: 98524 f3f4: 90488 f3g4: 92037 f3f5: 104992 f3h5: 95034 f3f6: 77838 e1d1: 79989 e1f1: 77887 e1g1: 86975 e1c1: 79803";
 
         sample = sample.replace(':', "");
 
@@ -297,6 +315,15 @@ void kc::testPerft()
             auto value = it->second;
             if (sampleDivide[key] != value){
                 qDebug() << "Error at" << key.c_str() << "expected" << sampleDivide[key] << "but got" << value;
+            }
+        }
+
+        // Find all contains in sampleDivide but not in divideCount
+        for (auto it = sampleDivide.begin(); it != sampleDivide.end(); it++){
+            auto key = it->first;
+            auto value = it->second;
+            if (divideCount.find(key) == divideCount.end()){
+                qDebug() << "Error at" << key.c_str() << "expected" << value << "but got" << 0;
             }
         }
     }
@@ -341,34 +368,6 @@ int kc::genMoveRecur(Board &board, int depth)
 
     return total;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
