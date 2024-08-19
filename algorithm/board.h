@@ -48,7 +48,10 @@ struct Board {
     Board();
     ~Board();
 
-
+    template<Color color, PieceType piece>
+    constexpr inline BB getPieceBB() const {
+        return colors[color] & types[piece];
+    }
 
     template <Color color>
     constexpr inline BB getMines() const {

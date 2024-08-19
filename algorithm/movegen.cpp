@@ -21,11 +21,12 @@ int kc::generateMoveList(const Board &board, Move *moveList)
 template<Color color>
 int kc::genMoveList(const Board &board, Move *moveList)
 {
-    BB mines = board.getMines<color>();
-    BB notMines = ~mines;
-    BB enemies = board.getEnemies<color>();
-    BB occ = board.getOccupancy();
-    BB notOcc = ~occ;
+    const BB mines = board.getMines<color>();
+    const BB notMines = ~mines;
+    const BB enemies = board.getEnemies<color>();
+    const BB occ = board.getOccupancy();
+    const BB notOcc = ~occ;
+
     const BB *attackPawns = attack::pawns[color];
     const BB *attackPawnPushes = attack::pawnPushes[color];
     const BB *attackPawnPushes2 = attack::pawnPushes2[color];
@@ -36,9 +37,9 @@ int kc::genMoveList(const Board &board, Move *moveList)
     const BB &queens = board.types[Queen];
     const BB &kings = board.types[King];
 
-    BB ourKing = kings & mines;
-    int ourKingIdx = lsb(ourKing);
-    BB occWithoutOurKing = occ & (~ourKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
+    BB myKing = board.getPieceBB<color, King>();
+    int myKingIdx = lsb(myKing);
+    const BB occWithoutOurKing = occ & (~myKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
 
     BB kingBan = 0;
     BB checkMask = All_BB; // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
@@ -47,181 +48,215 @@ int kc::genMoveList(const Board &board, Move *moveList)
 
     BB enemyPawnAttacks = attack::getPawnAttacks<!color>(enemies & pawns);
     kingBan |= enemyPawnAttacks;
-    if (enemyPawnAttacks & ourKing){
-        checkMask &= (attack::pawns[color][ourKingIdx] & enemies & pawns);
+    if (enemyPawnAttacks & myKing){
+        checkMask &= (attack::pawns[color][myKingIdx] & enemies & pawns);
     }
 
     BB enemyKnightAttacks = attack::getKnightAttacks(enemies & knights);
     kingBan |= enemyKnightAttacks;
-    if (enemyKnightAttacks & ourKing){
-        checkMask &= (attack::knights[ourKingIdx] & enemies & knights);
+    if (enemyKnightAttacks & myKing){
+        checkMask &= (attack::knights[myKingIdx] & enemies & knights);
     }
 
-    BB enemyKingAttacks = attack::getKingAttacks(enemies & kings);
+    const BB enemyKingAttacks = attack::getKingAttacks(enemies & kings);
     kingBan |= enemyKingAttacks;
 
     BB enemyBishops = enemies & (bishops | queens);
     while (enemyBishops) {
-        int i = popLsb(enemyBishops);
-        BB eAttack = attack::getBishopAttacks(i, occWithoutOurKing);
+        int index = popLsb(enemyBishops);
+        BB eAttack = attack::getBishopAttacks(index, occWithoutOurKing);
         kingBan |= eAttack;
-        if (eAttack & ourKing){
-            checkMask &= ((attack::getBishopAttacks(i, occ)
-                          & attack::getBishopAttacks(ourKingIdx, occ)) | indexToBB(i));
+        if (eAttack & myKing){
+            checkMask &= ((attack::getBishopAttacks(index, occ)
+                          & attack::getBishopAttacks(myKingIdx, occ)) | indexToBB(index));
         }
-        BB xrayAttack = attack::getBishopXRay(i, occ);
-        if (xrayAttack & ourKing){
-            pinMaskDiagonal |= ((xrayAttack & attack::getBishopXRay(ourKingIdx, occ)& (~ourKing)) | indexToBB(i));
+        BB xrayAttack = attack::getBishopXRay(index, occ);
+        if (xrayAttack & myKing){
+            pinMaskDiagonal |= ((xrayAttack & attack::getBishopXRay(myKingIdx, occ)& (~myKing)) | indexToBB(index));
         }
     }
     BB enemyRooks = enemies & (rooks | queens);
     while (enemyRooks){
-        int i = popLsb(enemyRooks);
-        BB eAttack = attack::getRookAttacks(i, occWithoutOurKing);
+        int index = popLsb(enemyRooks);
+        BB eAttack = attack::getRookAttacks(index, occWithoutOurKing);
         kingBan |= eAttack;
-        if (eAttack & ourKing){
-            checkMask &= ((attack::getRookAttacks(i, occ)
-                          & attack::getRookAttacks(ourKingIdx, occ)) | indexToBB(i));
+        if (eAttack & myKing){
+            checkMask &= ((attack::getRookAttacks(index, occ)
+                          & attack::getRookAttacks(myKingIdx, occ)) | indexToBB(index));
         }
-        BB xrayAttack = attack::getRookXRay(i, occ);
-        if (xrayAttack & ourKing){
-            pinMaskCross |= ((xrayAttack & attack::getRookXRay(ourKingIdx, occ) & (~ourKing)) | indexToBB(i));
+        BB xrayAttack = attack::getRookXRay(index, occ);
+        if (xrayAttack & myKing){
+            pinMaskCross |= ((xrayAttack & attack::getRookXRay(myKingIdx, occ) & (~myKing)) | indexToBB(index));
         }
     }
 
-    BB notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
-    BB pawnPush2Mask = notOcc & notOccShift8ByColor;
+    const BB notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
+    const BB pawnPush2Mask = notOcc & notOccShift8ByColor;
+
     int count = 0;
-    for (int i = 0; i < Square_Count; i++){
+    BB myPawns = board.getPieceBB<color, Pawn>();
+    while (myPawns){
+        int i = popLsb(myPawns);
         u64 from = indexToBB(i);
-        if ((from & mines) == 0)
-            continue;
-        u64 attack = 0, to = 0;
-        if (from & pawns){
-            if (pinMaskDiagonal & from){
-                attack = attackPawns[i] & enemies & checkMask & pinMaskDiagonal;
-            } else if (pinMaskCross & from){
-                attack = ((attackPawnPushes[i] & notOcc)
-                        | (attackPawnPushes2[i] & pawnPush2Mask)) & checkMask & pinMaskCross;
-            } else {
-                attack = (attackPawns[i] & enemies)
-                       | (attackPawnPushes[i] & notOcc)
-                       | (attackPawnPushes2[i] & pawnPush2Mask);
-                attack &= checkMask;
-            }
-            bool enPassantCond = board.state->enPassant != SquareNone // Có trạng thái một tốt vừa được push 2
-                    && ((board.state->enPassant / 8) == (i / 8)) // Ô tốt push 2 ở cùng hàng với ô from
-                    && ((board.state->enPassant - i) == 1 || (i - board.state->enPassant == 1)) // 2 ô cách nhau 1 đơn vị
-                    && ((pinMaskDiagonal & indexToBB(board.state->enPassant)) == 0) // Ô tấn công không bị pin theo đường chéow
-                    ;
-            if (enPassantCond){
-                // Kiểm tra thêm trường hợp ngang hàng tốt có hậu hoặc xe đang tấn công xuyên 2 tốt
-                Rank ourKingRank = getRank(Square(ourKingIdx));
-                BB ourKingRankBB = rankBB(ourKingRank);
+        u64 attack = 0;
+        if (pinMaskDiagonal & from){
+            attack = attackPawns[i] & enemies & checkMask & pinMaskDiagonal;
+        } else if (pinMaskCross & from){
+            attack = ((attackPawnPushes[i] & notOcc)
+                    | (attackPawnPushes2[i] & pawnPush2Mask)) & checkMask & pinMaskCross;
+        } else {
+            attack = (attackPawns[i] & enemies)
+                   | (attackPawnPushes[i] & notOcc)
+                   | (attackPawnPushes2[i] & pawnPush2Mask);
+            attack &= checkMask;
+        }
+        bool enPassantCond = board.state->enPassant != SquareNone // Có trạng thái một tốt vừa được push 2
+                && ((board.state->enPassant / 8) == (i / 8)) // Ô tốt push 2 ở cùng hàng với ô from
+                && ((board.state->enPassant - i) == 1 || (i - board.state->enPassant == 1)) // 2 ô cách nhau 1 đơn vị
+                && ((pinMaskDiagonal & indexToBB(board.state->enPassant)) == 0) // Ô tấn công không bị pin theo đường chéow
+                && ((pinMaskCross & from) == 0)
+                && ((pinMaskDiagonal & from) == 0)
+                ;
+        if (enPassantCond){
+            // Kiểm tra thêm trường hợp ngang hàng tốt có hậu hoặc xe đang tấn công xuyên 2 tốt
+            Rank ourKingRank = getRank(Square(myKingIdx));
+            BB ourKingRankBB = rankBB(ourKingRank);
 
-                BB enemieRookOrQueenInRanks = (queens | rooks) & ourKingRankBB & enemies;
+            BB enemieRookOrQueenInRanks = (queens | rooks) & ourKingRankBB & enemies;
 
-                BB enemyRookOrQueen;
-                BB occWithout2Pawn = occ & (~indexToBB(board.state->enPassant)) & (~from);
-                bool isKingSeenByEnemyRookOrQueen = false;
-                while (enemieRookOrQueenInRanks){
-                    enemyRookOrQueen = lsbBB(enemieRookOrQueenInRanks);
-                    int sqRQ = lsb(enemyRookOrQueen);
-                    BB rookQueenAttack = attack::getRookAttacks(sqRQ, occWithout2Pawn);
-                    if (rookQueenAttack & ourKing){
-                        isKingSeenByEnemyRookOrQueen = true;
-                        break;
-                    }
-                    enemieRookOrQueenInRanks ^= enemyRookOrQueen;
+            BB enemyRookOrQueen;
+            BB occWithout2Pawn = occ & (~indexToBB(board.state->enPassant)) & (~from);
+            bool isKingSeenByEnemyRookOrQueen = false;
+            while (enemieRookOrQueenInRanks){
+                enemyRookOrQueen = lsbBB(enemieRookOrQueenInRanks);
+                int sqRQ = lsb(enemyRookOrQueen);
+                BB rookQueenAttack = attack::getRookAttacks(sqRQ, occWithout2Pawn);
+                if (rookQueenAttack & myKing){
+                    isKingSeenByEnemyRookOrQueen = true;
+                    break;
                 }
+                enemieRookOrQueenInRanks ^= enemyRookOrQueen;
+            }
 
-                if (!isKingSeenByEnemyRookOrQueen){
-                    moveList[count++] = Move::makeEnpassantMove(i, board.state->enPassantTarget<color>());
-                }
+            if (!isKingSeenByEnemyRookOrQueen){
+                moveList[count++] = Move::makeEnpassantMove(i, board.state->enPassantTarget<color>());
             }
-            bool promotionCond = color == White ? (i / 8) == 6 : (i / 8) == 1;
-            if (promotionCond){
-                while (attack){
-                    to = lsbBB(attack);
-                    moveList[count++] = Move::makePromotionMove(i, lsb(to), Queen);
-                    moveList[count++] = Move::makePromotionMove(i, lsb(to), Rook);
-                    moveList[count++] = Move::makePromotionMove(i, lsb(to), Bishop);
-                    moveList[count++] = Move::makePromotionMove(i, lsb(to), Knight);
-                    attack ^= to;
-                }
+        }
+        bool promotionCond = color == White ? (i / 8) == 6 : (i / 8) == 1;
+        if (promotionCond){
+            while (attack){
+                int to = popLsb(attack);
+                moveList[count++] = Move::makePromotionMove(i, to, Queen);
+                moveList[count++] = Move::makePromotionMove(i, to, Rook);
+                moveList[count++] = Move::makePromotionMove(i, to, Bishop);
+                moveList[count++] = Move::makePromotionMove(i, to, Knight);
             }
-        } else if (from & knights) {
-            attack = attack::knights[i] & notMines & checkMask;
-            if ((pinMaskCross & from) || (pinMaskDiagonal & from)){
-                // Quân mã bị pin sẽ không thể di chuyển đến bất kỳ vị trí nào
-                attack = 0;
+        } else {
+            while (attack){
+                int to = popLsb(attack);
+                moveList[count++] = Move::makeNormalMove(i, to);
             }
-        } else if (from & bishops) {
-            attack = attack::getBishopAttacks(i, occ) & notMines & checkMask;
-            if (pinMaskCross & from) {
-                attack = 0;
-            } else if (pinMaskDiagonal & from){
-                attack &= pinMaskDiagonal;
-            }
-        } else if (from & rooks) {
-            attack = attack::getRookAttacks(i, occ) & notMines & checkMask;
-            if (pinMaskDiagonal & from) {
-                attack = 0;
-            } else if (pinMaskCross & from){
-                attack &= pinMaskCross;
-            }
-        } else if (from & queens) {
-            if (pinMaskDiagonal & from){
-                attack = attack::getBishopAttacks(i, occ) & notMines & checkMask & pinMaskDiagonal;
-            } else if (pinMaskCross & from){
-                attack = attack::getRookAttacks(i, occ) & notMines & checkMask & pinMaskCross;
-            } else {
-                attack = attack::getQueenAttacks(i, occ) & notMines & checkMask;
-            }
-        } else if (from & kings) {
-            attack = attack::kings[i] & notMines & (~kingBan);
-            if constexpr (color == White) {
-                if ((occ & castlingSpace<CastlingWK>()) == 0
-                        && (kingBan & castlingKingPath<CastlingWK>()) == 0
-                        && (board.state->castlingRights & CastlingWK) ){
-                    constexpr static auto castlingSrc = getCastlingIndex<CastlingWK, King, true>();
-                    constexpr static auto castlingDst = getCastlingIndex<CastlingWK, King, false>();
-                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                    moveList[count++] = castlingMove;
-                }
-                if ((occ & castlingSpace<CastlingWQ>()) == 0
-                        && (kingBan & castlingKingPath<CastlingWQ>()) == 0
-                        && (board.state->castlingRights & CastlingWQ)){
-                    constexpr static auto castlingSrc = getCastlingIndex<CastlingWQ, King, true>();
-                    constexpr static auto castlingDst = getCastlingIndex<CastlingWQ, King, false>();
-                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                    moveList[count++] = castlingMove;
-                }
-            } else {
-                if ((occ & castlingSpace<CastlingBK>()) == 0
-                        && (kingBan & castlingKingPath<CastlingBK>()) == 0
-                        && (board.state->castlingRights & CastlingBK)){
-                    constexpr static auto castlingSrc = getCastlingIndex<CastlingBK, King, true>();
-                    constexpr static auto castlingDst = getCastlingIndex<CastlingBK, King, false>();
-                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                    moveList[count++] = castlingMove;
-                }
-                if ((occ & castlingSpace<CastlingBQ>()) == 0
-                        && (kingBan & castlingKingPath<CastlingBQ>()) == 0
-                        && (board.state->castlingRights & CastlingBQ)){
-                    constexpr static auto castlingSrc = getCastlingIndex<CastlingBQ, King, true>();
-                    constexpr static auto castlingDst = getCastlingIndex<CastlingBQ, King, false>();
-                    constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                    moveList[count++] = castlingMove;
-                }
-            }
+        }
+    }
+    BB myKnights = board.getPieceBB<color, Knight>() & ~(pinMaskCross | pinMaskDiagonal);
+    while (myKnights){
+        int i = popLsb(myKnights);
+        BB attack = attack::knights[i] & notMines & checkMask;;
+        while (attack){
+            int to = popLsb(attack);
+            moveList[count++] = Move::makeNormalMove(i, to);
+        }
+    }
+
+    BB myBishops = board.getPieceBB<color, Bishop>() & ~pinMaskCross;
+    while (myBishops){
+        int i = popLsb(myBishops);
+        BB from = indexToBB(i);
+        BB attack = attack::getBishopAttacks(i, occ) & notMines & checkMask;
+        if (pinMaskDiagonal & from){
+            attack &= pinMaskDiagonal;
         }
         while (attack){
-            to = lsbBB(attack);
-            moveList[count++] = Move::makeNormalMove(i, lsb(to));
-            attack ^= to;
+            int to = popLsb(attack);
+            moveList[count++] = Move::makeNormalMove(i, to);
         }
     }
+
+    BB myRooks = board.getPieceBB<color, Rook>() & ~pinMaskDiagonal;
+    while (myRooks){
+        int i = popLsb(myRooks);
+        BB from = indexToBB(i);
+        BB attack = attack::getRookAttacks(i, occ) & notMines & checkMask;
+        if (pinMaskCross & from){
+            attack &= pinMaskCross;
+        }
+        while (attack){
+            int to = popLsb(attack);
+            moveList[count++] = Move::makeNormalMove(i, to);
+        }
+    }
+
+    BB myQueens = board.getPieceBB<color, Queen>();
+    while (myQueens){
+        int i = popLsb(myQueens);
+        BB from = indexToBB(i);
+        BB attack;
+        if (pinMaskDiagonal & from){
+            attack = attack::getBishopAttacks(i, occ) & notMines & checkMask & pinMaskDiagonal;
+        } else if (pinMaskCross & from){
+            attack = attack::getRookAttacks(i, occ) & notMines & checkMask & pinMaskCross;
+        } else {
+            attack = attack::getQueenAttacks(i, occ) & notMines & checkMask;
+        }
+        while (attack){
+            int to = popLsb(attack);
+            moveList[count++] = Move::makeNormalMove(i, to);
+        }
+    }
+
+    {
+        BB attack = attack::kings[myKingIdx] & notMines & (~kingBan);
+        while (attack){
+            int to = popLsb(attack);
+            moveList[count++] = Move::makeNormalMove(myKingIdx, to);
+        }
+        if constexpr (color == White) {
+            if ((occ & castlingSpace<CastlingWK>()) == 0
+                    && (kingBan & castlingKingPath<CastlingWK>()) == 0
+                    && (board.state->castlingRights & CastlingWK) ){
+                constexpr static auto castlingSrc = getCastlingIndex<CastlingWK, King, true>();
+                constexpr static auto castlingDst = getCastlingIndex<CastlingWK, King, false>();
+                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                moveList[count++] = castlingMove;
+            }
+            if ((occ & castlingSpace<CastlingWQ>()) == 0
+                    && (kingBan & castlingKingPath<CastlingWQ>()) == 0
+                    && (board.state->castlingRights & CastlingWQ)){
+                constexpr static auto castlingSrc = getCastlingIndex<CastlingWQ, King, true>();
+                constexpr static auto castlingDst = getCastlingIndex<CastlingWQ, King, false>();
+                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                moveList[count++] = castlingMove;
+            }
+        } else {
+            if ((occ & castlingSpace<CastlingBK>()) == 0
+                    && (kingBan & castlingKingPath<CastlingBK>()) == 0
+                    && (board.state->castlingRights & CastlingBK)){
+                constexpr static auto castlingSrc = getCastlingIndex<CastlingBK, King, true>();
+                constexpr static auto castlingDst = getCastlingIndex<CastlingBK, King, false>();
+                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                moveList[count++] = castlingMove;
+            }
+            if ((occ & castlingSpace<CastlingBQ>()) == 0
+                    && (kingBan & castlingKingPath<CastlingBQ>()) == 0
+                    && (board.state->castlingRights & CastlingBQ)){
+                constexpr static auto castlingSrc = getCastlingIndex<CastlingBQ, King, true>();
+                constexpr static auto castlingDst = getCastlingIndex<CastlingBQ, King, false>();
+                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+                moveList[count++] = castlingMove;
+            }
+        }
+    }
+
     return count;
 }
 
@@ -240,7 +275,7 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     return output;
 }
 
-constexpr static int FixedDepth = 3;
+constexpr static int FixedDepth = 4;
 int countMate = 0;
 int countCapture = 0;
 int countCheck = 0;
@@ -249,41 +284,66 @@ std::string currMove;
 QElapsedTimer myTimer;
 qint64 genTick = 0;
 qint64 moveTick = 0;
-
+int countMoveExt = 0;
 
 std::string kc::testFenPerft()
 {
 //    return "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    return "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 2 1"; // Root
-//    return "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/2R1K2R b Kkq - 3 1"; // A1 c1 81114 (ep: 83263)
-}
+//    return "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 2 1"; // Root
 
+    return "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10";
+}
+#define MULTI_LINE_STRING(a) #a
 
 void kc::testPerft()
 {
 //    return;
-    kc::Board board;
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     // rnbqk1nr/pppp1ppp/8/P3p3/1b6/8/1PPPPPPP/RNBQKBNR w KQkq - 1 3
 //    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
+    auto funcTest = [](const std::string fen, int depth, int expectedTotalMove){
+        kc::Board board;
+        parseFENString(fen, &board);
+        int total = genMoveRecur(board, depth);
+        if (total != expectedTotalMove){
+            qWarning() << "Wrong val when test perft";
+            qWarning() << fen.c_str() << depth << total << "expected" << expectedTotalMove;
+        } else {
+            qDebug() << "Test perft done" << fen.c_str();
+        }
+    };
+
+    if (true){
+        QElapsedTimer timer;
+        timer.start();
+        funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 4, 197281);
+        funcTest("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 4, 4085603);
+        funcTest("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 4, 3894594);
+        funcTest("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 10", 5, 674624);
+        funcTest("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8", 4, 2103487);
+
+        qint64 t = timer.nsecsElapsed() / 1000000;
+        qDebug() << "Time for multi board" << t << "ms";
+        qDebug() << "Count tick" << (genTick / 1000000) << (moveTick / 1000000);
+
+    }
+
+    return;
+
+    kc::Board board;
     parseFENString(testFenPerft(), &board);
 
-    QElapsedTimer timer;
-    timer.start();
     myTimer.start();
     int countTotal = genMoveRecur(board, FixedDepth);
 
-    qint64 t = timer.nsecsElapsed() / 1000000;
-    qDebug() << "Time for multi board" << t << "ms";
+//    qint64 t = timer.nsecsElapsed() / 1000000;
+//    qDebug() << "Time for multi board" << t << "ms";
     qDebug() << "Total move calculated" << countMate << countCapture << countCheck << countTotal;
-    qDebug() << "Count tick" << (genTick / 1000000) << (moveTick / 1000000);
+    qDebug() << "Count ext" << countMoveExt;
 
-//    return;
+    return;
 
     {
-//        for (auto it = divideCount.begin(); it != divideCount.end(); it++){
-//            qDebug() << it->first.c_str() << it->second;
-//        }
         std::map<std::string, int> newDivideCount;
         for (auto it = divideCount.begin(); it != divideCount.end(); it++){
             auto key = it->first;
@@ -297,10 +357,16 @@ void kc::testPerft()
         }
         divideCount = newDivideCount;
 
-        QString sample = "a2a3: 94405 b2b3: 81066 g2g3: 77468 d5d6: 79551 a2a4: 90978 g2g4: 75677 g2h3: 82759 d5e6: 97464 c3b1: 84773 c3d1: 84782 c3a4: 91447 c3b5: 81498 e5d3: 77431 e5c4: 77752 e5g4: 79912 e5c6: 83885 e5g6: 83866 e5d7: 93913 e5f7: 88799 d2c1: 83037 d2e3: 90274 d2f4: 84869 d2g5: 87951 d2h6: 82323 e2d1: 74963 e2f1: 88728 e2d3: 85119 e2c4: 84835 e2b5: 79739 e2a6: 69334 a1b1: 83348 a1c1: 83263 a1d1: 79695 h1f1: 81563 h1g1: 84876 f3d3: 83727 f3e3: 92505 f3g3: 94461 f3h3: 98524 f3f4: 90488 f3g4: 92037 f3f5: 104992 f3h5: 95034 f3f6: 77838 e1d1: 79989 e1f1: 77887 e1g1: 86975 e1c1: 79803";
+        QString sample = MULTI_LINE_STRING(
+                    c7c6: 35
+                    d7d6: 34
+                    d7d5: 35
+                    b2a1q: 33
+       );
+
+
 
         sample = sample.replace(':', "");
-
         std::map<std::string, int> sampleDivide;
         auto sp = sample.split(' ');
         for (int i = 0; i < sp.size(); i++){
@@ -308,7 +374,6 @@ void kc::testPerft()
                 sampleDivide[sp[i].toStdString()] = sp[i + 1].toInt();
             }
         }
-
         // Compare sample divide count with divide count
         for (auto it = divideCount.begin(); it != divideCount.end(); it++){
             auto key = it->first;
@@ -317,7 +382,6 @@ void kc::testPerft()
                 qDebug() << "Error at" << key.c_str() << "expected" << sampleDivide[key] << "but got" << value;
             }
         }
-
         // Find all contains in sampleDivide but not in divideCount
         for (auto it = sampleDivide.begin(); it != sampleDivide.end(); it++){
             auto key = it->first;
@@ -327,8 +391,6 @@ void kc::testPerft()
             }
         }
     }
-
-
 }
 
 int kc::genMoveRecur(Board &board, int depth)
@@ -337,6 +399,9 @@ int kc::genMoveRecur(Board &board, int depth)
     qint64 startGen = myTimer.nsecsElapsed();
     Move moves[256];
     int count = generateMoveList(board, moves);
+    if (depth == 2){
+        countMoveExt += count;
+    }
     if (count == 0){
         countMate++;
     }
@@ -356,13 +421,20 @@ int kc::genMoveRecur(Board &board, int depth)
 
         if (depth == FixedDepth){
             currMove = moves[i].getDescription();
-            qDebug() << "Start cal for move" << moves[i].getDescription().c_str();
+//            qDebug() << "Start cal for move" << moves[i].getDescription().c_str();
         }
         board.doMove(moves[i], state);
         qint64 endMove = myTimer.nsecsElapsed();
         moveTick += (endMove - startMove);
-        total += genMoveRecur(board, depth - 1);
+        int child = genMoveRecur(board, depth - 1);
+//        if (depth == FixedDepth){
+//            qDebug() << "Ret" << child;
+//        }
+        total += child;
+        startMove = myTimer.nsecsElapsed();
         board.undoMove(moves[i]);
+        endMove = myTimer.nsecsElapsed();
+        moveTick += (endMove - startMove);
     }
 //    free(moves);
 
