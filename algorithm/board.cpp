@@ -7,7 +7,7 @@
 using namespace kc;
 
 Board::Board(){
-//    state = new BoardState;
+    //    state = new BoardState;
 }
 
 Board::~Board()
@@ -229,7 +229,7 @@ int Board::undoMove(Move move)
 
     if (move.type() == Move::Promotion){
         pieces[src] = makePiece(dstColor, Pawn);
-        types[dstColor] ^= srcBB;
+        types[dstType] ^= srcBB;
         types[Pawn] |= srcBB;
     }
 
