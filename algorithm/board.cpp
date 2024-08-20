@@ -12,7 +12,16 @@ Board::Board(){
 
 Board::~Board()
 {
-//    delete state;
+    //    delete state;
+}
+
+BB Board::getSqAttackTo(int sq, BB occ) const {
+    return (attack::pawns[Black][sq] & getPieceBB<White, Pawn>())
+         | (attack::pawns[White][sq] & getPieceBB<Black, Pawn>())
+         | (attack::knights[sq] & getPieceBB<Knight>())
+         | (attack::getBishopAttacks(sq, occ) & getPieceBB<Bishop, Queen>())
+         | (attack::getRookAttacks(sq, occ) & getPieceBB<Rook, Queen>())
+         | (attack::kings[sq] & getPieceBB<King>());
 }
 
 int kc::Board::doMove(Move move, BoardState &newState){
