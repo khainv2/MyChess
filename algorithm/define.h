@@ -110,6 +110,10 @@ constexpr BB FileA_BB = 0x0101010101010101ULL;
 constexpr static BB rankBB(Rank r){
     return Rank1_BB << (r * 8);
 }
+template <Rank r>
+constexpr static BB rankBB(){
+    return Rank1_BB << (r * 8);
+}
 
 constexpr static BB fileBB(File f){
     return FileA_BB << f;
@@ -148,6 +152,10 @@ inline Square popLsb(BB& b) {
     const Square s = lsb(b);
     b &= b - 1;
     return s;
+}
+
+constexpr inline bool isMoreThanOne(BB b){
+    return b & (b - 1);
 }
 
 enum CastlingRights : int {

@@ -16,6 +16,9 @@ u64 kc::attack::pawnPushes2[2][64] = {};
 u64 kc::attack::rooks[64][262144] = { };
 u64 kc::attack::bishops[64][262144] = { };
 
+// Trả về các ô nằm giữa 2 ô để thuận tiện cho việc tính checkmask
+BB kc::attack::between[Square_Count][Square_Count];
+
 kc::attack::MagicBitboard kc::attack::rookMagicBitboards[64] = { };
 kc::attack::MagicBitboard kc::attack::bishopMagicBitboards[64] = { };
 void kc::attack::init()
@@ -33,6 +36,24 @@ void kc::attack::init()
         pawnPushes[Black][i] = oneSquareAttack<-8>(square, B_D);
         pawnPushes2[White][i] = oneSquareAttack<+16>(square, ~B_D2);
         pawnPushes2[Black][i] = oneSquareAttack<-16>(square, ~B_U2);
+    }
+    for (int i = 0; i < 64; i++){
+        BB iBB = indexToBB(i);
+        for (int j = 0; j < 64; j++){
+            BB jBB = indexToBB(j);
+            between[i][j] = jBB;
+            BB occ = iBB | jBB;
+            BB rookAtk = attack::getRookAttacks(i, occ);
+            if (rookAtk & jBB){
+                auto mask = (rookAtk & attack::getRookAttacks(j, occ)) | jBB;
+                between[i][j] = mask;
+            }
+            BB bishopAtk = attack::getBishopAttacks(i, occ);
+            if (bishopAtk & jBB){
+                auto mask = (bishopAtk & attack::getBishopAttacks(j, occ)) | jBB;
+                between[i][j] = mask;
+            }
+        }
     }
 }
 

@@ -48,9 +48,25 @@ struct Board {
     Board();
     ~Board();
 
+    template<Color color>
+    constexpr inline BB getPieceBB() const {
+        return colors[color];
+    }
     template<Color color, PieceType piece>
     constexpr inline BB getPieceBB() const {
         return colors[color] & types[piece];
+    }
+    template<Color color, PieceType piece, PieceType piece2>
+    constexpr inline BB getPieceBB() const {
+        return colors[color] & (types[piece] | types[piece2]);
+    }
+    template<PieceType piece, PieceType piece2>
+    constexpr inline BB getPieceBB() const {
+        return types[piece] | types[piece2];
+    }
+    template<PieceType piece>
+    constexpr inline BB getPieceBB() const {
+        return types[piece];
     }
 
     template <Color color>
@@ -67,6 +83,7 @@ struct Board {
         return colors[Black] | colors[White];
     }
 
+    BB getSqAttackTo(int sq, BB occ) const;
 
     int doMove(Move move, BoardState &state);
     int undoMove(Move move);

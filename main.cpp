@@ -82,6 +82,8 @@ int main(int argc, char *argv[])
 //    board1.doMove(move, state);
     parseFENString("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/2R1K2R b Kkq - 3 1", &board2);
 
+//    qDebug() << bbToString(kc::attack::between[makeSquare(Rank3, FileB)][makeSquare(Rank8, FileG)]).c_str();
+
 
 //    board1.compareTo(board2);
 
