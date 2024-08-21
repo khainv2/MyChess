@@ -38,8 +38,8 @@ int kc::genMoveList(const Board &board, Move *moveList)
     const BB notOcc = ~occ;
 
     // Lấy vị trí của vua hiện tại
-    BB myKing = board.getPieceBB<color, King>();
-    int myKingIdx = lsbIndex(myKing);
+    const BB myKing = board.getPieceBB<color, King>();
+    const int myKingIdx = lsbIndex(myKing);
     const BB occWithoutOurKing = occ & (~myKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
 
     // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
@@ -48,7 +48,7 @@ int kc::genMoveList(const Board &board, Move *moveList)
             | attack::getKingAttacks(board.getPieceBB<enemyColor, King>());
     BB enemyBishops = board.getPieceBB<enemyColor, Bishop, Queen>();
     while (enemyBishops) {
-        kingBan |=  attack::getBishopAttacks(popLsb(enemyBishops), occWithoutOurKing);
+        kingBan |= attack::getBishopAttacks(popLsb(enemyBishops), occWithoutOurKing);
     }
     BB enemyRooks = board.getPieceBB<enemyColor, Rook, Queen>();
     while (enemyRooks) {

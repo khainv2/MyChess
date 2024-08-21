@@ -28,7 +28,7 @@ void init();
 void initMagicTable();
 
 template <int shift>
-constexpr u64 oneSquareAttack(u64 square, u64 border){
+constexpr u64 oneSquareAttack(u64 square, u64 border) noexcept {
     if (square & border){
         return 0;
     } else {
@@ -39,7 +39,7 @@ constexpr u64 oneSquareAttack(u64 square, u64 border){
     }
 }
 
-constexpr u64 oneSquareAttack(u64 square, int shift, u64 border){
+constexpr u64 oneSquareAttack(u64 square, int shift, u64 border) noexcept {
     if ((square & border) == 0){
         if (shift > 0) square <<= shift;
         else square >>= -shift;
@@ -49,7 +49,7 @@ constexpr u64 oneSquareAttack(u64 square, int shift, u64 border){
 }
 
 template <int shift, BB border>
-static constexpr inline BB oneAttack(BB square){
+static constexpr inline BB oneAttack(BB square) noexcept {
     if constexpr (shift > 0){
         return (square & ~border) << shift;
     } else {
@@ -57,7 +57,7 @@ static constexpr inline BB oneAttack(BB square){
     }
 }
 
-constexpr u64 getSlideAttack(u64 square, int shift, u64 border){
+constexpr u64 getSlideAttack(u64 square, int shift, u64 border) noexcept {
     u64 t = 0;
     while ((square & border) == 0) {
         if (shift > 0) square <<= shift;
@@ -68,7 +68,7 @@ constexpr u64 getSlideAttack(u64 square, int shift, u64 border){
 }
 
 template <Color color>
-static constexpr inline BB getPawnAttacks(BB pawn){
+static constexpr inline BB getPawnAttacks(BB pawn) noexcept {
     if constexpr (color == White){
         return oneAttack<+7, B_U | B_L>(pawn) | oneAttack<+9, B_U | B_R>(pawn);
     } else {
@@ -76,7 +76,7 @@ static constexpr inline BB getPawnAttacks(BB pawn){
     }
 }
 
-static constexpr inline BB getKnightAttacks(BB square){
+static constexpr inline BB getKnightAttacks(BB square) noexcept {
     return oneAttack<+17, B_U2 | B_R >(square)
         | oneAttack<+15, B_U2 | B_L >(square)
         | oneAttack<-15, B_D2 | B_R >(square)
@@ -87,7 +87,7 @@ static constexpr inline BB getKnightAttacks(BB square){
         | oneAttack<-10, B_D  | B_L2>(square);
 }
 
-static constexpr inline BB getKingAttacks(BB square){
+static constexpr inline BB getKingAttacks(BB square) noexcept {
     return oneAttack<+8, B_U>(square)
         | oneAttack<-8, B_D>(square)
         | oneAttack<-1, B_L>(square)
@@ -98,27 +98,27 @@ static constexpr inline BB getKingAttacks(BB square){
         | oneAttack<-9, B_D | B_L>(square);
 }
 
-inline static BB getRookAttacks(int index, u64 occ){
+inline static BB getRookAttacks(int index, u64 occ) noexcept {
     occ &= rookMagicBitboards[index].mask;
     occ *= rookMagicBitboards[index].magic;
     occ >>= RookMagicShiftLength;
     return rooks[index][occ];
 }
-inline static BB getBishopAttacks(int index, u64 occ) {
+inline static BB getBishopAttacks(int index, u64 occ) noexcept {
     occ &= bishopMagicBitboards[index].mask;
     occ *= bishopMagicBitboards[index].magic;
     occ >>= BishopMagicShiftLength;
     return bishops[index][occ];
 }
-inline static BB getQueenAttacks(int index, u64 occ){
+inline static BB getQueenAttacks(int index, u64 occ) noexcept {
     return getBishopAttacks(index, occ) | getRookAttacks(index, occ);
 }
 
-inline static BB getRookXRay(int index, BB occ){
+inline static BB getRookXRay(int index, BB occ) noexcept {
     BB attack = getRookAttacks(index, occ);
     return getRookAttacks(index, (occ & ~(attack & occ)));
 }
-inline static BB getBishopXRay(int index, BB occ){
+inline static BB getBishopXRay(int index, BB occ) noexcept {
     BB attack = getBishopAttacks(index, occ);
     return getBishopAttacks(index, (occ & ~(attack & occ)));
 }
