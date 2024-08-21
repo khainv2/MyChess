@@ -13,8 +13,17 @@ using u64 = unsigned long long;
 
 #define Bitloop(X) for(;X; X = _blsr_u64(X))
 
-constexpr u64 pow2(int v){
+constexpr u64 pow2(int v) noexcept {
     return v == 0 ? 1 : pow2(v - 1) * 2;
+}
+
+template <int v>
+u64 pow2() noexcept {
+    if constexpr (v == 0){
+        return 1;
+    } else {
+        return pow2(v - 1) * 2;
+    }
 }
 
 constexpr int Infinity = 1000000000;
@@ -36,13 +45,13 @@ enum Piece : u8 {
     BlackPawn = WhitePawn + 8, BlackBishop, BlackKnight, BlackRook, BlackQueen, BlackKing,
     Piece_NB = 16
 };
-constexpr PieceType pieceToType(Piece piece){
+constexpr PieceType pieceToType(Piece piece) noexcept {
     return PieceType(piece % PieceType_NB);
 }
-constexpr Color pieceToColor(Piece piece){
+constexpr Color pieceToColor(Piece piece) noexcept {
     return Color(piece / PieceType_NB);
 }
-constexpr Piece makePiece(Color color, PieceType type){
+constexpr Piece makePiece(Color color, PieceType type) noexcept {
     return Piece(color * PieceType_NB + type);
 }
 char pieceToChar(Piece piece);
@@ -69,13 +78,13 @@ enum Square: int {
     SquareNone = 0,
     Square_Count = 64
 };
-constexpr static Square makeSquare(Rank r, File f){
+constexpr static Square makeSquare(Rank r, File f) noexcept {
     return Square(r * 8 + f);
 }
-constexpr static Rank getRank(Square square){
+constexpr static Rank getRank(Square square) noexcept {
     return Rank(square / 8);
 }
-constexpr static File getFile(Square square){
+constexpr static File getFile(Square square) noexcept {
     return File(square % 8);
 }
 enum Value {
@@ -99,7 +108,7 @@ enum : u64 {
     B_R2 = 0xC0C0C0C0C0C0C0C0ULL,
 };
 
-constexpr u64 lsbBB(u64 input) { return input & (-i64(input)); }
+constexpr u64 lsbBB (u64 input) noexcept  { return input & (-i64(input)); }
 
 using BB = u64;
 
@@ -107,30 +116,30 @@ std::string bbToString(BB bb);
 constexpr BB Rank1_BB = 0xffULL;
 constexpr BB FileA_BB = 0x0101010101010101ULL;
 
-constexpr static BB rankBB(Rank r){
+constexpr static BB rankBB(Rank r) noexcept {
     return Rank1_BB << (r * 8);
 }
 template <Rank r>
-constexpr static BB rankBB(){
+constexpr static BB rankBB() noexcept {
     return Rank1_BB << (r * 8);
 }
 
-constexpr static BB fileBB(File f){
+constexpr static BB fileBB(File f) noexcept {
     return FileA_BB << f;
 }
 
 constexpr BB All_BB = 0xffffffffffffffffULL;
 
-constexpr static BB indexToBB(Square sq){
+constexpr static BB indexToBB(Square sq) noexcept {
     return 1ULL << sq;
 }
-constexpr BB indexToBB(int idx){
+constexpr BB indexToBB(int idx) noexcept {
     return 1ULL << idx;
 }
 template <int index>
-constexpr static BB toBB(){ return 1ULL << index; }
+constexpr static BB toBB() noexcept { return 1ULL << index; }
 
-static inline Square lsb(u64 bb) {
+static inline Square lsb(u64 bb) noexcept {
 #ifdef __linux__
     return (Square) __builtin_ctzll(bb);
 #else
@@ -148,7 +157,7 @@ static inline int lsbIndex(u64 bb) noexcept {
     return idx;
 #endif
 }
-inline int popCount(u64 bb){
+inline int popCount(u64 bb) noexcept {
 #ifdef __linux__
     return __builtin_popcountll(bb);
 #else
@@ -157,13 +166,13 @@ inline int popCount(u64 bb){
 }
 
 // Finds and clears the least significant bit in a non-zero bitboard.
-inline Square popLsb(BB& b) {
+inline Square popLsb(BB& b) noexcept {
     const Square s = lsb(b);
     b &= b - 1;
     return s;
 }
 
-constexpr inline bool isMoreThanOne(BB b){
+constexpr inline bool isMoreThanOne(BB b) noexcept {
     return b & (b - 1);
 }
 
@@ -180,7 +189,7 @@ enum CastlingRights : int {
 };
 
 template <CastlingRights c, PieceType type, bool isSrc>
-constexpr static Square getCastlingIndex(){
+constexpr static Square getCastlingIndex() noexcept {
     if constexpr (type == King){
         if constexpr (c == CastlingWK){
             return isSrc ? E1 : G1;
@@ -211,18 +220,18 @@ constexpr static Square getCastlingIndex(){
 }
 
 template<CastlingRights c, PieceType type>
-constexpr static BB getCastlingToggle(){
+constexpr static BB getCastlingToggle() noexcept {
     return toBB<getCastlingIndex<c, type, true>()>() | toBB<getCastlingIndex<c, type, false>()>();
 }
 
 template<CastlingRights c>
-constexpr static BB castlingKingPath(){
+constexpr static BB castlingKingPath() noexcept {
     return toBB<getCastlingIndex<c, King, true>()>() 
         | toBB<getCastlingIndex<c, Rook, false>()>()
         | toBB<getCastlingIndex<c, King, false>()>();
 }
 template<CastlingRights c>
-constexpr static BB castlingSpace(){
+constexpr static BB castlingSpace() noexcept {
     if constexpr (c == CastlingWK || c == CastlingBK){
         return toBB<getCastlingIndex<c, King, false>()>()
             | toBB<getCastlingIndex<c, Rook, false>()>();
@@ -253,17 +262,17 @@ public:
         return move != val;
     }
 
-    constexpr inline int src() const { return move & 0x3f; }
-    constexpr inline int dst() const { return (move >> 6) & 0x3f; }
-    constexpr inline PieceType getPromotionPieceType() const { return PieceType(((move >> 12) & 0x03) + 2); }
-    constexpr inline int type() const { return move & (3 << 14); }
+    constexpr inline int src() const noexcept { return move & 0x3f; }
+    constexpr inline int dst() const noexcept { return (move >> 6) & 0x3f; }
+    constexpr inline PieceType getPromotionPieceType() const noexcept { return PieceType(((move >> 12) & 0x03) + 2); }
+    constexpr inline int type() const noexcept { return move & (3 << 14); }
 
-    std::string getDescription() const;
+    std::string getDescription() const noexcept ;
 
-    static constexpr inline Move makeNormalMove(int src, int dst) { return Move(src + (dst << 6)); }
-    static constexpr inline Move makeEnpassantMove(int src, int dst) { return Move(src + (dst << 6) + Enpassant); }
-    static constexpr inline Move makeCastlingMove(int src, int dst) { return Move(src + (dst << 6) + Castling); }
-    static constexpr inline Move makePromotionMove(int src, int dst, PieceType p) { return Move(src + (dst << 6) + Promotion + ((p - 2) << 12)); }
+    static constexpr inline Move makeNormalMove(int src, int dst) noexcept { return Move(src + (dst << 6)); }
+    static constexpr inline Move makeEnpassantMove(int src, int dst) noexcept { return Move(src + (dst << 6) + Enpassant); }
+    static constexpr inline Move makeCastlingMove(int src, int dst) noexcept { return Move(src + (dst << 6) + Castling); }
+    static constexpr inline Move makePromotionMove(int src, int dst, PieceType p) noexcept { return Move(src + (dst << 6) + Promotion + ((p - 2) << 12)); }
 private:
     u16 move;
 };

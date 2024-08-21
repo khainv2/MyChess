@@ -24,7 +24,7 @@ struct BoardState {
     BoardState &operator=(const BoardState &state) = default;
 
     template<Color color>
-    constexpr inline int enPassantTarget() const {
+    constexpr inline int enPassantTarget() const noexcept {
         return color == White ? enPassant + 8 : enPassant - 8;
     }
 
@@ -45,100 +45,50 @@ struct Board {
     Color side = White;
     BoardState *state = nullptr;
 
-    Board();
-    ~Board();
+    Board() noexcept ;
+    ~Board() noexcept ;
 
     template<Color color>
-    constexpr inline BB getPieceBB() const {
+    constexpr inline BB getPieceBB() const noexcept {
         return colors[color];
     }
     template<Color color, PieceType piece>
-    constexpr inline BB getPieceBB() const {
+    constexpr inline BB getPieceBB() const noexcept {
         return colors[color] & types[piece];
     }
     template<Color color, PieceType piece, PieceType piece2>
-    constexpr inline BB getPieceBB() const {
+    constexpr inline BB getPieceBB() const noexcept {
         return colors[color] & (types[piece] | types[piece2]);
     }
     template<PieceType piece, PieceType piece2>
-    constexpr inline BB getPieceBB() const {
+    constexpr inline BB getPieceBB() const noexcept {
         return types[piece] | types[piece2];
     }
     template<PieceType piece>
-    constexpr inline BB getPieceBB() const {
+    constexpr inline BB getPieceBB() const noexcept {
         return types[piece];
     }
 
     template <Color color>
-    constexpr inline BB getMines() const {
+    constexpr inline BB getMines() const noexcept {
         return colors[color];
     }
 
     template <Color color>
-    constexpr inline BB getEnemies() const {
+    constexpr inline BB getEnemies() const noexcept {
         return colors[!color];
     }
 
-    constexpr inline BB getOccupancy() const {
+    constexpr inline BB getOccupancy() const noexcept {
         return colors[Black] | colors[White];
     }
 
-    BB getSqAttackTo(int sq, BB occ) const;
+    BB getSqAttackTo(int sq, BB occ) const noexcept ;
 
-    int doMove(Move move, BoardState &state);
-    int undoMove(Move move);
+    int doMove(Move move, BoardState &state) noexcept ;
+    int undoMove(Move move) noexcept;
 
     std::string getPrintable(int tab = 0) const;
-
-    void compareTo(const Board &other) const {
-        for (int i = 0; i < Square_Count; i++) {
-            if (pieces[i] != other.pieces[i]) {
-                qDebug() << "Mismatch at square " << i << " " << pieceToChar(pieces[i]) << " != " << pieceToChar(other.pieces[i]);
-            }
-        }
-
-        for (int i = 0; i < Color_NB; i++) {
-            if (colors[i] != other.colors[i]) {
-                qDebug() << "Mismatch at color " << i << " " << colors[i] << " != " << other.colors[i];
-            }
-        }
-
-        for (int i = 0; i < PieceType_NB; i++) {
-            if (types[i] != other.types[i]) {
-                qDebug() << "Mismatch at type " << i << " " << types[i] << " != " << other.types[i];
-            }
-        }
-
-        if (side != other.side) {
-            qDebug() << "Mismatch at side " << side << " != " << other.side;
-        }
-
-        if (state->castlingRights != other.state->castlingRights) {
-            qDebug() << "Mismatch at castling rights " << state->castlingRights << " != " << other.state->castlingRights;
-        }
-
-        if (state->enPassant != other.state->enPassant) {
-            qDebug() << "Mismatch at en passant " << state->enPassant << " != " << other.state->enPassant;
-        }
-
-        if (state->halfMoveClock != other.state->halfMoveClock) {
-            qDebug() << "Mismatch at half move clock " << state->halfMoveClock << " != " << other.state->halfMoveClock;
-        }
-
-        if (state->fullMoveNumber != other.state->fullMoveNumber) {
-            qDebug() << "Mismatch at full move number " << state->fullMoveNumber << " != " << other.state->fullMoveNumber;
-        }
-
-        if (state->capturedPiece != other.state->capturedPiece) {
-            qDebug() << "Mismatch at captured piece " << pieceToChar(state->capturedPiece) << " != " << pieceToChar(other.state->capturedPiece);
-        }
-
-        // if (state->previous != other.state->previous) {
-        //     qDebug() << "Mismatch at previous state " << state->previous << " != " << other.state->previous;
-        // }
-
-
-    }
 
 };
 }
