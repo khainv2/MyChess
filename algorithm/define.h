@@ -131,13 +131,22 @@ template <int index>
 constexpr static BB toBB(){ return 1ULL << index; }
 
 static inline Square lsb(u64 bb) {
-    unsigned long idx;
 #ifdef __linux__
-    idx = __builtin_ctzll(bb);
+    return (Square) __builtin_ctzll(bb);
 #else
+    unsigned long idx;
     _BitScanForward64(&idx, bb);
-#endif
     return (Square) idx;
+#endif
+}
+static inline int lsbIndex(u64 bb) noexcept {
+#ifdef __linux__
+    return __builtin_ctzll(bb);
+#else
+    unsigned long idx;
+    _BitScanForward64(&idx, bb);
+    return idx;
+#endif
 }
 inline int popCount(u64 bb){
 #ifdef __linux__

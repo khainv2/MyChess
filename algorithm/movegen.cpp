@@ -9,6 +9,7 @@
 #define TEST_PERFT
 using namespace kc;
 
+//e#define COUNT_TIME_PERFT
 
 //template
 int kc::generateMoveList(const Board &board, Move *moveList)
@@ -23,18 +24,22 @@ int kc::generateMoveList(const Board &board, Move *moveList)
 template<Color color>
 int kc::genMoveList(const Board &board, Move *moveList)
 {
+#ifdef COUNT_TIME_PERFT
+    std::vector<u64> times;
+    times.resize(20);
+    auto ptr = times.data();
+    int c = 0;
+
+    QElapsedTimer timer;
+    timer.start();
+#endif
     constexpr auto enemyColor = !color;
-    const BB mines = board.getMines<color>();
-    const BB notMines = ~mines;
-    const BB enemies = board.getEnemies<color>();
     const BB occ = board.getOccupancy();
     const BB notOcc = ~occ;
 
-    const BB *attackPawnPushes = attack::pawnPushes[color];
-    const BB *attackPawnPushes2 = attack::pawnPushes2[color];
-
+    // Lấy vị trí của vua hiện tại
     BB myKing = board.getPieceBB<color, King>();
-    int myKingIdx = lsb(myKing);
+    int myKingIdx = lsbIndex(myKing);
     const BB occWithoutOurKing = occ & (~myKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
 
     // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
@@ -50,6 +55,13 @@ int kc::genMoveList(const Board &board, Move *moveList)
         kingBan |= attack::getRookAttacks(popLsb(enemyRooks), occWithoutOurKing);
     }
 
+#ifdef COUNT_TIME_PERFT
+    ptr[c++] = timer.nsecsElapsed();
+#endif
+
+    const BB mines = board.getMines<color>();
+    const BB notMines = ~mines;
+    const BB enemies = board.getEnemies<color>();
     BB sqAttackToMyKing = board.getSqAttackTo(myKingIdx, occ) & enemies;
     if (isMoreThanOne(sqAttackToMyKing)) {
         // Trường hợp double check, chỉ cho phép di chuyển vua
@@ -63,11 +75,15 @@ int kc::genMoveList(const Board &board, Move *moveList)
         // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
         BB checkMask;
         if (sqAttackToMyKing){
-            int attackIndex = lsb(sqAttackToMyKing);
+            int attackIndex = lsbIndex(sqAttackToMyKing);
             checkMask = attack::between[myKingIdx][attackIndex];
         } else {
             checkMask = All_BB;
         }
+
+#ifdef COUNT_TIME_PERFT
+        ptr[c++] = timer.nsecsElapsed();
+#endif
 
         // Tính toán toàn bộ các vị trí pin
         BB pinMaskCross = 0;
@@ -89,6 +105,10 @@ int kc::genMoveList(const Board &board, Move *moveList)
             }
         }
 
+#ifdef COUNT_TIME_PERFT
+        ptr[c++] = timer.nsecsElapsed();
+#endif
+
         const BB notOccShift8ByColor = color == White ? (notOcc << 8) : (notOcc >> 8);
         const BB pawnPush2Mask = notOcc & notOccShift8ByColor;
         int count = 0;
@@ -100,12 +120,12 @@ int kc::genMoveList(const Board &board, Move *moveList)
             if (pinMaskDiagonal & from){
                 attack = attack::pawns[color][i] & enemies & checkMask & pinMaskDiagonal;
             } else if (pinMaskCross & from){
-                attack = ((attackPawnPushes[i] & notOcc)
-                        | (attackPawnPushes2[i] & pawnPush2Mask)) & checkMask & pinMaskCross;
+                attack = ((attack::pawnPushes[color][i] & notOcc)
+                        | (attack::pawnPushes2[color][i] & pawnPush2Mask)) & checkMask & pinMaskCross;
             } else {
                 attack = (attack::pawns[color][i] & enemies)
-                       | (attackPawnPushes[i] & notOcc)
-                       | (attackPawnPushes2[i] & pawnPush2Mask);
+                       | (attack::pawnPushes[color][i] & notOcc)
+                       | (attack::pawnPushes2[color][i] & pawnPush2Mask);
                 attack &= checkMask;
             }
             bool enPassantCond = board.state->enPassant != SquareNone // Có trạng thái một tốt vừa được push 2
@@ -127,7 +147,7 @@ int kc::genMoveList(const Board &board, Move *moveList)
                 bool isKingSeenByEnemyRookOrQueen = false;
                 while (enemieRookOrQueenInRanks){
                     enemyRookOrQueen = lsbBB(enemieRookOrQueenInRanks);
-                    int sqRQ = lsb(enemyRookOrQueen);
+                    int sqRQ = lsbIndex(enemyRookOrQueen);
                     BB rookQueenAttack = attack::getRookAttacks(sqRQ, occWithout2Pawn);
                     if (rookQueenAttack & myKing){
                         isKingSeenByEnemyRookOrQueen = true;
@@ -156,6 +176,10 @@ int kc::genMoveList(const Board &board, Move *moveList)
                 }
             }
         }
+
+#ifdef COUNT_TIME_PERFT
+        ptr[c++] = timer.nsecsElapsed();
+#endif
 
         const BB target = notMines & checkMask;
         BB myKnights = board.getPieceBB<color, Knight>() & ~(pinMaskCross | pinMaskDiagonal);
@@ -193,6 +217,10 @@ int kc::genMoveList(const Board &board, Move *moveList)
             }
         }
 
+#ifdef COUNT_TIME_PERFT
+        ptr[c++] = timer.nsecsElapsed();
+#endif
+
         BB myQueens = board.getPieceBB<color, Queen>();
         while (myQueens){
             int i = popLsb(myQueens);
@@ -209,7 +237,9 @@ int kc::genMoveList(const Board &board, Move *moveList)
                 moveList[count++] = Move::makeNormalMove(i, popLsb(attack));
             }
         }
-
+#ifdef COUNT_TIME_PERFT
+        ptr[c++] = timer.nsecsElapsed();
+#endif
         {
             BB attack = attack::kings[myKingIdx] & notMines & (~kingBan);
             while (attack){
@@ -251,6 +281,16 @@ int kc::genMoveList(const Board &board, Move *moveList)
                 }
             }
         }
+
+#ifdef COUNT_TIME_PERFT
+        ptr[c++] = timer.nsecsElapsed();
+        for (int i = 0; i < c; i++){
+            const auto &p = ptr[i];
+            qDebug() << "Calc" << p;
+        }
+#endif
+
+
 
         return count;
 
@@ -299,16 +339,20 @@ void kc::testPerft()
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     // rnbqk1nr/pppp1ppp/8/P3p3/1b6/8/1PPPPPPP/RNBQKBNR w KQkq - 1 3
 //    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
-    auto funcTest = [](const std::string fen, int depth, int expectedTotalMove){
+    int totalCount = 0;
+    auto funcTest = [&](const std::string fen, int depth, int expectedTotalMove){
+        QElapsedTimer timer;
         kc::Board board;
         parseFENString(fen, &board);
-        int total = genMoveRecur(board, depth);
-        if (total != expectedTotalMove){
+        timer.start();
+        int moveCount = genMoveRecur(board, depth);
+        if (moveCount != expectedTotalMove){
             qWarning() << "Wrong val when test perft";
-            qWarning() << fen.c_str() << depth << total << "expected" << expectedTotalMove;
+            qWarning() << fen.c_str() << depth << moveCount << "expected" << expectedTotalMove;
         } else {
-            qDebug() << "Test perft done" << fen.c_str();
+            qDebug() << "Test perft done" << fen.c_str() << "on" << (timer.nsecsElapsed() / 1000000) << "ms";
         }
+        totalCount += moveCount;
     };
     bool test = false;
 #ifdef TEST_PERFT
@@ -318,7 +362,7 @@ void kc::testPerft()
     if (test){
         QElapsedTimer timer;
         timer.start();
-        funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 4, 197281);
+        funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 5, 4865609);
         funcTest("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 4, 4085603);
         funcTest("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 4, 3894594);
         funcTest("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 10", 5, 674624);
@@ -326,6 +370,7 @@ void kc::testPerft()
 
         qint64 t = timer.nsecsElapsed() / 1000000;
         qDebug() << "Time for multi board" << t << "ms";
+        qDebug() << "Count node per sec=" << ((totalCount / t) * 1000);
         qDebug() << "Count tick" << (genTick / 1000000) << (moveTick / 1000000);
 
     }
@@ -398,7 +443,7 @@ void kc::testPerft()
 int kc::genMoveRecur(Board &board, int depth)
 {
 //     qDebug() << board.getPrintable(FixedDepth - depth).c_str();
-    qint64 startGen = myTimer.nsecsElapsed();
+//    qint64 startGen = myTimer.nsecsElapsed();
     Move moves[256];
     int count = generateMoveList(board, moves);
     if (depth == 2){
@@ -407,8 +452,8 @@ int kc::genMoveRecur(Board &board, int depth)
     if (count == 0){
         countMate++;
     }
-    qint64 endGen = myTimer.nsecsElapsed();
-    genTick += (endGen - startGen);
+//    qint64 endGen = myTimer.nsecsElapsed();
+//    genTick += (endGen - startGen);
 
     if (depth == 0){
         divideCount[currMove]++;
@@ -419,24 +464,24 @@ int kc::genMoveRecur(Board &board, int depth)
 
     int total = 0;
     for (int i = 0; i < count; i++){
-        qint64 startMove = myTimer.nsecsElapsed();
+//        qint64 startMove = myTimer.nsecsElapsed();
 
         if (depth == FixedDepth){
             currMove = moves[i].getDescription();
 //            qDebug() << "Start cal for move" << moves[i].getDescription().c_str();
         }
         board.doMove(moves[i], state);
-        qint64 endMove = myTimer.nsecsElapsed();
-        moveTick += (endMove - startMove);
+//        qint64 endMove = myTimer.nsecsElapsed();
+//        moveTick += (endMove - startMove);
         int child = genMoveRecur(board, depth - 1);
 //        if (depth == FixedDepth){
 //            qDebug() << "Ret" << child;
 //        }
         total += child;
-        startMove = myTimer.nsecsElapsed();
+//        startMove = myTimer.nsecsElapsed();
         board.undoMove(moves[i]);
-        endMove = myTimer.nsecsElapsed();
-        moveTick += (endMove - startMove);
+//        endMove = myTimer.nsecsElapsed();
+//        moveTick += (endMove - startMove);
     }
 //    free(moves);
 

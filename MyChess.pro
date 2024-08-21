@@ -5,7 +5,15 @@ win32 {
     QMAKE_CXXFLAGS += /std:c++17
 }
 
+QMAKE_CXXFLAGS_RELEASE += -O3 -march=native -flto
+QMAKE_CFLAGS_RELEASE += -O3 -march=native -flto
+
+QMAKE_LFLAGS_RELEASE += -Wl,-O1 -Wl,--as-needed -Wl,--gc-sections -flto
+QMAKE_CXXFLAGS_RELEASE += -fno-rtti -fno-exceptions
+CONFIG += ltcg
+
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+
 
 CONFIG += c++11
 
