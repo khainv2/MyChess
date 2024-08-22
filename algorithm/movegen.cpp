@@ -9,7 +9,7 @@
 #define TEST_PERFT
 using namespace kc;
 
-//e#define COUNT_TIME_PERFT
+#define COUNT_TIME_PERFT
 
 //template
 int kc::generateMoveList(const Board &board, Move *moveList)
@@ -42,10 +42,19 @@ int kc::genMoveList(const Board &board, Move *moveList)
     const int myKingIdx = lsbIndex(myKing);
     const BB occWithoutOurKing = occ & (~myKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
 
+#ifdef COUNT_TIME_PERFT
+    ptr[c++] = timer.nsecsElapsed();
+#endif
+
     // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
     BB kingBan = attack::getPawnAttacks<enemyColor>(board.getPieceBB<enemyColor, Pawn>())
             | attack::getKnightAttacks(board.getPieceBB<enemyColor, Knight>())
             | attack::getKingAttacks(board.getPieceBB<enemyColor, King>());
+
+#ifdef COUNT_TIME_PERFT
+    ptr[c++] = timer.nsecsElapsed();
+#endif
+
     BB enemyBishops = board.getPieceBB<enemyColor, Bishop, Queen>();
     while (enemyBishops) {
         kingBan |= attack::getBishopAttacks(popLsb(enemyBishops), occWithoutOurKing);

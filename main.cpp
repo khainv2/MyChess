@@ -33,9 +33,9 @@ int main(int argc, char *argv[])
     logger::init();
     attack::init();
 
-    kc::testPerft();
-//    MainWindow w;
-//    w.show();
+//    kc::testPerft();
+    MainWindow w;
+    w.show();
 
     return a.exec();
 }
