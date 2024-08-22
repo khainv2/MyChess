@@ -21,7 +21,7 @@ std::string kc::bbToString(BB bb){
     return s;
 }
 
-std::string kc::Move::getDescription() const {
+std::string kc::Move::getDescription() const noexcept {
     auto s = src();
     auto d = dst();
     static std::string fileTxt[8] = { "A", "B", "C", "D", "E", "F", "G", "H" };

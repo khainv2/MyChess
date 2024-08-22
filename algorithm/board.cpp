@@ -6,16 +6,15 @@
 
 using namespace kc;
 
-Board::Board(){
+Board::Board() noexcept {
     //    state = new BoardState;
 }
 
-Board::~Board()
-{
+Board::~Board() noexcept {
     //    delete state;
 }
 
-BB Board::getSqAttackTo(int sq, BB occ) const {
+BB Board::getSqAttackTo(int sq, BB occ) const noexcept {
     return (attack::pawns[Black][sq] & getPieceBB<White, Pawn>())
          | (attack::pawns[White][sq] & getPieceBB<Black, Pawn>())
          | (attack::knights[sq] & getPieceBB<Knight>())
@@ -24,7 +23,7 @@ BB Board::getSqAttackTo(int sq, BB occ) const {
          | (attack::kings[sq] & getPieceBB<King>());
 }
 
-int kc::Board::doMove(Move move, BoardState &newState){
+int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     newState.castlingRights = state->castlingRights;
     newState.enPassant = state->enPassant;
     newState.halfMoveClock = state->halfMoveClock;
@@ -160,7 +159,7 @@ int kc::Board::doMove(Move move, BoardState &newState){
     return 0;
 }
 
-int Board::undoMove(Move move)
+int Board::undoMove(Move move) noexcept
 {
     const int src = move.src();
     const int dst = move.dst();
