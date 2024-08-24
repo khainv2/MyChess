@@ -195,8 +195,6 @@ int kc::genMoveList(const Board &board, Move *moveList)
 //                    moveList[count++] = Move::makeEnpassantMove(index, board.state->enPassantTarget<color>());
 //                }
 //            }
-
-
 //        }
 
 
@@ -397,7 +395,7 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     return output;
 }
 
-constexpr static int FixedDepth = 1;
+constexpr static int FixedDepth = 10;
 int countMate = 0;
 int countCapture = 0;
 int countCheck = 0;
