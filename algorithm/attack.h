@@ -76,6 +76,24 @@ static constexpr inline BB getPawnAttacks(BB pawn) noexcept {
     }
 }
 
+template <Color color>
+static constexpr inline BB getPawnPush(BB pawn) noexcept {
+    if constexpr (color == White){
+        return oneAttack<+8, B_U>(pawn);
+    } else {
+        return oneAttack<-8, B_D>(pawn);
+    }
+}
+
+template <Color color>
+static constexpr inline BB getPawnPush2(BB pawn) noexcept {
+    if constexpr (color == White){
+        return oneAttack<+16, ~B_D2>(pawn);
+    } else {
+        return oneAttack<-16, ~B_U2>(pawn);
+    }
+}
+
 static constexpr inline BB getKnightAttacks(BB square) noexcept {
     return oneAttack<+17, B_U2 | B_R >(square)
         | oneAttack<+15, B_U2 | B_L >(square)

@@ -164,6 +164,10 @@ inline int popCount(u64 bb) noexcept {
     return __popcnt64(bb);
 #endif
 }
+constexpr inline u64 setAllBit(bool comp) {
+    return static_cast<u64>(-comp);
+}
+
 
 // Finds and clears the least significant bit in a non-zero bitboard.
 inline Square popLsb(BB& b) noexcept {
