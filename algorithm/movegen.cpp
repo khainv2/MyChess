@@ -10,7 +10,7 @@ using namespace kc;
 
 
 //template
-int kc::genMoveList(const Board &board, Move *moveList)
+int kc::genMoveList(const Board &board, Move *moveList) noexcept
 {
     if (board.side == White){
         return genMoveList<White>(board, moveList);
@@ -19,8 +19,49 @@ int kc::genMoveList(const Board &board, Move *moveList)
     }
 }
 
+
 template<Color color>
-int kc::genMoveList(const Board &board, Move *moveList)
+int kc::getMoveListWhenDoubleCheck(const Board &board, Move *moveList) noexcept
+{
+    constexpr auto enemyColor = !color;
+    const BB occ = board.getOccupancy();
+
+    // Lấy vị trí của vua hiện tại
+    const BB myKing = board.getPieceBB<color, King>();
+    const int myKingIdx = lsbIndex(myKing);
+    const BB occWithoutOurKing = occ & (~myKing); // Trong trường hợp slide attack vẫn có thể 'nhìn' các vị trí sau vua
+
+    const BB mines = board.getMines<color>();
+    const BB notMines = ~mines;
+    const BB _enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
+    const BB _enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
+
+    // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
+    BB kingBan = attack::getPawnAttacks<enemyColor>(board.getPieceBB<enemyColor, Pawn>())
+            | attack::getKnightAttacks(board.getPieceBB<enemyColor, Knight>())
+            | attack::getKingAttacks(board.getPieceBB<enemyColor, King>());
+
+    BB enemyBishopQueens = _enemyBishopQueens;
+    BB enemyRookQueens = _enemyRookQueens;
+    while (enemyBishopQueens) {
+        kingBan |= attack::getBishopAttacks(popLsb(enemyBishopQueens), occWithoutOurKing);
+    }
+    while (enemyRookQueens) {
+        kingBan |= attack::getRookAttacks(popLsb(enemyRookQueens), occWithoutOurKing);
+    }
+
+    // Trường hợp double check, chỉ cho phép di chuyển vua
+    BB kingAttacks = attack::kings[myKingIdx] & notMines & (~kingBan);
+    int count = 0;
+    while (kingAttacks){
+        moveList[count++] = Move::makeNormalMove(myKingIdx, popLsb(kingAttacks));
+    }
+    return count;
+}
+
+
+template<Color color>
+int kc::genMoveList(const Board &board, Move *moveList) noexcept
 {
     constexpr auto enemyColor = !color;
     const BB occ = board.getOccupancy();
@@ -304,7 +345,6 @@ int kc::genMoveList(const Board &board, Move *moveList)
     }
 }
 
-
 std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     Move moves[256];
     int count = genMoveList(board, moves);
@@ -318,7 +358,6 @@ std::vector<Move> kc::getMoveListForSquare(const Board &board, Square square){
     }
     return output;
 }
-
 
 
 

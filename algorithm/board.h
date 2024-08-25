@@ -83,6 +83,9 @@ struct Board {
         return colors[Black] | colors[White];
     }
 
+    template<Color mine>
+    inline BB getKingBan() const noexcept;
+
     BB getSqAttackTo(int sq, BB occ) const noexcept ;
 
     int doMove(Move move, BoardState &state) noexcept ;

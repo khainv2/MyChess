@@ -28,6 +28,7 @@ SOURCES += \
     algorithm/engine.cpp \
     algorithm/evaluation.cpp \
     algorithm/movegen.cpp \
+    algorithm/perft.cpp \
     algorithm/util.cpp \
     chessboardview.cpp \
     logger.cpp \
@@ -43,6 +44,7 @@ HEADERS += \
     algorithm/engine.h \
     algorithm/evaluation.h \
     algorithm/movegen.h \
+    algorithm/perft.h \
     algorithm/util.h \
     chessboardview.h \
     logger.h \
