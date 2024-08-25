@@ -7,35 +7,9 @@
 using namespace kc;
 
 Board::Board() noexcept {
-    //    state = new BoardState;
 }
 
 Board::~Board() noexcept {
-    //    delete state;
-}
-
-template<Color mine>
-BB Board::getKingBan() const noexcept {
-    constexpr auto enemyColor = !mine;
-
-    const BB enemyPawns = getPieceBB<enemyColor, Pawn>();
-    const BB enemyKnights = getPieceBB<enemyColor, Knight>();
-    const BB enemyKings = getPieceBB<enemyColor, King>();
-    BB enemyBishopQueens = getPieceBB<enemyColor, Bishop, Queen>();
-    BB enemyRookQueens = getPieceBB<enemyColor, Rook, Queen>();
-
-    // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
-    BB kingBan = attack::getPawnAttacks<enemyColor>(enemyPawns)
-            | attack::getKnightAttacks(enemyKnights)
-            | attack::getKingAttacks(getPieceBB<enemyColor, King>());
-
-    while (enemyBishopQueens) {
-        kingBan |= attack::getBishopAttacks(popLsb(enemyBishopQueens), occWithoutOurKing);
-    }
-    while (enemyRookQueens) {
-        kingBan |= attack::getRookAttacks(popLsb(enemyRookQueens), occWithoutOurKing);
-    }
-
 }
 
 BB Board::getSqAttackTo(int sq, BB occ) const noexcept {

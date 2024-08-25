@@ -4,14 +4,36 @@
 
 namespace kc {
 
-inline int genMoveList(const Board &board, Move *moveList) noexcept;
+class MoveGen {
+public:
+    static MoveGen *instance;
+    static void init();
+    MoveGen();
 
-template <Color color>
-inline int genMoveList(const Board &board, Move *moveList) noexcept;
 
-template <Color color>
-inline int getMoveListWhenDoubleCheck(const Board &board, Move *moveList) noexcept;
+    inline int genMoveList(const Board &board, Move *moveList) noexcept;
 
-std::vector<Move> getMoveListForSquare(const Board &board, Square square);
+    template <Color color>
+    inline int genMoveList(const Board &board, Move *moveList) noexcept;
+
+    template <Color color>
+    inline int getMoveListWhenDoubleCheck(const Board &board, Move *moveList) noexcept;
+
+    template<Color mine>
+    inline BB getKingBan(const Board &board) noexcept;
+
+    std::vector<Move> getMoveListForSquare(const Board &board, Square square);
+
+private:
+    BB occ;
+    BB myKing;
+    int myKingIdx;
+    BB mines;
+    BB notMines;
+
+    BB _enemyRookQueens;
+    BB _enemyBishopQueens;
+};
+
 
 }
