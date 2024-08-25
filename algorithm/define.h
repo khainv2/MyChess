@@ -79,14 +79,34 @@ enum Square: int {
     Square_Count = 64
 };
 constexpr static Square makeSquare(Rank r, File f) noexcept {
-    return Square(r * 8 + f);
+    return Square((r << 3) + f);
 }
 constexpr static Rank getRank(Square square) noexcept {
-    return Rank(square / 8);
+    return Rank(square >> 3);
 }
 constexpr static File getFile(Square square) noexcept {
-    return File(square % 8);
+    return File(square & 7);
 }
+
+constexpr static Rank getRank(int square) noexcept {
+    return Rank(square >> 3);
+}
+constexpr static File getFile(int square) noexcept {
+    return File(square & 7);
+}
+
+enum Direction : int {
+    North = 8,
+    East  = 1,
+    South = -North,
+    West  = -East,
+
+    NorthEast = North + East,
+    SouthEast = South + East,
+    SouthWest = South + West,
+    NorthWest = North + West
+};
+
 enum Value {
     Value_Pawn = 100,
     Value_Bishop = 300,
@@ -112,23 +132,65 @@ constexpr u64 lsbBB (u64 input) noexcept  { return input & (-i64(input)); }
 
 using BB = u64;
 
+
 std::string bbToString(BB bb);
 constexpr BB Rank1_BB = 0xffULL;
 constexpr BB FileA_BB = 0x0101010101010101ULL;
+constexpr BB LeftDiag_BB = 0x8040201008040201ULL;
+constexpr BB RightDiag_BB = 0x102040810204080ULL;
 
 constexpr static BB rankBB(Rank r) noexcept {
-    return Rank1_BB << (r * 8);
+    return Rank1_BB << (r << 3);
 }
 template <Rank r>
 constexpr static BB rankBB() noexcept {
-    return Rank1_BB << (r * 8);
+    return Rank1_BB << (r << 3);
 }
 
 constexpr static BB fileBB(File f) noexcept {
     return FileA_BB << f;
 }
 
+constexpr static inline int leftDiagOffset(int index) noexcept {
+    return getFile(index) - getRank(index);
+}
+constexpr static inline int rightDiagOffset(int index) noexcept {
+    return 7 - getFile(index) - getRank(index);
+}
+constexpr static inline BB getLeftDiag(int index) noexcept {
+    int offset = leftDiagOffset(index) << 3;
+    if (offset > 0){
+        return LeftDiag_BB >> offset;
+    } else {
+        return LeftDiag_BB << -offset;
+    }
+}
+constexpr static inline BB getRightDiag(int index) noexcept {
+    int offset = rightDiagOffset(index) << 3;
+    if (offset > 0){
+        return RightDiag_BB >> offset;
+    } else {
+        return RightDiag_BB << -offset;
+    }
+}
+
 constexpr BB All_BB = 0xffffffffffffffffULL;
+
+
+template<Direction D>
+constexpr BB shift(BB b) {
+    return D == North         ? b << 8
+         : D == South         ? b >> 8
+         : D == North + North ? b << 16
+         : D == South + South ? b >> 16
+         : D == East          ? (b & ~fileBB(FileH)) << 1
+         : D == West          ? (b & ~fileBB(FileA)) >> 1
+         : D == NorthEast    ? (b & ~fileBB(FileH)) << 9
+         : D == NorthWest    ? (b & ~fileBB(FileA)) << 7
+         : D == SouthEast    ? (b & ~fileBB(FileH)) >> 7
+         : D == SouthWest    ? (b & ~fileBB(FileA)) >> 9
+                              : 0;
+}
 
 constexpr static BB indexToBB(Square sq) noexcept {
     return 1ULL << sq;
