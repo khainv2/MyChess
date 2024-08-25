@@ -6,6 +6,8 @@
 #include <algorithm/board.h>
 #include <algorithm/movegen.h>
 #include <algorithm/util.h>
+#include <algorithm/perft.h>
+
 #include <test.h>
 #include "logger.h"
 #include <QElapsedTimer>
@@ -33,22 +35,7 @@ int main(int argc, char *argv[])
     logger::init();
     attack::init();
 
-//    {
-
-//        int index = 22;
-//        qDebug() << bbToString(indexToBB(index)).c_str();
-//        qDebug() << bbToString(getLeftDiag(index)).c_str();
-//        qDebug() << bbToString(getRightDiag(index)).c_str();
-//    }
-
-//    {
-
-//        int index = 55;
-//        qDebug() << bbToString(indexToBB(index)).c_str();
-//        qDebug() << bbToString(getLeftDiag(index)).c_str();
-//        qDebug() << bbToString(getRightDiag(index)).c_str();
-//    }
-//    kc::testPerft();
+    kc::Perft::testPerft();
 
 //    MainWindow w;
 //    w.show();

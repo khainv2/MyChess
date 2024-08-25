@@ -34,7 +34,7 @@ void MainWindow::on_bt_StartCalculate_clicked()
     Move *movePtr = moves.data();
 
     int countTotal = 0;
-    int count = generateMoveList(board, movePtr);
+    int count = genMoveList(board, movePtr);
     countTotal += count;
 
 //    QList<BoardValue> states;
