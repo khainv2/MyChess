@@ -20,7 +20,8 @@ BB Board::getSqAttackTo(int sq, BB occ) const noexcept {
          | (attack::knights[sq] & getPieceBB<Knight>())
          | (attack::getBishopAttacks(sq, occ) & getPieceBB<Bishop, Queen>())
          | (attack::getRookAttacks(sq, occ) & getPieceBB<Rook, Queen>())
-         | (attack::kings[sq] & getPieceBB<King>());
+//         | (attack::kings[sq] & getPieceBB<King>())
+            ;
 }
 
 int kc::Board::doMove(Move move, BoardState &newState) noexcept {
@@ -139,7 +140,6 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
         colors[enemyColor] &= ~enemyPawnBB;
         types[Pawn] &= ~enemyPawnBB;
         pieces[enemyPawn] = PieceNone;
-//        capture = 1;
     }
 
     // Cập nhật thăng cấp
@@ -151,7 +151,6 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     }
 
     state->halfMoveClock = (srcType == Pawn || pieceDst != PieceNone) ? 0 : state->halfMoveClock + 1;
-
     state->fullMoveNumber += srcColor;
 
     // Chuyển màu
