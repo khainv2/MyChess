@@ -33,10 +33,25 @@ int main(int argc, char *argv[])
     logger::init();
     attack::init();
 
-    kc::testPerft();
+//    {
 
-    MainWindow w;
-    w.show();
+//        int index = 22;
+//        qDebug() << bbToString(indexToBB(index)).c_str();
+//        qDebug() << bbToString(getLeftDiag(index)).c_str();
+//        qDebug() << bbToString(getRightDiag(index)).c_str();
+//    }
+
+//    {
+
+//        int index = 55;
+//        qDebug() << bbToString(indexToBB(index)).c_str();
+//        qDebug() << bbToString(getLeftDiag(index)).c_str();
+//        qDebug() << bbToString(getRightDiag(index)).c_str();
+//    }
+//    kc::testPerft();
+
+//    MainWindow w;
+//    w.show();
 
     return a.exec();
 }
