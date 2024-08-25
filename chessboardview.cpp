@@ -169,7 +169,7 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
 
             } else {
                 _mouseSelection = bb;
-                _moveAbility = getMoveListForSquare(_board, Square(index));
+                _moveAbility = MoveGen::instance->getMoveListForSquare(_board, Square(index));
             }
             update();
         }

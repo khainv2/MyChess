@@ -152,7 +152,7 @@ int kc::Perft::genMoveRecur(Board &board, int depth)
     qint64 startGen = myTimer.nsecsElapsed();
 #endif
     Move moves[256];
-    int count = genMoveList(board, moves);
+    int count = MoveGen::instance->genMoveList(board, moves);
     if (depth == 2){
         countMoveExt += count;
     }

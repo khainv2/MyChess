@@ -34,6 +34,8 @@ int main(int argc, char *argv[])
     timer.start();
     logger::init();
     attack::init();
+    MoveGen::init();
+
 
     kc::Perft::testPerft();
 
