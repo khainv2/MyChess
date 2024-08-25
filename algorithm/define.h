@@ -173,6 +173,14 @@ constexpr static inline BB getRightDiag(int index) noexcept {
         return RightDiag_BB << -offset;
     }
 }
+template <Color color>
+constexpr static BB getSideDiag(int index) noexcept {
+    if constexpr (color == White) {
+        return getRightDiag(index);
+    } else {
+        return getLeftDiag(index);
+    }
+}
 
 constexpr BB All_BB = 0xffffffffffffffffULL;
 
