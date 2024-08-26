@@ -30,9 +30,9 @@ private:
     int myKingIdx;
     BB mines;
     BB notMines;
-
     BB _enemyRookQueens;
     BB _enemyBishopQueens;
+
 };
 
 
