@@ -26,34 +26,32 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     newState.castlingRights = state->castlingRights;
     newState.enPassant = state->enPassant;
     newState.halfMoveClock = state->halfMoveClock;
-    newState.fullMoveNumber = state->fullMoveNumber;
 
     newState.previous = state;
     state = &newState;
 
     const int src = move.src();
     const int dst = move.dst();
+    const int type = move.type();
 
-    auto pieceSrc = pieces[src];
-    auto srcColor = pieceToColor(pieceSrc);
-    auto srcType = pieceToType(pieceSrc);
+    const auto pieceSrc = pieces[src];
+    const auto srcColor = pieceToColor(pieceSrc);
+    const auto srcType = pieceToType(pieceSrc);
 
-    auto enemyColor = !srcColor;
+    const auto enemyColor = !srcColor;
 
-    const auto &srcBB = indexToBB(src);
-    const auto &dstBB = indexToBB(dst);
-    const auto &toggleBB = srcBB | dstBB;
+    const auto srcBB = indexToBB(src);
+    const auto dstBB = indexToBB(dst);
+    const auto toggleBB = srcBB | dstBB;
 
     // Di chuyển bitboard (xóa một ô trong trường hợp ô đến trống)
-    auto pieceDst = pieces[dst];
+    const auto pieceDst = pieces[dst];
+    state->capturedPiece = pieceDst;
     if (pieceDst != PieceNone){
-        state->capturedPiece = pieceDst;
         auto dstColor = pieceToColor(pieceDst);
         auto dstType = pieceToType(pieceDst);
         colors[dstColor] &= ~dstBB;
         types[dstType] &= ~dstBB;
-    } else {
-        state->capturedPiece = PieceNone;
     }
 
     colors[srcColor] ^= toggleBB;
@@ -64,92 +62,45 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     pieces[src] = PieceNone;
 
     // Thực hiện nhập thành
-    if (move.type() == Move::Castling){
-        constexpr auto static testCastlingWK = getCastlingIndex<CastlingWK, King, false>();
-        constexpr auto static testCastlingWQ = getCastlingIndex<CastlingWQ, King, false>();
-        constexpr auto static testCastlingBK = getCastlingIndex<CastlingBK, King, false>();
-        constexpr auto static testCastlingBQ = getCastlingIndex<CastlingBQ, King, false>();
-
-        if (move.dst() == testCastlingWK){
-            constexpr auto static toggle = getCastlingToggle<CastlingWK, Rook>();
-            constexpr auto static rookSrc = getCastlingIndex<CastlingWK, Rook, true>();
-            constexpr auto static rookDst = getCastlingIndex<CastlingWK, Rook, false>();
-            colors[White] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = PieceNone;
-            pieces[rookDst] = WhiteRook;
-        } else if (move.dst() == testCastlingWQ){
-            constexpr auto static toggle = getCastlingToggle<CastlingWQ, Rook>();
-            constexpr auto static rookSrc = getCastlingIndex<CastlingWQ, Rook, true>();
-            constexpr auto static rookDst = getCastlingIndex<CastlingWQ, Rook, false>();
-            colors[White] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = PieceNone;
-            pieces[rookDst] = WhiteRook;
-        } else if (move.dst() == testCastlingBK){
-            constexpr auto static toggle = getCastlingToggle<CastlingBK, Rook>();
-            constexpr auto static rookSrc = getCastlingIndex<CastlingBK, Rook, true>();
-            constexpr auto static rookDst = getCastlingIndex<CastlingBK, Rook, false>();
-            colors[Black] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = PieceNone;
-            pieces[rookDst] = BlackRook;
-        } else if (move.dst() == testCastlingBQ){
-            constexpr auto static toggle = getCastlingToggle<CastlingBQ, Rook>();
-            constexpr auto static rookSrc = getCastlingIndex<CastlingBQ, Rook, true>();
-            constexpr auto static rookDst = getCastlingIndex<CastlingBQ, Rook, false>();
-            colors[Black] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = PieceNone;
-            pieces[rookDst] = BlackRook;
+    if (type != Move::Normal){
+        switch (type){
+        case Move::Castling:
+            checkAndPerformCastling<CastlingWK>(dst);
+            checkAndPerformCastling<CastlingWQ>(dst);
+            checkAndPerformCastling<CastlingBK>(dst);
+            checkAndPerformCastling<CastlingBQ>(dst);
+            break;
+        case Move::Enpassant: {
+            int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
+            BB enemyPawnBB = indexToBB(enemyPawn);
+            colors[enemyColor] &= ~enemyPawnBB;
+            types[Pawn] &= ~enemyPawnBB;
+            pieces[enemyPawn] = PieceNone;
+            break;
+        }
+        case Move::Promotion: {
+            auto promotionPiece = move.getPromotionPieceType();
+            pieces[dst] = makePiece(srcColor, PieceType(promotionPiece));
+            types[srcType] &= ~dstBB;
+            types[promotionPiece] ^= dstBB;
+            break;
+        }
         }
     }
 
     // Đánh dấu lại cờ nhập thành
-    if (pieceSrc == WhiteKing){
-        state->castlingRights &= ~CastlingWhite;
-    } else if (pieceSrc == BlackKing){
-        state->castlingRights &= ~CastlingBlack;
-    }
-
-    if (pieceSrc == WhiteRook || pieceDst == WhiteRook){
-        if (src == H1 || dst == H1){
-            state->castlingRights &= ~CastlingWK;
-        } else if (src == A1 || dst == A1){
-            state->castlingRights &= ~CastlingWQ;
-        }
-    }
-
-    if (pieceSrc == BlackRook || pieceDst == BlackRook){
-        if (src == H8 || dst == H8){
-            state->castlingRights &= ~CastlingBK;
-        } else if (src == A8 || dst == A8){
-            state->castlingRights &= ~CastlingBQ;
-        }
-    }
+    state->castlingRights &= ~(CastlingWhite & setAllBit32(pieceSrc == WhiteKing));
+    state->castlingRights &= ~(CastlingBlack & setAllBit32(pieceSrc == BlackKing));
+    state->castlingRights &= ~(CastlingWK & setAllBit32(src == H1 || dst == H1));
+    state->castlingRights &= ~(CastlingWQ & setAllBit32(src == A1 || dst == A1));
+    state->castlingRights &= ~(CastlingBK & setAllBit32(src == H8 || dst == H8));
+    state->castlingRights &= ~(CastlingBQ & setAllBit32(src == A8 || dst == A8));
 
     // Cập nhật trạng thái tốt qua đường
     int enPassantCondition = srcType == Pawn && abs(src - dst) == 16;
     state->enPassant = Square(enPassantCondition * dst);
 
-    if (move.type() == Move::Enpassant){
-        int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
-        BB enemyPawnBB = indexToBB(enemyPawn);
-        colors[enemyColor] &= ~enemyPawnBB;
-        types[Pawn] &= ~enemyPawnBB;
-        pieces[enemyPawn] = PieceNone;
-    }
-
-    // Cập nhật thăng cấp
-    if (move.type() == Move::Promotion){
-        auto promotionPiece = move.getPromotionPieceType();
-        pieces[dst] = makePiece(srcColor, PieceType(promotionPiece));
-        types[srcType] &= ~dstBB;
-        types[promotionPiece] ^= dstBB;
-    }
-
     state->halfMoveClock = (srcType == Pawn || pieceDst != PieceNone) ? 0 : state->halfMoveClock + 1;
-    state->fullMoveNumber += srcColor;
 
     // Chuyển màu
     side = !side;
@@ -292,7 +243,7 @@ std::string kc::Board::getPrintable(int tab) const {
                 str += " ";
                 str += std::to_string(state->halfMoveClock);
                 str += " ";
-                str += std::to_string(state->fullMoveNumber);
+                str += std::to_string(0);
 
             }
 
@@ -310,26 +261,18 @@ std::string kc::Board::getPrintable(int tab) const {
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+template<CastlingRights c>
+void Board::checkAndPerformCastling(int dst) noexcept
+{
+    constexpr auto static testCasting = getCastlingIndex<c, King, false>();
+    if (dst == testCasting){
+        constexpr auto static toggle = getCastlingToggle<c, Rook>();
+        constexpr auto static rookSrc = getCastlingIndex<c, Rook, true>();
+        constexpr auto static rookDst = getCastlingIndex<c, Rook, false>();
+        constexpr auto static color = castlingRightToColor<c>();
+        colors[color] ^= toggle;
+        types[Rook] ^= toggle;
+        pieces[rookSrc] = PieceNone;
+        pieces[rookDst] = makePiece<color, Rook>();
+    }
+}

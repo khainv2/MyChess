@@ -48,14 +48,10 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
         return getMoveListWhenDoubleCheck<mine>(board, moveList);
     }
 
-
     // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
-    BB checkMask;
-    if (checkers){
-        checkMask = attack::between[myKingIdx][lsbIndex(checkers)];
-    } else {
-        checkMask = All_BB;
-    }
+    const BB checkMask = checkers
+            ? attack::between[myKingIdx][lsbIndex(checkers)]
+            : All_BB;
 
     constexpr auto enemyColor = !mine;
     const BB notOcc = ~occ;
@@ -83,7 +79,6 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
     constexpr Direction uLeft = mine == White ? NorthWest : SouthWest;
     constexpr Direction uRight = mine == White ? NorthEast : SouthEast;
     constexpr BB rank3 = rankBB(mine == White ? Rank3 : Rank6);
-
 
     const BB pinForPawnPush = pinMaskCross & kingRank;
     const BB pinLeft = getSideDiag<enemyColor>(myKingIdx) & pinMaskDiagonal;
@@ -165,9 +160,9 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
         }
         constexpr BB enPassantRankBB = mine == White ? rankBB(Rank5) : rankBB(Rank4);
 
+        const BB enPassantBB = indexToBB(board.state->enPassant);
         if (board.state->enPassant != SquareNone
-                && (pinMaskDiagonal & indexToBB(board.state->enPassant)) == 0){
-            const BB enPassantBB = indexToBB(board.state->enPassant);
+                && (pinMaskDiagonal & enPassantBB) == 0){
             BB pawnCanAttackEP =  myAttackablePawnNotOn7
                     & enPassantRankBB
                     & ((enPassantBB << 1) | (enPassantBB >> 1));
@@ -181,7 +176,6 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
                 }
             }
         }
-
     }
 
     const BB target = notMines & checkMask;
@@ -216,48 +210,45 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
         }
     }
 
-    BB kingAttacks = attack::kings[myKingIdx] & notMines;
-    if (kingAttacks){
-        // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
-        BB kingBan = getKingBan<mine>(board);
-        kingAttacks &= ~kingBan;
-        while (kingAttacks){
-            moveList[count++] = Move::makeNormalMove(myKingIdx, popLsb(kingAttacks));
+    // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
+    BB kingBan = getKingBan<mine>(board);
+    BB kingAttacks = attack::kings[myKingIdx] & notMines & ~kingBan;
+    while (kingAttacks){
+        moveList[count++] = Move::makeNormalMove(myKingIdx, popLsb(kingAttacks));
+    }
+    if constexpr (mine == White) {
+        if ((occ & castlingSpace<CastlingWK>()) == 0
+                && (kingBan & castlingKingPath<CastlingWK>()) == 0
+                && (board.state->castlingRights & CastlingWK)){
+            constexpr static auto castlingSrc = getCastlingIndex<CastlingWK, King, true>();
+            constexpr static auto castlingDst = getCastlingIndex<CastlingWK, King, false>();
+            constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+            moveList[count++] = castlingMove;
         }
-        if constexpr (mine == White) {
-            if ((occ & castlingSpace<CastlingWK>()) == 0
-                    && (kingBan & castlingKingPath<CastlingWK>()) == 0
-                    && (board.state->castlingRights & CastlingWK)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingWK, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingWK, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                moveList[count++] = castlingMove;
-            }
-            if ((occ & castlingSpace<CastlingWQ>()) == 0
-                    && (kingBan & castlingKingPath<CastlingWQ>()) == 0
-                    && (board.state->castlingRights & CastlingWQ)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingWQ, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingWQ, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                moveList[count++] = castlingMove;
-            }
-        } else {
-            if ((occ & castlingSpace<CastlingBK>()) == 0
-                    && (kingBan & castlingKingPath<CastlingBK>()) == 0
-                    && (board.state->castlingRights & CastlingBK)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingBK, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingBK, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                moveList[count++] = castlingMove;
-            }
-            if ((occ & castlingSpace<CastlingBQ>()) == 0
-                    && (kingBan & castlingKingPath<CastlingBQ>()) == 0
-                    && (board.state->castlingRights & CastlingBQ)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingBQ, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingBQ, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                moveList[count++] = castlingMove;
-            }
+        if ((occ & castlingSpace<CastlingWQ>()) == 0
+                && (kingBan & castlingKingPath<CastlingWQ>()) == 0
+                && (board.state->castlingRights & CastlingWQ)){
+            constexpr static auto castlingSrc = getCastlingIndex<CastlingWQ, King, true>();
+            constexpr static auto castlingDst = getCastlingIndex<CastlingWQ, King, false>();
+            constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+            moveList[count++] = castlingMove;
+        }
+    } else {
+        if ((occ & castlingSpace<CastlingBK>()) == 0
+                && (kingBan & castlingKingPath<CastlingBK>()) == 0
+                && (board.state->castlingRights & CastlingBK)){
+            constexpr static auto castlingSrc = getCastlingIndex<CastlingBK, King, true>();
+            constexpr static auto castlingDst = getCastlingIndex<CastlingBK, King, false>();
+            constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+            moveList[count++] = castlingMove;
+        }
+        if ((occ & castlingSpace<CastlingBQ>()) == 0
+                && (kingBan & castlingKingPath<CastlingBQ>()) == 0
+                && (board.state->castlingRights & CastlingBQ)){
+            constexpr static auto castlingSrc = getCastlingIndex<CastlingBQ, King, true>();
+            constexpr static auto castlingDst = getCastlingIndex<CastlingBQ, King, false>();
+            constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+            moveList[count++] = castlingMove;
         }
     }
 
