@@ -9,7 +9,7 @@ struct BoardState {
     // Half move clock
     int halfMoveClock;
     // Full move number
-    int fullMoveNumber;
+//    int fullMoveNumber;
 
     // Captured piece
     Piece capturedPiece;
@@ -18,8 +18,8 @@ struct BoardState {
     BoardState() = default;
     BoardState(const BoardState &state) = default;
 
-    BoardState(CastlingRights castlingRights, Square enPassant, int halfMoveClock, int fullMoveNumber, Piece capturedPiece, BoardState *previous)
-        : castlingRights(castlingRights), enPassant(enPassant), halfMoveClock(halfMoveClock), fullMoveNumber(fullMoveNumber), capturedPiece(capturedPiece), previous(previous) {}
+    BoardState(CastlingRights castlingRights, Square enPassant, int halfMoveClock, Piece capturedPiece, BoardState *previous)
+        : castlingRights(castlingRights), enPassant(enPassant), halfMoveClock(halfMoveClock), capturedPiece(capturedPiece), previous(previous) {}
 
     BoardState &operator=(const BoardState &state) = default;
 
@@ -32,7 +32,7 @@ struct BoardState {
         qDebug() << "Castling rights: " << castlingRights;
         qDebug() << "En passant: " << enPassant;
         qDebug() << "Half move clock: " << halfMoveClock;
-        qDebug() << "Full move number: " << fullMoveNumber;
+//        qDebug() << "Full move number: " << fullMoveNumber;
         qDebug() << "Captured piece: " << pieceToChar(capturedPiece);
     }
 };
@@ -86,6 +86,10 @@ struct Board {
     BB getSqAttackTo(int sq, BB occ) const noexcept ;
 
     int doMove(Move move, BoardState &state) noexcept ;
+
+    template<CastlingRights c>
+    void checkAndPerformCastling(int dst) noexcept;
+
     int undoMove(Move move) noexcept;
 
     std::string getPrintable(int tab = 0) const;

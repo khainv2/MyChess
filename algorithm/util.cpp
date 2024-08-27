@@ -94,7 +94,7 @@ std::string toFenString(const Board &board){
     str += " ";
     str += std::to_string(state->halfMoveClock);
     str += " ";
-    str += std::to_string(state->fullMoveNumber);
+    str += std::to_string(0);
 
     return str;
 
@@ -237,6 +237,6 @@ bool parseFENString(const std::string &fen, Board *result)
         result->state->enPassant = makeSquare(rank, file);
     }
     result->state->halfMoveClock = std::stoi(halfMoveClock);
-    result->state->fullMoveNumber = std::stoi(fullMoveNumber);
+//    result->state->fullMoveNumber = std::stoi(fullMoveNumber);
     return true;
 }

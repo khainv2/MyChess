@@ -54,6 +54,11 @@ constexpr Color pieceToColor(Piece piece) noexcept {
 constexpr Piece makePiece(Color color, PieceType type) noexcept {
     return Piece(color * PieceType_NB + type);
 }
+template <Color color, PieceType type>
+constexpr Piece makePiece() noexcept {
+    return Piece(color * PieceType_NB + type);
+}
+
 char pieceToChar(Piece piece);
 Piece charToPiece(char c);
 enum Rank : u8 {
@@ -234,10 +239,12 @@ inline int popCount(u64 bb) noexcept {
     return __popcnt64(bb);
 #endif
 }
-constexpr inline u64 setAllBit(bool comp) {
+constexpr inline u64 setAllBit(bool comp) noexcept {
     return static_cast<u64>(-comp);
 }
-
+constexpr inline u32 setAllBit32(bool comp) noexcept {
+    return static_cast<u32>(-comp);
+}
 
 // Finds and clears the least significant bit in a non-zero bitboard.
 inline Square popLsb(BB& b) noexcept {
@@ -261,6 +268,15 @@ enum CastlingRights : int {
     CastlingRightsAny = CastlingWhite | CastlingBlack,
     CastlingRights_NB = 16
 };
+
+template <CastlingRights c>
+constexpr static inline Color castlingRightToColor() noexcept {
+    if constexpr (c == CastlingWK || c == CastlingWQ){
+        return White;
+    } else {
+        return Black;
+    }
+}
 
 template <CastlingRights c, PieceType type, bool isSrc>
 constexpr static Square getCastlingIndex() noexcept {
