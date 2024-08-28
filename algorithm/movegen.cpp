@@ -19,6 +19,26 @@ void MoveGen::init()
 
 MoveGen::MoveGen(){}
 
+BB MoveGen::getPinMaskDiagonal() const noexcept
+{
+    BB pinMaskDiagonal = 0;
+    BB enemyBishopQueenHasXRayOnKing = attack::getBishopXRay(myKingIdx, occ) & _enemyBishopQueens;
+    while (enemyBishopQueenHasXRayOnKing) {
+        pinMaskDiagonal |= attack::between[myKingIdx][popLsb(enemyBishopQueenHasXRayOnKing)];
+    }
+    return pinMaskDiagonal;
+}
+
+BB MoveGen::getPinMaskCross() const noexcept
+{
+    BB pinMaskCross = 0;
+    BB enemyRookQueenHasXRayOnKing = attack::getRookXRay(myKingIdx, occ) & _enemyRookQueens;
+    while (enemyRookQueenHasXRayOnKing) {
+        pinMaskCross |= attack::between[myKingIdx][popLsb(enemyRookQueenHasXRayOnKing)];
+    }
+    return pinMaskCross;
+}
+
 //template
 int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
 {
@@ -48,27 +68,28 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
         return getMoveListWhenDoubleCheck<mine>(board, moveList);
     }
 
-    // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
-    const BB checkMask = checkers
-            ? attack::between[myKingIdx][lsbIndex(checkers)]
-            : All_BB;
-
     constexpr auto enemyColor = !mine;
     const BB notOcc = ~occ;
     _enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
     _enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
 
+    // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
+    const BB checkMask = checkers
+            ? attack::between[myKingIdx][lsbIndex(checkers)]
+            : All_BB;
+
+
     // Tính toán toàn bộ các vị trí pin
-    BB pinMaskDiagonal = 0;
-    BB pinMaskCross = 0;
-    BB enemyBishopQueenHasXRayOnKing = attack::getBishopXRay(myKingIdx, occ) & _enemyBishopQueens;
-    while (enemyBishopQueenHasXRayOnKing) {
-        pinMaskDiagonal |= attack::between[myKingIdx][popLsb(enemyBishopQueenHasXRayOnKing)];
-    }
-    BB enemyRookQueenHasXRayOnKing = attack::getRookXRay(myKingIdx, occ) & _enemyRookQueens;
-    while (enemyRookQueenHasXRayOnKing) {
-        pinMaskCross |= attack::between[myKingIdx][popLsb(enemyRookQueenHasXRayOnKing)];
-    }
+    const BB pinMaskDiagonal = getPinMaskDiagonal();
+    const BB pinMaskCross = getPinMaskCross();
+//    BB enemyBishopQueenHasXRayOnKing = attack::getBishopXRay(myKingIdx, occ) & _enemyBishopQueens;
+//    while (enemyBishopQueenHasXRayOnKing) {
+//        pinMaskDiagonal |= attack::between[myKingIdx][popLsb(enemyBishopQueenHasXRayOnKing)];
+//    }
+//    BB enemyRookQueenHasXRayOnKing = attack::getRookXRay(myKingIdx, occ) & _enemyRookQueens;
+//    while (enemyRookQueenHasXRayOnKing) {
+//        pinMaskCross |= attack::between[myKingIdx][popLsb(enemyRookQueenHasXRayOnKing)];
+//    }
 
     int count = 0;
     const BB myPawns = board.getPieceBB<mine, Pawn>();
@@ -132,7 +153,6 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
 
 
     {
-
         BB p1 = shift<up>(myPushablePawnNotOn7 & ~pinForPawnPush) & notOcc;
         BB p2 = shift<up>(p1 & rank3) & notOcc & checkMask;
         p1 &= checkMask;
@@ -165,6 +185,7 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
                 && (pinMaskDiagonal & enPassantBB) == 0){
             BB pawnCanAttackEP =  myAttackablePawnNotOn7
                     & enPassantRankBB
+                    & ~pinMaskDiagonal
                     & ((enPassantBB << 1) | (enPassantBB >> 1));
             while (pawnCanAttackEP){
                 const int index = popLsb(pawnCanAttackEP);

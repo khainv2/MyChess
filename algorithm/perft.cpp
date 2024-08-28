@@ -10,11 +10,11 @@ using namespace kc;
 
 std::string Perft::testFenPerft()
 {
-    return "r2k3r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N1BQ1p/PPP1BPPP/R3K2R w KQ - 2 2";
+    return "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 5 0";
 }
 
 #define MULTI_LINE_STRING(a) #a
-constexpr static int FixedDepth = 10;
+constexpr static int FixedDepth = 6;
 int countMate = 0;
 int countCapture = 0;
 int countCheck = 0;
@@ -31,13 +31,13 @@ void kc::Perft::testPerft()
     // rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
     // rnbqk1nr/pppp1ppp/8/P3p3/1b6/8/1PPPPPPP/RNBQKBNR w KQkq - 1 3
 //    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &board);
-    int totalCount = 0;
-    auto funcTest = [&](const std::string fen, int depth, int expectedTotalMove){
+    u64 totalCount = 0;
+    auto funcTest = [&](const std::string fen, int depth, u64 expectedTotalMove){
         QElapsedTimer timer;
         kc::Board board;
         parseFENString(fen, &board);
         timer.start();
-        int moveCount = genMoveRecur(board, depth);
+        u64 moveCount = genMoveRecur(board, depth);
         if (moveCount != expectedTotalMove){
             qWarning() << "Wrong val when test perft";
             qWarning() << fen.c_str() << depth << moveCount << "expected" << expectedTotalMove;
@@ -57,16 +57,13 @@ void kc::Perft::testPerft()
     if (test){
         QElapsedTimer timer;
         timer.start();
-//        funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 6, 119060324);
-        qint64 t = timer.nsecsElapsed() / 1000000;
-//        qDebug() << "Time for first board" << t << "ms";
-        funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 5, 4865609);
-        funcTest("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 4, 4085603);
-        funcTest("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 4, 3894594);
-        funcTest("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 10", 5, 674624);
-        funcTest("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8", 4, 2103487);
+        funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 6, 119060324);
+        funcTest("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 5, 193690690);
+        funcTest("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 5, 164075551);
+        funcTest("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 10", 7, 178633661);
+        funcTest("rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8", 5, 89941194);
 
-        t = timer.nsecsElapsed() / 1000000;
+        auto t = timer.nsecsElapsed() / 1000000;
         qDebug() << "Time for multi board" << t << "ms";
         qDebug() << "Count node per sec=" << ((totalCount / t) * 1000);
         qDebug() << "Count tick" << (genTick / 1000000) << (moveTick / 1000000);
@@ -80,7 +77,7 @@ void kc::Perft::testPerft()
     parseFENString(testFenPerft(), &board);
 
     myTimer.start();
-    int countTotal = genMoveRecur(board, FixedDepth);
+    u64 countTotal = genMoveRecur(board, FixedDepth);
 
     qDebug() << "Total move calculated" << countMate << countCapture << countCheck << countTotal;
     qDebug() << "Count ext" << countMoveExt;
@@ -102,20 +99,9 @@ void kc::Perft::testPerft()
         divideCount = newDivideCount;
 
         QString sample = MULTI_LINE_STRING(
-                    a2a3: 43
-                    b2b3: 41
-                    g2g3: 41
-                    d5d6: 40
-                    a2a4: 43
-                    g2g4: 41
-                    g2h3: 42
-                    d5e6: 45
-                    c3b1: 41
-                    c3d1: 41
-                    c3a4: 41
-                    c3b5: 38
-                    e5d3: 42
-                    e5c4: 41
+                    b4b3: 1919
+                    g6g5: 2090
+                    c7c6: 2222
         );
 
         sample = sample.replace(':', "");
@@ -147,7 +133,7 @@ void kc::Perft::testPerft()
 
 //#define CountTickGenAndMove
 Move moves[10][256];
-int kc::Perft::genMoveRecur(Board &board, int depth)
+u64 kc::Perft::genMoveRecur(Board &board, int depth)
 {
 #ifdef CountTickGenAndMove
     qint64 startGen = myTimer.nsecsElapsed();
@@ -164,22 +150,22 @@ int kc::Perft::genMoveRecur(Board &board, int depth)
     qint64 endGen = myTimer.nsecsElapsed();
     genTick += (endGen - startGen);
 #endif
-    if (depth == 0){
-        divideCount[currMove]++;
-        return 1;
+    if (depth == 1){
+        divideCount[currMove]+= count;
+        return count;
     }
 
     BoardState state;
 
-    int total = 0;
+    u64 total = 0;
     for (int i = 0; i < count; i++){
 #ifdef CountTickGenAndMove
         qint64 startMove = myTimer.nsecsElapsed();
 #endif
 
         if (depth == FixedDepth){
-//            currMove = moves[i].getDescription();
-//            qDebug() << "Start cal for move" << moves[i].getDescription().c_str();
+            currMove = movePtr[i].getDescription();
+//            qDebug() << "Start cal for move" << movePtr[i].getDescription().c_str();
         }
         board.doMove(movePtr[i], state);
 

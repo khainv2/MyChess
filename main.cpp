@@ -39,8 +39,8 @@ int main(int argc, char *argv[])
 
     kc::Perft::testPerft();
 
-//    MainWindow w;
-//    w.show();
+    MainWindow w;
+    w.show();
 
     return a.exec();
 }
