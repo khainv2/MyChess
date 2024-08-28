@@ -10,6 +10,8 @@ public:
     static void init();
     MoveGen();
 
+    inline BB getPinMaskDiagonal() const noexcept;
+    inline BB getPinMaskCross() const noexcept;
 
     inline int genMoveList(const Board &board, Move *moveList) noexcept;
 

@@ -88,7 +88,10 @@ struct Board {
     int doMove(Move move, BoardState &state) noexcept ;
 
     template<CastlingRights c>
-    void checkAndPerformCastling(int dst) noexcept;
+    void checkAndDoMoveCastling(int dst) noexcept;
+
+    template<CastlingRights c>
+    void checkAndUndoMoveCastling(int dst) noexcept;
 
     int undoMove(Move move) noexcept;
 

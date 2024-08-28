@@ -7,7 +7,7 @@ class Perft
 public:
     static void testPerft();
 
-    static int genMoveRecur(Board &board, int depth);
+    static u64 genMoveRecur(Board &board, int depth);
 
     static std::string testFenPerft();
 };

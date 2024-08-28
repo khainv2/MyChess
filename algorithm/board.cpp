@@ -65,10 +65,10 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     if (type != Move::Normal){
         switch (type){
         case Move::Castling:
-            checkAndPerformCastling<CastlingWK>(dst);
-            checkAndPerformCastling<CastlingWQ>(dst);
-            checkAndPerformCastling<CastlingBK>(dst);
-            checkAndPerformCastling<CastlingBQ>(dst);
+            checkAndDoMoveCastling<CastlingWK>(dst);
+            checkAndDoMoveCastling<CastlingWQ>(dst);
+            checkAndDoMoveCastling<CastlingBK>(dst);
+            checkAndDoMoveCastling<CastlingBQ>(dst);
             break;
         case Move::Enpassant: {
             int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
@@ -111,88 +111,55 @@ int Board::undoMove(Move move) noexcept
 {
     const int src = move.src();
     const int dst = move.dst();
+    const int type = move.type();
 
-    auto pieceDst = pieces[dst];
+    const auto pieceDst = pieces[dst];
     auto dstColor = pieceToColor(pieceDst);
     auto dstType = pieceToType(pieceDst);
 
-    const auto &srcBB = indexToBB(src);
-    const auto &dstBB = indexToBB(dst);
-    const auto &toggleBB = srcBB | dstBB;
+    const auto srcBB = indexToBB(src);
+    const auto dstBB = indexToBB(dst);
+    const auto toggleBB = srcBB | dstBB;
 
     colors[dstColor] ^= toggleBB;
     types[dstType] ^= toggleBB;
-
     pieces[src] = pieceDst;
     
+    pieces[dst] = state->capturedPiece;
     if (state->capturedPiece != PieceNone){
         auto dstColor = pieceToColor(state->capturedPiece);
         auto dstType = pieceToType(state->capturedPiece);
         colors[dstColor] |= indexToBB(dst);
         types[dstType] |= indexToBB(dst);
-        pieces[dst] = state->capturedPiece;
-    } else {
-        pieces[dst] = PieceNone;
     }
 
-    if (move.type() == Move::Castling){
-        constexpr static auto testCastlingWK = getCastlingIndex<CastlingWK, King, false>();
-        constexpr static auto testCastlingWQ = getCastlingIndex<CastlingWQ, King, false>();
-        constexpr static auto testCastlingBK = getCastlingIndex<CastlingBK, King, false>();
-        constexpr static auto testCastlingBQ = getCastlingIndex<CastlingBQ, King, false>();
-        if (move.dst() == testCastlingWK){
-            constexpr static auto toggle = getCastlingToggle<CastlingWK, Rook>();
-            constexpr static auto rookSrc = getCastlingIndex<CastlingWK, Rook, true>();
-            constexpr static auto rookDst = getCastlingIndex<CastlingWK, Rook, false>();
-            colors[White] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = WhiteRook;
-            pieces[rookDst] = PieceNone;
-        } else if (move.dst() == testCastlingWQ){
-            constexpr static auto toggle = getCastlingToggle<CastlingWQ, Rook>();
-            constexpr static auto rookSrc = getCastlingIndex<CastlingWQ, Rook, true>();
-            constexpr static auto rookDst = getCastlingIndex<CastlingWQ, Rook, false>();
-            colors[White] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = WhiteRook;
-            pieces[rookDst] = PieceNone;
-        } else if (move.dst() == testCastlingBK){
-            constexpr static auto toggle = getCastlingToggle<CastlingBK, Rook>();
-            constexpr static auto rookSrc = getCastlingIndex<CastlingBK, Rook, true>();
-            constexpr static auto rookDst = getCastlingIndex<CastlingBK, Rook, false>();
-            colors[Black] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = BlackRook;
-            pieces[rookDst] = PieceNone;
-        } else if (move.dst() == testCastlingBQ){
-            constexpr static auto toggle = getCastlingToggle<CastlingBQ, Rook>();
-            constexpr static auto rookSrc = getCastlingIndex<CastlingBQ, Rook, true>();
-            constexpr static auto rookDst = getCastlingIndex<CastlingBQ, Rook, false>();
-            colors[Black] ^= toggle;
-            types[Rook] ^= toggle;
-            pieces[rookSrc] = BlackRook;
-            pieces[rookDst] = PieceNone;
+    // Thực hiện nhập thành
+    if (type != Move::Normal){
+        switch (type){
+        case Move::Castling:
+            checkAndUndoMoveCastling<CastlingWK>(dst);
+            checkAndUndoMoveCastling<CastlingWQ>(dst);
+            checkAndUndoMoveCastling<CastlingBK>(dst);
+            checkAndUndoMoveCastling<CastlingBQ>(dst);
+            break;
+        case Move::Enpassant: {
+            int enemyPawn = dstColor == White ? dst - 8 : dst + 8;
+            BB enemyPawnBB = indexToBB(enemyPawn);
+            colors[!dstColor] |= enemyPawnBB;
+            types[Pawn] |= enemyPawnBB;
+            pieces[enemyPawn] = makePiece(!dstColor, Pawn);
+            break;
+        }
+        case Move::Promotion: {
+            pieces[src] = makePiece(dstColor, Pawn);
+            types[dstType] ^= srcBB;
+            types[Pawn] |= srcBB;
+            break;
+        }
         }
     }
-
-    if (move.type() == Move::Enpassant){
-        int enemyPawn = dstColor == White ? dst - 8 : dst + 8;
-        BB enemyPawnBB = indexToBB(enemyPawn);
-        colors[!dstColor] |= enemyPawnBB;
-        types[Pawn] |= enemyPawnBB;
-        pieces[enemyPawn] = makePiece(!dstColor, Pawn);
-    }
-
-    if (move.type() == Move::Promotion){
-        pieces[src] = makePiece(dstColor, Pawn);
-        types[dstType] ^= srcBB;
-        types[Pawn] |= srcBB;
-    }
-
     state = state->previous;
-
     side = !side;
-
     return 0;
 }
 
@@ -262,7 +229,7 @@ std::string kc::Board::getPrintable(int tab) const {
 
 
 template<CastlingRights c>
-void Board::checkAndPerformCastling(int dst) noexcept
+void Board::checkAndDoMoveCastling(int dst) noexcept
 {
     constexpr auto static testCasting = getCastlingIndex<c, King, false>();
     if (dst == testCasting){
@@ -274,5 +241,21 @@ void Board::checkAndPerformCastling(int dst) noexcept
         types[Rook] ^= toggle;
         pieces[rookSrc] = PieceNone;
         pieces[rookDst] = makePiece<color, Rook>();
+    }
+}
+
+template<CastlingRights c>
+void Board::checkAndUndoMoveCastling(int dst) noexcept
+{
+    constexpr auto static testCasting = getCastlingIndex<c, King, false>();
+    if (dst == testCasting){
+        constexpr static auto toggle = getCastlingToggle<c, Rook>();
+        constexpr static auto rookSrc = getCastlingIndex<c, Rook, true>();
+        constexpr static auto rookDst = getCastlingIndex<c, Rook, false>();
+        constexpr auto static color = castlingRightToColor<c>();
+        colors[color] ^= toggle;
+        types[Rook] ^= toggle;
+        pieces[rookSrc] = makePiece<color, Rook>();
+        pieces[rookDst] = PieceNone;
     }
 }

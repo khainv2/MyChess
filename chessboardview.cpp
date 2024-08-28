@@ -6,6 +6,7 @@
 #include <algorithm/util.h>
 #include <QMouseEvent>
 #include <algorithm/evaluation.h>
+#include <algorithm/perft.h>
 #include <algorithm>
 
 using namespace kc;
@@ -38,8 +39,8 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
 //    parseFENString("4R3/R7/8/K3R3/R7/1R6/8/8 w KQkq - 0 1", &board);
 //    parseFENString("4B3/B7/8/K3B3/B7/1B6/B7/7B w KQkq - 0 1", &board);
 //    parseFENString("4N3/N7/8/K3N3/B7/1B6/B7/7B w KQkq - 0 1", &board);
-//    parseFENString(testFenPerft(), &_board);
-     parseFENString("r2k3r/p1ppqpb1/bB2pnp1/3PN3/1p2P3/2N2Q1p/PPP1BPPP/R3K2R b KQ - 0 2", &_board);
+    parseFENString(Perft::testFenPerft(), &_board);
+//     parseFENString("r2k3r/p1ppqpb1/bB2pnp1/3PN3/1p2P3/2N2Q1p/PPP1BPPP/R3K2R b KQ - 0 2", &_board);
 }
 
 void ChessBoardView::paintEvent(QPaintEvent *event)
