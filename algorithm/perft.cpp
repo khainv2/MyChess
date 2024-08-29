@@ -151,7 +151,7 @@ u64 kc::Perft::genMoveRecur(Board &board, int depth)
     genTick += (endGen - startGen);
 #endif
     if (depth == 1){
-        divideCount[currMove]+= count;
+//        divideCount[currMove]+= count;
         return count;
     }
 
@@ -164,7 +164,7 @@ u64 kc::Perft::genMoveRecur(Board &board, int depth)
 #endif
 
         if (depth == FixedDepth){
-            currMove = movePtr[i].getDescription();
+//            currMove = movePtr[i].getDescription();
 //            qDebug() << "Start cal for move" << movePtr[i].getDescription().c_str();
         }
         board.doMove(movePtr[i], state);
