@@ -57,9 +57,9 @@ void MainWindow::on_bt_StartCalculate_clicked()
 
 
 
-//    kchess::Engine engine;
-//    auto move = engine.calc(board);
-//    board.doMove(move);
+    kc::Engine engine;
+    auto move = engine.calc(board);
+    ui->chessBoard->doMove(move);
 //    ui->chessBoard->setBoard(board);
 }
 

@@ -8,11 +8,10 @@ struct BoardState {
     Square enPassant;
     // Half move clock
     int halfMoveClock;
-    // Full move number
-//    int fullMoveNumber;
 
     // Captured piece
     Piece capturedPiece;
+    BB checkers = 0;
     BoardState *previous = nullptr;
 
     BoardState() = default;
@@ -27,6 +26,7 @@ struct BoardState {
     constexpr inline int enPassantTarget() const noexcept {
         return color == White ? enPassant + 8 : enPassant - 8;
     }
+
 
     void print() const {
         qDebug() << "Castling rights: " << castlingRights;
@@ -94,6 +94,8 @@ struct Board {
     void checkAndUndoMoveCastling(int dst) noexcept;
 
     int undoMove(Move move) noexcept;
+
+    void updateKingState() noexcept;
 
     std::string getPrintable(int tab = 0) const;
 

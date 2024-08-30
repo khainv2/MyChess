@@ -37,10 +37,10 @@ int main(int argc, char *argv[])
     MoveGen::init();
 
 
-    kc::Perft::testPerft();
+//    kc::Perft::testPerft();
 
-//    MainWindow w;
-//    w.show();
+    MainWindow w;
+    w.show();
 
     return a.exec();
 }

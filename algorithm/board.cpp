@@ -104,6 +104,9 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
 
     // Chuyển màu
     side = !side;
+
+    updateKingState();
+
     return 0;
 }
 
@@ -161,6 +164,16 @@ int Board::undoMove(Move move) noexcept
     state = state->previous;
     side = !side;
     return 0;
+}
+
+void Board::updateKingState() noexcept
+{
+//    auto myKing = colors[side] | pieces[King];
+//    auto myKingIdx = lsbIndex(myKing);
+//    auto occ = getOccupancy();
+//    auto enemies = side == White ? getEnemies<White>() : getEnemies<Black>();
+//    state->checkers = getSqAttackTo(myKingIdx, occ) & enemies;
+
 }
 
 std::string kc::Board::getPrintable(int tab) const {
