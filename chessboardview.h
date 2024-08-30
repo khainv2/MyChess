@@ -15,6 +15,7 @@ public:
     const kc::Board &board() const;
     void setBoard(const kc::Board &newBoard);
 
+    void doMove(kc::Move move);
     void undoMove();
 signals:
     void boardChanged();

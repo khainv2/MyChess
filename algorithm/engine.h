@@ -6,7 +6,7 @@ class Engine {
 public:
     Engine();
     Move calc(const Board &chessBoard);
-    int alphabeta(const Board &chessBoard, int depth, Color color, int alpha, int beta);
+    int alphabeta(Board &board, int depth, Color color, int alpha, int beta);
 private:
     Move bestMoves[256];
     int countBestMove = 0;

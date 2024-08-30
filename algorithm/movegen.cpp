@@ -63,12 +63,14 @@ Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept {
     pinMaskDiagonal = getPinMaskDiagonal();
     pinMaskCross = getPinMaskCross();
 
-    target = notMines & checkMask;
     moveList = getMoveListForPawn<mine>(board, moveList);
+    // Target của các quân nặng
+    targetForHeavyPiece = notMines & checkMask;
     moveList = getMoveListForKnight<mine>(board, moveList);
     moveList = getMoveListForBishopQueen<mine>(board, moveList);
     moveList = getMoveListForRookQueen<mine>(board, moveList);
     moveList = getMoveListForKing<mine>(board, moveList);
+
     return moveList;
 }
 
@@ -232,7 +234,7 @@ Move *MoveGen::getMoveListForKnight(const Board &board, Move *moveList) noexcept
     BB myKnights = board.getPieceBB<mine, Knight>() & ~(pinMaskCross | pinMaskDiagonal);
     while (myKnights){
         const int i = popLsb(myKnights);
-        BB attack = attack::knights[i] & target;
+        BB attack = attack::knights[i] & targetForHeavyPiece;
         while (attack){
             *moveList++ = Move::makeNormalMove(i, popLsb(attack));
         }
@@ -246,7 +248,7 @@ Move *MoveGen::getMoveListForBishopQueen(const Board &board, Move *moveList) noe
     while (myBishopQueens){
         const int i = popLsb(myBishopQueens);
         const BB from = indexToBB(i);
-        BB attack = attack::getBishopAttacks(i, occ) & target
+        BB attack = attack::getBishopAttacks(i, occ) & targetForHeavyPiece
                 & (~setAllBit(pinMaskDiagonal & from) | pinMaskDiagonal);
         while (attack){
             *moveList++ = Move::makeNormalMove(i, popLsb(attack));
@@ -261,7 +263,7 @@ Move *MoveGen::getMoveListForRookQueen(const Board &board, Move *moveList) noexc
     while (myRookQueens){
         int i = popLsb(myRookQueens);
         BB from = indexToBB(i);
-        BB attack = attack::getRookAttacks(i, occ) & target
+        BB attack = attack::getRookAttacks(i, occ) & targetForHeavyPiece
                 & (~setAllBit(pinMaskCross & from) | pinMaskCross);
         while (attack){
             *moveList++ = Move::makeNormalMove(i, popLsb(attack));
@@ -309,10 +311,6 @@ Move *MoveGen::getMoveListWhenDoubleCheck(Move *moveList) noexcept {
     }
     return moveList;
 }
-
-
-
-
 
 std::vector<Move> MoveGen::getMoveListForSquare(const Board &board, Square square){
     Move moves[256];

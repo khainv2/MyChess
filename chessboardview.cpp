@@ -39,8 +39,11 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
 //    parseFENString("4R3/R7/8/K3R3/R7/1R6/8/8 w KQkq - 0 1", &board);
 //    parseFENString("4B3/B7/8/K3B3/B7/1B6/B7/7B w KQkq - 0 1", &board);
 //    parseFENString("4N3/N7/8/K3N3/B7/1B6/B7/7B w KQkq - 0 1", &board);
-    parseFENString(Perft::testFenPerft(), &_board);
+//    parseFENString(Perft::testFenPerft(), &_board);
 //     parseFENString("r2k3r/p1ppqpb1/bB2pnp1/3PN3/1p2P3/2N2Q1p/PPP1BPPP/R3K2R b KQ - 0 2", &_board);
+    parseFENString("r1bq2r1/b4pk1/p1pp1p2/1p2pP2/1P2P1PB/3P4/1PPQ2P1/R3K2R w - - 0 0", &_board);
+
+
 }
 
 void ChessBoardView::paintEvent(QPaintEvent *event)
@@ -161,13 +164,7 @@ void ChessBoardView::mousePressEvent(QMouseEvent *event)
                 } else {
                     move = availables.at(0);
                 }
-                _boardStates.push_back(new BoardState);
-                _board.doMove(move, *_boardStates[_boardStates.size() - 1]);
-                _moveList.push_back(move);
-                _mouseSelection = 0;
-                _moveAbility.clear();
-                emit boardChanged();
-
+                doMove(move);
             } else {
                 _mouseSelection = bb;
                 _moveAbility = MoveGen::instance->getMoveListForSquare(_board, Square(index));
@@ -191,6 +188,17 @@ const kc::Board &ChessBoardView::board() const
 void ChessBoardView::setBoard(const kc::Board &newBoard)
 {
     _board = newBoard;
+    update();
+}
+
+void ChessBoardView::doMove(kc::Move move)
+{
+    _boardStates.push_back(new BoardState);
+    _board.doMove(move, *_boardStates[_boardStates.size() - 1]);
+    _moveList.push_back(move);
+    _mouseSelection = 0;
+    _moveAbility.clear();
+    emit boardChanged();
     update();
 }
 

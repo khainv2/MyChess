@@ -237,6 +237,7 @@ bool parseFENString(const std::string &fen, Board *result)
         result->state->enPassant = makeSquare(rank, file);
     }
     result->state->halfMoveClock = std::stoi(halfMoveClock);
-//    result->state->fullMoveNumber = std::stoi(fullMoveNumber);
+    result->updateKingState();
+    //    result->state->fullMoveNumber = std::stoi(fullMoveNumber);
     return true;
 }

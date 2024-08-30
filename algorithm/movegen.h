@@ -58,7 +58,7 @@ private:
     BB checkMask;
     BB pinMaskDiagonal;
     BB pinMaskCross;
-    BB target;
+    BB targetForHeavyPiece;
 };
 
 
