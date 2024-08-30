@@ -7,55 +7,31 @@
 #include "util.h"
 
 using namespace kc;
-
-
 MoveGen *MoveGen::instance = nullptr;
 
-
-void MoveGen::init()
-{
+void MoveGen::init() {
     instance = new MoveGen;
 }
 
 MoveGen::MoveGen(){}
 
-BB MoveGen::getPinMaskDiagonal() const noexcept
-{
-    BB pinMaskDiagonal = 0;
-    BB enemyBishopQueenHasXRayOnKing = attack::getBishopXRay(myKingIdx, occ) & _enemyBishopQueens;
-    while (enemyBishopQueenHasXRayOnKing) {
-        pinMaskDiagonal |= attack::between[myKingIdx][popLsb(enemyBishopQueenHasXRayOnKing)];
-    }
-    return pinMaskDiagonal;
-}
-
-BB MoveGen::getPinMaskCross() const noexcept
-{
-    BB pinMaskCross = 0;
-    BB enemyRookQueenHasXRayOnKing = attack::getRookXRay(myKingIdx, occ) & _enemyRookQueens;
-    while (enemyRookQueenHasXRayOnKing) {
-        pinMaskCross |= attack::between[myKingIdx][popLsb(enemyRookQueenHasXRayOnKing)];
-    }
-    return pinMaskCross;
-}
-
 //template
-int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
-{
+int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept {
     if (board.side == White){
-        auto ptr = genMoveList<White>(board, moveList);
+        auto ptr = genMoveList<White, false>(board, moveList);
         int count = ptr - moveList;
         return count;
     } else {
-        auto ptr = genMoveList<Black>(board, moveList);
+        auto ptr = genMoveList<Black, false>(board, moveList);
         int count = ptr - moveList;
         return count;
     }
 }
 
-template<Color mine>
-Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
-{
+template<Color mine, bool isJustCount>
+Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept {
+    constexpr auto enemyColor = !mine;
+
     myKing = board.getPieceBB<mine, King>();
     myKingIdx = lsbIndex(myKing);
 
@@ -65,17 +41,19 @@ Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
     notMines = ~mines;
     enemies = board.getEnemies<mine>();
 
+    _enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
+    _enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
+
     // Tìm kiếm các ô đang tấn công vua
     const BB checkers = board.getSqAttackTo(myKingIdx, occ) & enemies;
 
+    // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
+    kingBan = getKingBan<mine>(board);
+
     // Trong trường hợp chiếu đôi, tạo luôn movelist chỉ cho phép vua di chuyển
     if (isMoreThanOne(checkers)) {
-        return getMoveListWhenDoubleCheck<mine>(board, moveList);
+        return getMoveListWhenDoubleCheck<mine>(moveList);
     }
-
-    constexpr auto enemyColor = !mine;
-    _enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
-    _enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
 
     // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
     checkMask = checkers
@@ -87,14 +65,55 @@ Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept
 
     target = notMines & checkMask;
     moveList = getMoveListForPawn<mine>(board, moveList);
-    moveList = getMoveListForPiece<mine, Knight>(board, moveList);
-    moveList = getMoveListForPiece<mine, Bishop>(board, moveList);
-    moveList = getMoveListForPiece<mine, Rook>(board, moveList);
-    moveList = getMoveListForPiece<mine, King>(board, moveList);
+    moveList = getMoveListForKnight<mine>(board, moveList);
+    moveList = getMoveListForBishopQueen<mine>(board, moveList);
+    moveList = getMoveListForRookQueen<mine>(board, moveList);
+    moveList = getMoveListForKing<mine>(board, moveList);
     return moveList;
 }
 
+template<Color mine>
+BB MoveGen::getKingBan(const Board &board) noexcept {
+    constexpr auto enemyColor = !mine;
+    const BB occWithoutOurKing = occ & (~myKing);
 
+    const BB enemyPawns = board.getPieceBB<enemyColor, Pawn>();
+    const BB enemyKnights = board.getPieceBB<enemyColor, Knight>();
+    const BB enemyKings = board.getPieceBB<enemyColor, King>();
+    BB enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
+    BB enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
+
+    // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
+    BB kingBan = attack::getPawnAttacks<enemyColor>(enemyPawns)
+            | attack::getKnightAttacks(enemyKnights)
+            | attack::getKingAttacks(enemyKings);
+
+    while (enemyBishopQueens) {
+        kingBan |= attack::getBishopAttacks(popLsb(enemyBishopQueens), occWithoutOurKing);
+    }
+    while (enemyRookQueens) {
+        kingBan |= attack::getRookAttacks(popLsb(enemyRookQueens), occWithoutOurKing);
+    }
+    return kingBan;
+}
+
+BB MoveGen::getPinMaskDiagonal() const noexcept {
+    BB pinMaskDiagonal = 0;
+    BB enemyBishopQueenHasXRayOnKing = attack::getBishopXRay(myKingIdx, occ) & _enemyBishopQueens;
+    while (enemyBishopQueenHasXRayOnKing) {
+        pinMaskDiagonal |= attack::between[myKingIdx][popLsb(enemyBishopQueenHasXRayOnKing)];
+    }
+    return pinMaskDiagonal;
+}
+
+BB MoveGen::getPinMaskCross() const noexcept {
+    BB pinMaskCross = 0;
+    BB enemyRookQueenHasXRayOnKing = attack::getRookXRay(myKingIdx, occ) & _enemyRookQueens;
+    while (enemyRookQueenHasXRayOnKing) {
+        pinMaskCross |= attack::between[myKingIdx][popLsb(enemyRookQueenHasXRayOnKing)];
+    }
+    return pinMaskCross;
+}
 
 template<Color mine>
 Move *MoveGen::getMoveListForPawn(const Board &board, Move *moveList) noexcept
@@ -159,7 +178,6 @@ Move *MoveGen::getMoveListForPawn(const Board &board, Move *moveList) noexcept
         }
     }
 
-
     {
         BB p1 = shift<up>(myPushablePawnNotOn7 & ~pinForPawnPush) & notOcc;
         BB p2 = shift<up>(p1 & rank3) & notOcc & checkMask;
@@ -209,93 +227,81 @@ Move *MoveGen::getMoveListForPawn(const Board &board, Move *moveList) noexcept
     return moveList;
 }
 
-
-template<Color mine, PieceType piece>
-Move *MoveGen::getMoveListForPiece(const Board &board, Move *moveList) noexcept
-{
-    if constexpr (piece == Knight){
-        BB myKnights = board.getPieceBB<mine, Knight>() & ~(pinMaskCross | pinMaskDiagonal);
-        while (myKnights){
-            const int i = popLsb(myKnights);
-            BB attack = attack::knights[i] & target;
-            while (attack){
-                *moveList++ = Move::makeNormalMove(i, popLsb(attack));
-            }
+template<Color mine>
+Move *MoveGen::getMoveListForKnight(const Board &board, Move *moveList) noexcept {
+    BB myKnights = board.getPieceBB<mine, Knight>() & ~(pinMaskCross | pinMaskDiagonal);
+    while (myKnights){
+        const int i = popLsb(myKnights);
+        BB attack = attack::knights[i] & target;
+        while (attack){
+            *moveList++ = Move::makeNormalMove(i, popLsb(attack));
         }
-        return moveList;
-    } else if constexpr (piece == Bishop){
-        BB myBishopQueens = board.getPieceBB<mine, Bishop, Queen>() & ~pinMaskCross;
-        while (myBishopQueens){
-            const int i = popLsb(myBishopQueens);
-            const BB from = indexToBB(i);
-            BB attack = attack::getBishopAttacks(i, occ) & target
-                    & (~setAllBit(pinMaskDiagonal & from) | pinMaskDiagonal);
-            while (attack){
-                *moveList++ = Move::makeNormalMove(i, popLsb(attack));
-            }
-        }
-        return moveList;
-    } else if constexpr (piece == Rook){
-        BB myRookQueens = board.getPieceBB<mine, Rook, Queen>() & ~pinMaskDiagonal;
-        while (myRookQueens){
-            int i = popLsb(myRookQueens);
-            BB from = indexToBB(i);
-            BB attack = attack::getRookAttacks(i, occ) & target
-                    & (~setAllBit(pinMaskCross & from) | pinMaskCross);
-            while (attack){
-                *moveList++ = Move::makeNormalMove(i, popLsb(attack));
-            }
-        }
-        return moveList;
-    } else if constexpr (piece == King){
-        // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
-        BB kingBan = getKingBan<mine>(board);
-        BB kingAttacks = attack::kings[myKingIdx] & notMines & ~kingBan;
-        while (kingAttacks){
-            *moveList++ = Move::makeNormalMove(myKingIdx, popLsb(kingAttacks));
-        }
-        if constexpr (mine == White) {
-            if ((occ & castlingSpace<CastlingWK>()) == 0
-                    && (kingBan & castlingKingPath<CastlingWK>()) == 0
-                    && (board.state->castlingRights & CastlingWK)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingWK, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingWK, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                *moveList++ = castlingMove;
-            }
-            if ((occ & castlingSpace<CastlingWQ>()) == 0
-                    && (kingBan & castlingKingPath<CastlingWQ>()) == 0
-                    && (board.state->castlingRights & CastlingWQ)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingWQ, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingWQ, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                *moveList++ = castlingMove;
-            }
-        } else {
-            if ((occ & castlingSpace<CastlingBK>()) == 0
-                    && (kingBan & castlingKingPath<CastlingBK>()) == 0
-                    && (board.state->castlingRights & CastlingBK)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingBK, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingBK, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                *moveList++ = castlingMove;
-            }
-            if ((occ & castlingSpace<CastlingBQ>()) == 0
-                    && (kingBan & castlingKingPath<CastlingBQ>()) == 0
-                    && (board.state->castlingRights & CastlingBQ)){
-                constexpr static auto castlingSrc = getCastlingIndex<CastlingBQ, King, true>();
-                constexpr static auto castlingDst = getCastlingIndex<CastlingBQ, King, false>();
-                constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-                *moveList++ = castlingMove;
-            }
-        }
-        return moveList;
     }
+    return moveList;
 }
 
 template<Color mine>
-Move *MoveGen::getMoveListWhenDoubleCheck(const Board &board, Move *moveList) noexcept {
-    auto kingBan = getKingBan<mine>(board);
+Move *MoveGen::getMoveListForBishopQueen(const Board &board, Move *moveList) noexcept {
+    BB myBishopQueens = board.getPieceBB<mine, Bishop, Queen>() & ~pinMaskCross;
+    while (myBishopQueens){
+        const int i = popLsb(myBishopQueens);
+        const BB from = indexToBB(i);
+        BB attack = attack::getBishopAttacks(i, occ) & target
+                & (~setAllBit(pinMaskDiagonal & from) | pinMaskDiagonal);
+        while (attack){
+            *moveList++ = Move::makeNormalMove(i, popLsb(attack));
+        }
+    }
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getMoveListForRookQueen(const Board &board, Move *moveList) noexcept {
+    BB myRookQueens = board.getPieceBB<mine, Rook, Queen>() & ~pinMaskDiagonal;
+    while (myRookQueens){
+        int i = popLsb(myRookQueens);
+        BB from = indexToBB(i);
+        BB attack = attack::getRookAttacks(i, occ) & target
+                & (~setAllBit(pinMaskCross & from) | pinMaskCross);
+        while (attack){
+            *moveList++ = Move::makeNormalMove(i, popLsb(attack));
+        }
+    }
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getMoveListForKing(const Board &board, Move *moveList) noexcept {
+    BB kingAttacks = attack::kings[myKingIdx] & notMines & ~kingBan;
+    while (kingAttacks){
+        *moveList++ = Move::makeNormalMove(myKingIdx, popLsb(kingAttacks));
+    }
+    if constexpr (mine == White) {
+        moveList = getCastlingMoveList<mine, CastlingWK>(board, moveList);
+        moveList = getCastlingMoveList<mine, CastlingWQ>(board, moveList);
+    } else {
+        moveList = getCastlingMoveList<mine, CastlingBK>(board, moveList);
+        moveList = getCastlingMoveList<mine, CastlingBQ>(board, moveList);
+    }
+    return moveList;
+}
+
+template<Color color, CastlingRights right>
+Move *MoveGen::getCastlingMoveList(const Board &board, Move *moveList) noexcept
+{
+    if ((occ & castlingSpace<right>()) == 0
+            && (kingBan & castlingKingPath<right>()) == 0
+            && (board.state->castlingRights & right)){
+        constexpr static auto castlingSrc = getCastlingIndex<right, King, true>();
+        constexpr static auto castlingDst = getCastlingIndex<right, King, false>();
+        constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
+        *moveList++ = castlingMove;
+    }
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getMoveListWhenDoubleCheck(Move *moveList) noexcept {
     // Trường hợp double check, chỉ cho phép di chuyển vua
     BB kingAttacks = attack::kings[myKingIdx] & notMines & (~kingBan);
     while (kingAttacks){
@@ -304,31 +310,6 @@ Move *MoveGen::getMoveListWhenDoubleCheck(const Board &board, Move *moveList) no
     return moveList;
 }
 
-template<Color mine>
-BB MoveGen::getKingBan(const Board &board) noexcept
-{
-    constexpr auto enemyColor = !mine;
-    const BB occWithoutOurKing = occ & (~myKing);
-
-    const BB enemyPawns = board.getPieceBB<enemyColor, Pawn>();
-    const BB enemyKnights = board.getPieceBB<enemyColor, Knight>();
-    const BB enemyKings = board.getPieceBB<enemyColor, King>();
-    BB enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
-    BB enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
-
-    // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
-    BB kingBan = attack::getPawnAttacks<enemyColor>(enemyPawns)
-            | attack::getKnightAttacks(enemyKnights)
-            | attack::getKingAttacks(enemyKings);
-
-    while (enemyBishopQueens) {
-        kingBan |= attack::getBishopAttacks(popLsb(enemyBishopQueens), occWithoutOurKing);
-    }
-    while (enemyRookQueens) {
-        kingBan |= attack::getRookAttacks(popLsb(enemyRookQueens), occWithoutOurKing);
-    }
-    return kingBan;
-}
 
 
 
