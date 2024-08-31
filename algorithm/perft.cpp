@@ -57,6 +57,7 @@ void kc::Perft::testPerft()
     if (test){
         QElapsedTimer timer;
         timer.start();
+//        funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 7, 3195901860ULL);
         funcTest("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 6, 119060324);
         funcTest("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 5, 193690690);
         funcTest("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10", 5, 164075551);
@@ -135,55 +136,35 @@ void kc::Perft::testPerft()
 Move moves[10][256];
 u64 kc::Perft::genMoveRecur(Board &board, int depth)
 {
-#ifdef CountTickGenAndMove
-    qint64 startGen = myTimer.nsecsElapsed();
-#endif
     auto movePtr = moves[depth];
-    int count = MoveGen::instance->genMoveList(board, moves[depth]);
-    if (depth == 2){
-        countMoveExt += count;
-    }
-    if (count == 0){
-        countMate++;
-    }
-#ifdef CountTickGenAndMove
-    qint64 endGen = myTimer.nsecsElapsed();
-    genTick += (endGen - startGen);
-#endif
     if (depth == 1){
-//        divideCount[currMove]+= count;
-        return count;
-    }
-
-    BoardState state;
-
-    u64 total = 0;
-    for (int i = 0; i < count; i++){
-#ifdef CountTickGenAndMove
-        qint64 startMove = myTimer.nsecsElapsed();
-#endif
-
-        if (depth == FixedDepth){
-//            currMove = movePtr[i].getDescription();
-//            qDebug() << "Start cal for move" << movePtr[i].getDescription().c_str();
+        int count1 = MoveGen::instance->countMoveList(board);
+        if (count1 == 0){
+            countMate++;
         }
-        board.doMove(movePtr[i], state);
+        return count1;
+    } else {
+        int count = MoveGen::instance->genMoveList(board, moves[depth]);
+        if (count == 0){
+            countMate++;
+        }
 
-#ifdef CountTickGenAndMove
-        qint64 endMove = myTimer.nsecsElapsed();
-        moveTick += (endMove - startMove);
-#endif
-        total += genMoveRecur(board, depth - 1);
-#ifdef CountTickGenAndMove
-        startMove = myTimer.nsecsElapsed();
-#endif
-        board.undoMove(movePtr[i]);
-#ifdef CountTickGenAndMove
-        endMove = myTimer.nsecsElapsed();
-        moveTick += (endMove - startMove);
-#endif
+        if (depth == 1){
+            return count;
+        }
+
+        BoardState state;
+
+        u64 total = 0;
+        for (int i = 0; i < count; i++){
+    //        if (depth == FixedDepth){
+    //            currMove = movePtr[i].getDescription();
+    //            qDebug() << "Start cal for move" << movePtr[i].getDescription().c_str();
+    //        }
+            board.doMove(movePtr[i], state);
+            total += genMoveRecur(board, depth - 1);
+            board.undoMove(movePtr[i]);
+        }
+        return total;
     }
-//    free(moves);
-
-    return total;
 }

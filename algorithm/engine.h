@@ -6,11 +6,14 @@ class Engine {
 public:
     Engine();
     Move calc(const Board &chessBoard);
-    int alphabeta(Board &board, int depth, Color color, int alpha, int beta);
+
+    template <Color color, bool isRoot>
+    int alphabeta(Board &board, int depth, int alpha, int beta);
 private:
     Move bestMoves[256];
     int countBestMove = 0;
     int fixedDepth;
 
+    Move engineMoves[20][256];
 };
 }
