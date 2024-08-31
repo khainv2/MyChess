@@ -21,7 +21,11 @@ Move kc::Engine::calc(const Board &chessBoard)
     countTotalSearch = 0;
     Board board = chessBoard;
     *board.state = *chessBoard.state;
-    alphabeta(board, fixedDepth, chessBoard.side, -Infinity, Infinity);
+    if (board.side == White){
+        alphabeta<White, true>(board, fixedDepth, -Infinity, Infinity);
+    } else {
+        alphabeta<Black, true>(board, fixedDepth, -Infinity, Infinity);
+    }
     int r = countBestMove * rand() / RAND_MAX;
     qDebug() << "Best move count" << countBestMove << "Select" << r;
     Move move = bestMoves[r];
@@ -32,8 +36,8 @@ Move kc::Engine::calc(const Board &chessBoard)
     return move;
 }
 
-Move engineMoves[20][256];
-int Engine::alphabeta(Board &board, int depth, Color color, int alpha, int beta){
+template <Color color, bool isRoot>
+int Engine::alphabeta(Board &board, int depth, int alpha, int beta){
     if (depth == 0){
         countTotalSearch++;
         return eval::estimate(board);
@@ -42,12 +46,12 @@ int Engine::alphabeta(Board &board, int depth, Color color, int alpha, int beta)
     auto movePtr = engineMoves[depth];
     int count = MoveGen::instance->genMoveList(board, movePtr);
 
-    if (color == White){
+    if constexpr (color == White){
         int max = -Infinity;
         BoardState state;
         for (int i = 0; i < count; i++){
             board.doMove(movePtr[i], state);
-            int val = alphabeta(board, depth - 1, !color, alpha, beta);
+            int val = alphabeta<!color, false>(board, depth - 1, alpha, beta);
             board.undoMove(movePtr[i]);
             if (val >= max){
                 if (depth == fixedDepth){
@@ -71,7 +75,7 @@ int Engine::alphabeta(Board &board, int depth, Color color, int alpha, int beta)
         BoardState state;
         for (int i = 0; i < count; i++){
             board.doMove(movePtr[i], state);
-            int val = alphabeta(board, depth - 1, !color, alpha, beta);
+            int val = alphabeta<!color, false>(board, depth - 1, alpha, beta);
             board.undoMove(movePtr[i]);
             if (val <= min){
                 if (depth == fixedDepth){

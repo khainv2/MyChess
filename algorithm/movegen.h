@@ -14,31 +14,47 @@ public:
     inline BB getPinMaskCross() const noexcept;
 
     int genMoveList(const Board &board, Move *moveList) noexcept;
+    int countMoveList(const Board &board) noexcept;
 
-    template <Color color, bool isJustCount>
+    template <Color color>
     inline Move *genMoveList(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline int countMoveList(const Board &board) noexcept;
 
     template <Color color>
     inline Move *getMoveListForPawn(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline int countPawnMove(const Board &board) noexcept;
 
     template <Color color>
     inline Move *getMoveListForKnight(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline int countKnightMove(const Board &board) noexcept;
 
     template <Color color>
     inline Move *getMoveListForBishopQueen(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline int countBishopQueenMove(const Board &board) noexcept;
 
+    // Lấy nước đi của xe + các nước đi ngang dọc của hậu
     template <Color color>
     inline Move *getMoveListForRookQueen(const Board &board, Move *moveList) noexcept;
-
     template <Color color>
-    inline Move *getMoveListForKing(const Board &board, Move *moveList) noexcept;
+    inline int countRookQueenMove(const Board &board) noexcept;
 
+    // Lấy nước đi của vua (trong trường hợp bình thường không bị chiếu)
+    template <Color color, bool isDoubleCheck>
+    inline Move *getMoveListForKing([[maybe_unused]] const Board &board, Move *moveList) noexcept;
+    template <Color color, bool isDoubleCheck>
+    inline int countKingMove([[maybe_unused]] const Board &board) noexcept;
+
+    // Lấy nước đi nhập thành
     template <Color color, CastlingRights right>
     inline Move *getCastlingMoveList(const Board &board, Move *moveList) noexcept;
+    template <Color color, CastlingRights right>
+    inline int countCastlingMove(const Board &board) noexcept;
 
-    template <Color color>
-    inline Move *getMoveListWhenDoubleCheck(Move *moveList) noexcept;
-
+    // Kiểm tra tất cả các ô mà vua không được phép đi tới
     template<Color mine>
     inline BB getKingBan(const Board &board) noexcept;
 
