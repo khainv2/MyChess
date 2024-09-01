@@ -8,7 +8,6 @@
 #include <algorithm/util.h>
 #include <algorithm/perft.h>
 
-#include <test.h>
 #include "logger.h"
 #include <QElapsedTimer>
 using namespace kc;
@@ -37,7 +36,7 @@ int main(int argc, char *argv[])
     MoveGen::init();
 
 
-    kc::Perft::testPerft();
+//    kc::Perft::testPerft();
 
     MainWindow w;
     w.show();
