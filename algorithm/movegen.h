@@ -8,13 +8,21 @@ class MoveGen {
 public:
     static MoveGen *instance;
     static void init();
-    MoveGen();
-
-    inline BB getPinMaskDiagonal() const noexcept;
-    inline BB getPinMaskCross() const noexcept;
 
     int genMoveList(const Board &board, Move *moveList) noexcept;
     int countMoveList(const Board &board) noexcept;
+
+    std::vector<Move> getMoveListForSquare(const Board &board, Square square);
+private:
+    MoveGen();
+    inline BB getPinMaskDiagonal() const noexcept;
+    inline BB getPinMaskCross() const noexcept;
+
+    template <Color mine>
+    inline void prepare(const Board &board) noexcept;
+
+    template <Color mine>
+    inline void updateCheckMaskAndPin() noexcept;
 
     template <Color color>
     inline Move *genMoveList(const Board &board, Move *moveList) noexcept;
@@ -58,8 +66,6 @@ public:
     template<Color mine>
     inline BB getKingBan(const Board &board) noexcept;
 
-    std::vector<Move> getMoveListForSquare(const Board &board, Square square);
-
 private:
     BB occ, notOcc;
     BB myKing;
@@ -71,6 +77,7 @@ private:
     BB _enemyBishopQueens;
 
     BB kingBan;
+    BB checkers;
     BB checkMask;
     BB pinMaskDiagonal;
     BB pinMaskCross;

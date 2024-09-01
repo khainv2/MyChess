@@ -3,6 +3,7 @@
 #include "util.h"
 #include "evaluation.h"
 #include "attack.h"
+#include "movegen.h"
 
 using namespace kc;
 
@@ -10,6 +11,17 @@ Board::Board() noexcept {
 }
 
 Board::~Board() noexcept {
+}
+
+bool Board::isMate() const noexcept {
+    int countMove = MoveGen::instance->countMoveList(*this);
+    return state->checkers && countMove == 0;
+}
+
+bool Board::isDraw() const noexcept
+{
+    return state->halfMoveClock >= 100
+            || (state->checkers == 0 && MoveGen::instance->countMoveList(*this) == 0);
 }
 
 BB Board::getSqAttackTo(int sq, BB occ) const noexcept {
@@ -105,7 +117,7 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     // Chuyển màu
     side = !side;
 
-    updateKingState();
+    refresh();
 
     return 0;
 }
@@ -163,17 +175,16 @@ int Board::undoMove(Move move) noexcept
     }
     state = state->previous;
     side = !side;
+//    refresh();
     return 0;
 }
 
-void Board::updateKingState() noexcept
-{
-//    auto myKing = colors[side] | pieces[King];
-//    auto myKingIdx = lsbIndex(myKing);
-//    auto occ = getOccupancy();
-//    auto enemies = side == White ? getEnemies<White>() : getEnemies<Black>();
-//    state->checkers = getSqAttackTo(myKingIdx, occ) & enemies;
-
+void Board::refresh() noexcept {
+    auto myKing = colors[side] & types[King];
+    auto myKingIdx = lsbIndex(myKing);
+    auto occ = getOccupancy();
+    auto enemies = colors[!side];
+    state->checkers = getSqAttackTo(myKingIdx, occ) & enemies;
 }
 
 std::string kc::Board::getPrintable(int tab) const {

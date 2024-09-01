@@ -33,7 +33,7 @@ int MoveGen::countMoveList(const Board &board) noexcept
 }
 
 template<Color mine>
-Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept {
+void MoveGen::prepare(const Board &board) noexcept {
     constexpr auto enemyColor = !mine;
 
     myKing = board.getPieceBB<mine, King>();
@@ -52,71 +52,58 @@ Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept {
     kingBan = getKingBan<mine>(board);
 
     // Tìm kiếm các ô đang tấn công vua
-    const BB checkers = board.getSqAttackTo(myKingIdx, occ) & enemies;
+//    checkers = board.getSqAttackTo(myKingIdx, occ) & enemies;
+    checkers = board.state->checkers;
+//    if (checkers != board.state->checkers){
+//        qDebug() << "Board diff checkers" << bbToString(checkers).c_str();
+//        qDebug() << bbToString(board.state->checkers).c_str();
+//        qDebug() << board.getPrintable().c_str();
+//    }
+}
 
+template <Color mine>
+inline void MoveGen::updateCheckMaskAndPin() noexcept {
+    // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
+    checkMask = checkers
+            ? attack::between[myKingIdx][lsbIndex(checkers)] : All_BB;
+    // Tính toán toàn bộ các vị trí pin
+    pinMaskDiagonal = getPinMaskDiagonal();
+    pinMaskCross = getPinMaskCross();
+}
+
+template<Color mine>
+Move *MoveGen::genMoveList(const Board &board, Move *moveList) noexcept {
+    // Cập nhật một số biến trạng thái: các ô bị chiếm đóng, các ô trống,...
+    prepare<mine>(board);
     // Trong trường hợp chiếu đôi, tạo luôn movelist chỉ cho phép vua di chuyển
     if (isMoreThanOne(checkers)) {
         // Lấy nước đi trong trường hợp chiếu kép (đối phương đang chiếu bằng ít nhất 2 quân khác nhau), trong trường hợp
         // này chỉ có duy nhất quân vua được phép di chuyển, nếu vua không thể di chuyển được sẽ là chiếu hết
         return getMoveListForKing<mine, true>(board, moveList);
     }
-
-    // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
-    checkMask = checkers
-            ? attack::between[myKingIdx][lsbIndex(checkers)] : All_BB;
-
-    // Tính toán toàn bộ các vị trí pin
-    pinMaskDiagonal = getPinMaskDiagonal();
-    pinMaskCross = getPinMaskCross();
-
+    updateCheckMaskAndPin<mine>();
     // Target của các quân nặng
     targetForHeavyPiece = notMines & checkMask;
+    // Tạo lần lượt danh sách di chuyển cho các quân
     moveList = getMoveListForPawn<mine>(board, moveList);
     moveList = getMoveListForKnight<mine>(board, moveList);
     moveList = getMoveListForBishopQueen<mine>(board, moveList);
     moveList = getMoveListForRookQueen<mine>(board, moveList);
     moveList = getMoveListForKing<mine, false>(board, moveList);
-
     return moveList;
 }
 
 template<Color mine>
 int MoveGen::countMoveList(const Board &board) noexcept {
-    constexpr auto enemyColor = !mine;
-
-    myKing = board.getPieceBB<mine, King>();
-    myKingIdx = lsbIndex(myKing);
-
-    occ = board.getOccupancy();
-    notOcc = ~occ;
-    mines = board.getMines<mine>();
-    notMines = ~mines;
-    enemies = board.getEnemies<mine>();
-
-    _enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
-    _enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
-
-    // Tìm kiếm các ô đang tấn công vua
-    const BB checkers = board.getSqAttackTo(myKingIdx, occ) & enemies;
-
-    // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
-    kingBan = getKingBan<mine>(board);
-
+    // Cập nhật một số biến trạng thái: các ô bị chiếm đóng, các ô trống,...
+    prepare<mine>(board);
     // Trong trường hợp chiếu đôi, tạo luôn movelist chỉ cho phép vua di chuyển
     if (isMoreThanOne(checkers)) {
         // Lấy nước đi trong trường hợp chiếu kép (đối phương đang chiếu bằng ít nhất 2 quân khác nhau), trong trường hợp
         // này chỉ có duy nhất quân vua được phép di chuyển, nếu vua không thể di chuyển được sẽ là chiếu hết
         return countKingMove<mine, true>(board);
     }
-
-    // Giá trị checkmask = 0xff.ff. Nếu đang chiếu sẽ bằng giá trị từ quân cờ tấn công đến vua (trừ vua)
-    checkMask = checkers
-            ? attack::between[myKingIdx][lsbIndex(checkers)] : All_BB;
-
-    // Tính toán toàn bộ các vị trí pin
-    pinMaskDiagonal = getPinMaskDiagonal();
-    pinMaskCross = getPinMaskCross();
-
+    updateCheckMaskAndPin<mine>();
     targetForHeavyPiece = notMines & checkMask;
     return countPawnMove<mine>(board)
             + countKnightMove<mine>(board)
@@ -129,21 +116,15 @@ template<Color mine>
 BB MoveGen::getKingBan(const Board &board) noexcept {
     constexpr auto enemyColor = !mine;
     const BB occWithoutOurKing = occ & (~myKing);
-
     const BB enemyPawns = board.getPieceBB<enemyColor, Pawn>();
     const BB enemyKnights = board.getPieceBB<enemyColor, Knight>();
     const BB enemyKings = board.getPieceBB<enemyColor, King>();
     BB enemyRookQueens = _enemyRookQueens;
     BB enemyBishopQueens = _enemyBishopQueens;
-
-//    BB enemyBishopQueens = board.getPieceBB<enemyColor, Bishop, Queen>();
-//    BB enemyRookQueens = board.getPieceBB<enemyColor, Rook, Queen>();
-
     // Tính toán toàn bộ các nước đi mà vua bị không được phép di chuyển tới
     BB kingBan = attack::getPawnAttacks<enemyColor>(enemyPawns)
             | attack::getKnightAttacks(enemyKnights)
             | attack::getKingAttacks(enemyKings);
-
     while (enemyBishopQueens) {
         kingBan |= attack::getBishopAttacks(popLsb(enemyBishopQueens), occWithoutOurKing);
     }
