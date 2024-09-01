@@ -83,6 +83,10 @@ struct Board {
         return colors[Black] | colors[White];
     }
 
+    bool isMate() const noexcept;
+
+    bool isDraw() const noexcept;
+
     BB getSqAttackTo(int sq, BB occ) const noexcept ;
 
     int doMove(Move move, BoardState &state) noexcept ;
@@ -95,7 +99,7 @@ struct Board {
 
     int undoMove(Move move) noexcept;
 
-    void updateKingState() noexcept;
+    void refresh() noexcept;
 
     std::string getPrintable(int tab = 0) const;
 

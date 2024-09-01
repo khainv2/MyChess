@@ -195,6 +195,7 @@ void ChessBoardView::doMove(kc::Move move)
     _moveList.push_back(move);
     _mouseSelection = 0;
     _moveAbility.clear();
+    qDebug() << "Board state" << _board.isMate();
     emit boardChanged();
     update();
 }
