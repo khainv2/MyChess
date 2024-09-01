@@ -22,8 +22,6 @@ signals:
     // QWidget interface
 protected:
     void paintEvent(QPaintEvent *event) override;
-
-protected:
     void mousePressEvent(QMouseEvent *event) override;
 private:
     QPixmap _pixmaps[16];

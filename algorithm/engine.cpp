@@ -9,7 +9,7 @@
 using namespace kc;
 Engine::Engine()
 {
-    fixedDepth = 8;
+    fixedDepth = 2;
 }
 
 int countTotalSearch = 0;
@@ -19,12 +19,22 @@ Move kc::Engine::calc(const Board &chessBoard)
     QElapsedTimer timer;
     timer.start();
     countTotalSearch = 0;
+
+    if (rootNode != nullptr){
+        delete rootNode;
+    }
+    rootNode = new Node;
+//    rootNode->level = 0;
+//    rootNode->board.state = new
+
     Board board = chessBoard;
-    *board.state = *chessBoard.state;
+//    BoardState state = *chessBoard.state;
+//    board.state = &state;
+//    *board.state = *chessBoard.state;
     if (board.side == White){
-        alphabeta<White, true>(board, fixedDepth, -Infinity, Infinity);
+        alphabeta<White, true>(rootNode, board, fixedDepth, -Infinity, Infinity);
     } else {
-        alphabeta<Black, true>(board, fixedDepth, -Infinity, Infinity);
+        alphabeta<Black, true>(rootNode, board, fixedDepth, -Infinity, Infinity);
     }
     int r = countBestMove * rand() / RAND_MAX;
     qDebug() << "Best move count" << countBestMove << "Select" << r;
@@ -36,8 +46,23 @@ Move kc::Engine::calc(const Board &chessBoard)
     return move;
 }
 
+Node *Engine::getRootNode() const
+{
+    return rootNode;
+}
+
 template <Color color, bool isRoot>
-int Engine::alphabeta(Board &board, int depth, int alpha, int beta){
+int Engine::alphabeta(Node *node, Board &board, int depth, int alpha, int beta){
+    node->level = fixedDepth - depth;
+    node->board = board;
+    node->boardState = *board.state;
+    node->board.state = &node->boardState; // Self control state, note: value previous is not valid
+
+//    auto child = new Node;
+//    if constexpr (isRoot){
+//        node.
+//    }
+
     if (depth == 0){
         countTotalSearch++;
         return eval::estimate(board);
@@ -50,15 +75,19 @@ int Engine::alphabeta(Board &board, int depth, int alpha, int beta){
         int max = -Infinity;
         BoardState state;
         for (int i = 0; i < count; i++){
-            board.doMove(movePtr[i], state);
-            int val = alphabeta<!color, false>(board, depth - 1, alpha, beta);
-            board.undoMove(movePtr[i]);
+            auto move = movePtr[i];
+            auto child = new Node;
+            node->children.push_back(child);
+            child->move = move;
+            board.doMove(move, state);
+            int val = alphabeta<!color, false>(child, board, depth - 1, alpha, beta);
+            board.undoMove(move);
             if (val >= max){
                 if (depth == fixedDepth){
                     if (val > max){
                         countBestMove = 0;
                     }
-                    bestMoves[countBestMove++] = movePtr[i];
+                    bestMoves[countBestMove++] = move;
                 }
                 max = val;
             }
@@ -74,15 +103,19 @@ int Engine::alphabeta(Board &board, int depth, int alpha, int beta){
         int min = Infinity;
         BoardState state;
         for (int i = 0; i < count; i++){
-            board.doMove(movePtr[i], state);
-            int val = alphabeta<!color, false>(board, depth - 1, alpha, beta);
-            board.undoMove(movePtr[i]);
+            auto move = movePtr[i];
+            auto child = new Node;
+            node->children.push_back(child);
+            child->move = move;
+            board.doMove(move, state);
+            int val = alphabeta<!color, false>(child, board, depth - 1, alpha, beta);
+            board.undoMove(move);
             if (val <= min){
                 if (depth == fixedDepth){
                     if (val < min){
                         countBestMove = 0;
                     }
-                    bestMoves[countBestMove++] = movePtr[i];
+                    bestMoves[countBestMove++] = move;
                 }
                 min = val;
             }

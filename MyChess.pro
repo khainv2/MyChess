@@ -35,7 +35,7 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     promotionselectoindialog.cpp \
-    test.cpp
+    treegraph.cpp
 
 HEADERS += \
     algorithm/attack.h \
@@ -50,7 +50,7 @@ HEADERS += \
     logger.h \
     mainwindow.h \
     promotionselectoindialog.h \
-    test.h
+    treegraph.h
 
 FORMS += \
     mainwindow.ui \

@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 
+#include <algorithm/engine.h>
+
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
@@ -23,5 +25,6 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+    kc::Engine engine;
 };
 #endif // MAINWINDOW_H

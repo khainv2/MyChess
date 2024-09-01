@@ -18,6 +18,7 @@ MainWindow::MainWindow(QWidget *parent)
         ui->label->setText(QString::fromStdString(toFenString(ui->chessBoard->board())));
     });
 
+//    ui->chessBoard->setVisible(false);
 }
 
 MainWindow::~MainWindow()
@@ -37,29 +38,10 @@ void MainWindow::on_bt_StartCalculate_clicked()
     int count = MoveGen::instance->genMoveList(board, movePtr);
     countTotal += count;
 
-//    QList<BoardValue> states;
-//    BoardValue val;
-//    val.fen = toFenString(board);
-//    fens.append()
-
-//    for (int i = 0; i < count; i++){
-//        Board newBoard = board;
-//        newBoard.doMove(movePtr[i]);
-//        int ncount = generateMoveList(newBoard, movePtr + countTotal);
-//        for (int j = 0; j < ncount; j++){
-//            Board boardJ = newBoard;
-//            boardJ.doMove((movePtr + countTotal)[j]);
-
-//        }
-//        countTotal += ncount;
-//    }
-
-
-
-
-    kc::Engine engine;
     auto move = engine.calc(board);
     ui->chessBoard->doMove(move);
+
+    ui->graph->setRootNode(engine.getRootNode());
 //    ui->chessBoard->setBoard(board);
 }
 
