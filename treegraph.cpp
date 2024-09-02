@@ -60,15 +60,28 @@ void TreeGraph::drawNode(QPainter &painter, const QPoint &pos, kc::Node *node)
     QRect rect(pos, QSize(NodeWidth, NodeHeight));
     painter.drawRect(rect);
 
-    QString text;
-    if (node->level == 0){
-        text = "Root";
-    } else {
-        text = QString::fromStdString(node->move.getDescription());
-    }
+
     QFontMetrics metric(painter.font());
-    auto r = metric.boundingRect(text);
-    int x = rect.x() + rect.width() / 2 - r.width() / 2;
-    int y = rect.y() + rect.height() / 2 + r.height() / 2;
-    painter.drawText(x, y, text);
+//    int x = rect.x() + rect.width() / 2 - r.width() / 2;
+//    int y = rect.y() + rect.height() / 2 + r.height() / 2;
+    {   // Draw title
+        QString text;
+        if (node->level == 0){
+            text = "Root";
+        } else {
+            text = QString::fromStdString(node->move.getDescription());
+        }
+        auto r = metric.boundingRect(text);
+        int x = rect.x() + 4;
+        int y = rect.y() + r.height();
+        painter.drawText(x, y, text);
+    }
+    { // Draw info
+        QString text;
+
+        auto r = metric.boundingRect(text);
+        int x = rect.x() + 4;
+        int y = rect.y() + r.height() + 14;
+        painter.drawText(x, y, text);
+    }
 }

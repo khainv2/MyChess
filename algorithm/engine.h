@@ -10,6 +10,7 @@ struct Node {
     Board board;
     BoardState boardState;
     Move move = Move::NullMove;
+    int score = 0;
     bool isBestMove;
     bool isSelected;
 
@@ -39,6 +40,9 @@ private:
     int countBestMove = 0;
     int fixedDepth;
 
+    Move bestMoveHistories[256][256]; // Chiều ngang tương đương với một số kết quả giống nhau, chiều dọc bao gồm list các nước theo depth giảm dần
+    Move moves[256];
+    int moveCount = 0;
     Move engineMoves[20][256];
 
     Node *rootNode = nullptr;
