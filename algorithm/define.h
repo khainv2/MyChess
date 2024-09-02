@@ -6,7 +6,8 @@
 
 namespace kc {
 using u8 = unsigned char;
-using u16 = unsigned int;
+using i16 = short;
+using u16 = unsigned short;
 using u32 = unsigned int;
 using i64 = long long;
 using u64 = unsigned long long;
@@ -345,8 +346,8 @@ public:
         Promotion = (3 << 14),
     };
 
-    constexpr inline Move() : move(NullMove){}
-    constexpr inline Move(u16 m) : move(m) {}
+    constexpr inline Move() : move(NullMove), val(0){}
+    constexpr inline Move(u16 m) : move(m), val(0){}
 
     constexpr inline bool operator!=(MoveValue val){
         return move != val;
@@ -365,7 +366,14 @@ public:
     static constexpr inline Move makePromotionMove(int src, int dst, PieceType p) noexcept { return Move(src + (dst << 6) + Promotion + ((p - 2) << 12)); }
 private:
     u16 move;
+public:
+    i16 val;
 };
+
+enum Score {
+    ScoreMate = 32000,
+};
+
 }
 
 

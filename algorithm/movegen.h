@@ -13,7 +13,7 @@ public:
     int countMoveList(const Board &board) noexcept;
 
     std::vector<Move> getMoveListForSquare(const Board &board, Square square);
-private:
+public:
     MoveGen();
     inline BB getPinMaskDiagonal() const noexcept;
     inline BB getPinMaskCross() const noexcept;
