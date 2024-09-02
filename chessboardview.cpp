@@ -26,7 +26,7 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
     _pixmaps[BlackKing] = QPixmap(":/b_king.png");
 //    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
 
-    parseFENString("rn1qkbnr/ppp1pppp/8/3p4/4P3/2N4b/PPPP1PPP/R1BQKBNR w KQkq - 2 0", &_board);
+//    parseFENString("rn1qkbnr/ppp1pppp/8/3p4/4P3/2N4b/PPPP1PPP/R1BQKBNR w KQkq - 2 0", &_board);
 //    parseFENString("1rnb2r1/ppPp2kp/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 0 1", &_board); // promotion
 
 //    parseFENString("1rnQ2r1/pp1p1k1p/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 1 2", &_board); // check
@@ -43,6 +43,8 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
 //    parseFENString(Perft::testFenPerft(), &_board);
 //     parseFENString("r2k3r/p1ppqpb1/bB2pnp1/3PN3/1p2P3/2N2Q1p/PPP1BPPP/R3K2R b KQ - 0 2", &_board);
 //    parseFENString("r1bq2r1/b4pk1/p1pp1p2/1p2pP2/1P2P1PB/3P4/1PPQ2P1/R3K2R w - - 0 0", &_board);
+
+    parseFENString("r2qk2r/pb4pp/1n2Pb2/2B2Q2/p1p5/2P5/2B2PPP/RN2R1K1 w - - 1 0", &_board); // mate in 2
 }
 
 void ChessBoardView::paintEvent(QPaintEvent *) {

@@ -27,12 +27,15 @@ class Tree {
 };
 
 class Engine {
+    enum {
+        MaxPly = 32,
+    };
 public:
     Engine();
     Move calc(const Board &chessBoard);
 
     template <Color color, bool isRoot>
-    int alphabeta(Node *node, Board &board, int depth, int alpha, int beta);
+    int negamax(Board &board, int depth, int alpha, int beta);
     Node *getRootNode() const;
 
 private:
@@ -40,10 +43,11 @@ private:
     int countBestMove = 0;
     int fixedDepth;
 
-    Move bestMoveHistories[256][256]; // Chiều ngang tương đương với một số kết quả giống nhau, chiều dọc bao gồm list các nước theo depth giảm dần
-    Move moves[256];
-    int moveCount = 0;
-    Move engineMoves[20][256];
+    Move bestMoveHistories[256][MaxPly]; // Chiều ngang tương đương với một số kết quả giống nhau, chiều dọc bao gồm list các nước theo depth giảm dần
+    int bestMoveHistoryCount[256] = { 0 };
+    Move moves[MaxPly];
+    int movePlyCount = 0;
+    Move buff[20][256];
 
     Node *rootNode = nullptr;
 };

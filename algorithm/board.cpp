@@ -14,8 +14,9 @@ Board::~Board() noexcept {
 }
 
 bool Board::isMate() const noexcept {
-    int countMove = MoveGen::instance->countMoveList(*this);
-    return state->checkers && countMove == 0;
+//    int countMove = MoveGen::instance->countMoveList(*this);
+    return state->checkers
+            && MoveGen::instance->countMoveList(*this) == 0;
 }
 
 bool Board::isDraw() const noexcept
