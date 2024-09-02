@@ -24,8 +24,9 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
     _pixmaps[BlackRook] = QPixmap(":/b_rook.png");
     _pixmaps[BlackQueen] = QPixmap(":/b_queen.png");
     _pixmaps[BlackKing] = QPixmap(":/b_king.png");
-    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
-//    parseFENString("r3k2r/pppp3p/4p1p1/5p2/2B5/4PN2/PPPP1PPP/R3K2R w KQkq - 0 1", &_board); // Has castling
+//    parseFENString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", &_board);
+
+    parseFENString("rn1qkbnr/ppp1pppp/8/3p4/4P3/2N4b/PPPP1PPP/R1BQKBNR w KQkq - 2 0", &_board);
 //    parseFENString("1rnb2r1/ppPp2kp/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 0 1", &_board); // promotion
 
 //    parseFENString("1rnQ2r1/pp1p1k1p/4p1p1/5p2/2B5/4PN2/PPP2PPP/R3K2R w KQ - 1 2", &_board); // check

@@ -6,10 +6,25 @@
 #include <random>
 #include "util.h"
 
+#include <random>
+#include "QDateTime"
+
+int getRand(int min, int max){
+    unsigned int ms = static_cast<unsigned>(QDateTime::currentMSecsSinceEpoch());
+    std::mt19937 gen(ms);
+    std::uniform_int_distribution<> uid(min, max);
+    return uid(gen);
+}
+
 using namespace kc;
 Engine::Engine()
 {
-    fixedDepth = 2;
+    fixedDepth = 8;
+    for (int i = 0; i < 256; i++){
+        for (int j = 0; j < 256; j++){
+            bestMoveHistories[i][j] = Move::NullMove;
+        }
+    }
 }
 
 int countTotalSearch = 0;
@@ -24,6 +39,7 @@ Move kc::Engine::calc(const Board &chessBoard)
         delete rootNode;
     }
     rootNode = new Node;
+    rootNode->score = eval::estimate(chessBoard);
 //    rootNode->level = 0;
 //    rootNode->board.state = new
 
@@ -31,13 +47,23 @@ Move kc::Engine::calc(const Board &chessBoard)
 //    BoardState state = *chessBoard.state;
 //    board.state = &state;
 //    *board.state = *chessBoard.state;
+    int bestValue;
     if (board.side == White){
-        alphabeta<White, true>(rootNode, board, fixedDepth, -Infinity, Infinity);
+        bestValue = alphabeta<White, true>(rootNode, board, fixedDepth, -Infinity, Infinity);
     } else {
-        alphabeta<Black, true>(rootNode, board, fixedDepth, -Infinity, Infinity);
+        bestValue = alphabeta<Black, true>(rootNode, board, fixedDepth, -Infinity, Infinity);
     }
-    int r = countBestMove * rand() / RAND_MAX;
-    qDebug() << "Best move count" << countBestMove << "Select" << r;
+    int r = getRand(0, countBestMove);
+    qDebug() << "Best move count" << countBestMove << "Select" << r << "best value" << bestValue;
+    for (int i = 0; i < countBestMove; i++){
+        QString str;
+        for (int j = 0; j < fixedDepth; j++){
+            auto m = bestMoveHistories[i][j];
+            str.append(QString::fromStdString(m.getDescription())).append(", ");
+        }
+        qDebug() << "- move list" << str;
+    }
+
     Move move = bestMoves[r];
 //    Move move = bestMoves[0];
     qDebug() << "Select best move" << move.getDescription().c_str();
@@ -58,74 +84,42 @@ int Engine::alphabeta(Node *node, Board &board, int depth, int alpha, int beta){
     node->boardState = *board.state;
     node->board.state = &node->boardState; // Self control state, note: value previous is not valid
 
-//    auto child = new Node;
-//    if constexpr (isRoot){
-//        node.
-//    }
-
     if (depth == 0){
         countTotalSearch++;
-        return eval::estimate(board);
+        return color ? -eval::estimate(board) : eval::estimate(board);
+//        return eval::estimate(board);
     }
 
     auto movePtr = engineMoves[depth];
     int count = MoveGen::instance->genMoveList(board, movePtr);
 
-    if constexpr (color == White){
-        int max = -Infinity;
-        BoardState state;
-        for (int i = 0; i < count; i++){
-            auto move = movePtr[i];
-            auto child = new Node;
-            node->children.push_back(child);
-            child->move = move;
-            board.doMove(move, state);
-            int val = alphabeta<!color, false>(child, board, depth - 1, alpha, beta);
-            board.undoMove(move);
-            if (val >= max){
-                if (depth == fixedDepth){
-                    if (val > max){
-                        countBestMove = 0;
-                    }
-                    bestMoves[countBestMove++] = move;
+    int bestValue = -Infinity;
+    BoardState state;
+    for (int i = 0; i < count; i++){
+        auto move = movePtr[i];
+        auto child = new Node;
+        node->children.push_back(child);
+        child->move = move;
+        board.doMove(move, state);
+        int score = -alphabeta<!color, false>(child, board, depth - 1, -beta, -alpha);
+        board.undoMove(move);
+        child->score = score;
+        if (score >= bestValue){
+            moves[node->level] = move;
+            if (depth == fixedDepth){
+                if (score > bestValue){
+                    countBestMove = 0;
                 }
-                max = val;
+                memcpy(bestMoveHistories[countBestMove], moves, 256 * sizeof(Move));
+                bestMoves[countBestMove++] = move;
             }
-            if (alpha < max){
-                alpha = max;
-            }
-            if (max >= beta){
-                break;
-            }
+            bestValue = score;
         }
-        return max;
-    } else {
-        int min = Infinity;
-        BoardState state;
-        for (int i = 0; i < count; i++){
-            auto move = movePtr[i];
-            auto child = new Node;
-            node->children.push_back(child);
-            child->move = move;
-            board.doMove(move, state);
-            int val = alphabeta<!color, false>(child, board, depth - 1, alpha, beta);
-            board.undoMove(move);
-            if (val <= min){
-                if (depth == fixedDepth){
-                    if (val < min){
-                        countBestMove = 0;
-                    }
-                    bestMoves[countBestMove++] = move;
-                }
-                min = val;
-            }
-            if (beta > min){
-                beta = min;
-            }
-            if (min <= alpha){
-                break;
-            }
-        }
-        return min;
+
+        if(score > alpha) alpha = score;
+        if(alpha > beta) break;
     }
+
+    return bestValue;
+
 }
