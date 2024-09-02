@@ -5,7 +5,7 @@
 #include <QDebug>
 #include <random>
 #include "util.h"
-
+#include <cmath>
 #include <random>
 #include "QDateTime"
 
@@ -19,7 +19,7 @@ int getRand(int min, int max){
 using namespace kc;
 Engine::Engine()
 {
-    fixedDepth = 8;
+    fixedDepth = 6;
     for (int i = 0; i < 256; i++){
         for (int j = 0; j < 256; j++){
             bestMoveHistories[i][j] = Move::NullMove;
@@ -100,6 +100,9 @@ int Engine::alphabeta(Node *node, Board &board, int depth, int alpha, int beta){
         auto child = new Node;
         node->children.push_back(child);
         child->move = move;
+        if constexpr (isRoot){
+            qDebug() << "start calculate for" << move.getDescription().c_str();
+        }
         board.doMove(move, state);
         int score = -alphabeta<!color, false>(child, board, depth - 1, -beta, -alpha);
         board.undoMove(move);
@@ -116,8 +119,9 @@ int Engine::alphabeta(Node *node, Board &board, int depth, int alpha, int beta){
             bestValue = score;
         }
 
-        if(score > alpha) alpha = score;
-        if(alpha > beta) break;
+        alpha = std::max(alpha, score);
+        if (alpha > beta)
+            break;
     }
 
     return bestValue;
