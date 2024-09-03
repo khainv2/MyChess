@@ -37,14 +37,14 @@ Move kc::Engine::calc(const Board &chessBoard)
     rootNode->score = eval::estimate(chessBoard);
     countBestMove = 0;
     Board board = chessBoard;
-    Move bestValue;
+    int bestValue;
     if (board.side == White){
         bestValue = negamax<White, true>(board, fixedDepth, -Infinity, Infinity);
     } else {
         bestValue = negamax<Black, true>(board, fixedDepth, -Infinity, Infinity);
     }
     int r = getRand(0, countBestMove - 1);
-    qDebug() << "Best move count" << countBestMove << "Select" << r << "best value" << bestValue.val;
+    qDebug() << "Best move count" << countBestMove << "Select" << r << "best value" << bestValue;
     for (int i = 0; i < countBestMove; i++){
         QString str;
         for (int j = 0; j < fixedDepth; j++){
@@ -70,23 +70,19 @@ Node *Engine::getRootNode() const
 }
 
 template <Color color, bool isRoot>
-Move Engine::negamax(Board &board, int depth, int alpha, int beta){
+int Engine::negamax(Board &board, int depth, int alpha, int beta){
 //    if constexpr
     int level = fixedDepth - depth;
     if (board.isMate()){
         countTotalSearch++;
         movePlyCount = level + 1;
-        Move m;
-        m.val = color ? -ScoreMate : ScoreMate;
-        return m;
+        return color ? -ScoreMate : ScoreMate;
     }
 
     if (depth == 0){
         countTotalSearch++;
         movePlyCount = level + 1;
-        Move m;
-        m.val = color ? -eval::estimate(board) : eval::estimate(board);
-        return m;
+        return color ? -eval::estimate(board) : eval::estimate(board);
     }
 
     auto movePtr = buff[depth];
@@ -98,15 +94,7 @@ Move Engine::negamax(Board &board, int depth, int alpha, int beta){
             moveData[i] = movePtr[i];
         }
         std::sort(moveData.begin(), moveData.begin() + count, [=](Move m1, Move m2){
-            // If move is F5>G6, always return true
 
-//            if (m1.getDescription() == "F5>G6"){
-//                return true;
-//            }
-            
-//            if (m2.getDescription() == "F5>G6"){
-//                return false;
-//            }
 
             return m1.val > m2.val;
         });
@@ -116,10 +104,8 @@ Move Engine::negamax(Board &board, int depth, int alpha, int beta){
         }
     }
 
-//    int bestValue = -Infinity;
+    int bestValue = -Infinity;
     BoardState state;
-    Move m;
-    m.val = -Infinity;
     for (int i = 0; i < count; i++){
         auto move = movePtr[i];
         if constexpr (isRoot){
@@ -128,16 +114,15 @@ Move Engine::negamax(Board &board, int depth, int alpha, int beta){
 //            qDebug() << tab << move.getDescription().c_str();
         }
         board.doMove(move, state);
-        Move bestChildMove = negamax<!color, false>(board, depth - 1, -beta, -alpha);
-        int score = -bestChildMove.val;
+        int score = -negamax<!color, false>(board, depth - 1, -beta, -alpha);
         move.val = score;
         board.undoMove(move);
 
         // Thêm điều kiện =, cho phép kiểm tra nhiều nước đi cùng lúc
-        if (score >= m.val){
+        if (score >= bestValue){
             moves[level] = move;
             if constexpr (isRoot){
-                if (score > m.val){
+                if (score > bestValue){
                     // Reset toàn bộ biến đếm các nước đi tốt nhất, trong trường hợp tìm thấy điểm cao hơn
                     countBestMove = 0;
                 }
@@ -146,12 +131,10 @@ Move Engine::negamax(Board &board, int depth, int alpha, int beta){
                 bestMoves[countBestMove] = move;
                 countBestMove++;
                 // Ngừng tìm kiếm nếu thấy chiếu hết
-//                if (score > 30000){
-//                    break;
-//                }
+                if (score > 30000){
+                    break;
+                }
             }
-            m = move;
-            m.val = score;
         }
 
         alpha = std::max(alpha, score);
@@ -159,6 +142,6 @@ Move Engine::negamax(Board &board, int depth, int alpha, int beta){
             break;
     }
 
-    return m;
+    return bestValue;
 
 }

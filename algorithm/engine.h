@@ -31,7 +31,7 @@ public:
     Move calc(const Board &chessBoard);
 
     template <Color color, bool isRoot>
-    Move negamax(Board &board, int depth, int alpha, int beta);
+    int negamax(Board &board, int depth, int alpha, int beta);
     Node *getRootNode() const;
 
 private:
