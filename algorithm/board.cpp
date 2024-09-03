@@ -75,30 +75,23 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     pieces[src] = PieceNone;
 
     // Thực hiện nhập thành
-    if (type != Move::Normal){
-        switch (type){
-        case Move::Castling:
-            checkAndDoMoveCastling<CastlingWK>(dst);
-            checkAndDoMoveCastling<CastlingWQ>(dst);
-            checkAndDoMoveCastling<CastlingBK>(dst);
-            checkAndDoMoveCastling<CastlingBQ>(dst);
-            break;
-        case Move::Enpassant: {
-            int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
-            BB enemyPawnBB = indexToBB(enemyPawn);
-            colors[enemyColor] &= ~enemyPawnBB;
-            types[Pawn] &= ~enemyPawnBB;
-            pieces[enemyPawn] = PieceNone;
-            break;
-        }
-        case Move::Promotion: {
-            auto promotionPiece = move.getPromotionPieceType();
-            pieces[dst] = makePiece(srcColor, PieceType(promotionPiece));
-            types[srcType] &= ~dstBB;
-            types[promotionPiece] ^= dstBB;
-            break;
-        }
-        }
+    if (move.isOnly<Move::KingCastling>()){
+        checkAndDoMoveCastling<CastlingBK>(dst);
+        checkAndDoMoveCastling<CastlingWK>(dst);
+    } else if (move.isOnly<Move::QueenCastling>()){
+        checkAndDoMoveCastling<CastlingWQ>(dst);
+        checkAndDoMoveCastling<CastlingBQ>(dst);
+    } else if (move.isOnly<Move::Enpassant>()){
+        int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
+        BB enemyPawnBB = indexToBB(enemyPawn);
+        colors[enemyColor] &= ~enemyPawnBB;
+        types[Pawn] &= ~enemyPawnBB;
+        pieces[enemyPawn] = PieceNone;
+    } else if (move.isOnly<Move::Promotion>()){
+        auto promotionPiece = move.getPromotionPieceType();
+        pieces[dst] = makePiece(srcColor, PieceType(promotionPiece));
+        types[srcType] &= ~dstBB;
+        types[promotionPiece] ^= dstBB;
     }
 
     // Đánh dấu lại cờ nhập thành
@@ -149,31 +142,24 @@ int Board::undoMove(Move move) noexcept
         types[dstType] |= indexToBB(dst);
     }
 
-    // Thực hiện nhập thành
-    if (type != Move::Normal){
-        switch (type){
-        case Move::Castling:
-            checkAndUndoMoveCastling<CastlingWK>(dst);
-            checkAndUndoMoveCastling<CastlingWQ>(dst);
-            checkAndUndoMoveCastling<CastlingBK>(dst);
-            checkAndUndoMoveCastling<CastlingBQ>(dst);
-            break;
-        case Move::Enpassant: {
-            int enemyPawn = dstColor == White ? dst - 8 : dst + 8;
-            BB enemyPawnBB = indexToBB(enemyPawn);
-            colors[!dstColor] |= enemyPawnBB;
-            types[Pawn] |= enemyPawnBB;
-            pieces[enemyPawn] = makePiece(!dstColor, Pawn);
-            break;
-        }
-        case Move::Promotion: {
-            pieces[src] = makePiece(dstColor, Pawn);
-            types[dstType] ^= srcBB;
-            types[Pawn] |= srcBB;
-            break;
-        }
-        }
+    if (move.isOnly<Move::KingCastling>()){
+        checkAndUndoMoveCastling<CastlingWK>(dst);
+        checkAndUndoMoveCastling<CastlingBK>(dst);
+    } else if (move.isOnly<Move::QueenCastling>()){
+        checkAndUndoMoveCastling<CastlingWQ>(dst);
+        checkAndUndoMoveCastling<CastlingBQ>(dst);
+    } else if (move.isOnly<Move::Enpassant>()){
+        int enemyPawn = dstColor == White ? dst - 8 : dst + 8;
+        BB enemyPawnBB = indexToBB(enemyPawn);
+        colors[!dstColor] |= enemyPawnBB;
+        types[Pawn] |= enemyPawnBB;
+        pieces[enemyPawn] = makePiece(!dstColor, Pawn);
+    } else if (move.isOnly<Move::Promotion>()){
+        pieces[src] = makePiece(dstColor, Pawn);
+        types[dstType] ^= srcBB;
+        types[Pawn] |= srcBB;
     }
+
     state = state->previous;
     side = !side;
 //    refresh();
