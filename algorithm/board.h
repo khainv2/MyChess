@@ -41,6 +41,7 @@ struct Board {
     Piece pieces[Square_Count] = { PieceNone };
     BB colors[Color_NB] = {0};
     BB types[PieceType_NB] = {0};
+    int material = 0;
 
     Color side = White;
     BoardState *state = nullptr;
@@ -82,6 +83,8 @@ struct Board {
     constexpr inline BB getOccupancy() const noexcept {
         return colors[Black] | colors[White];
     }
+
+    bool anyCheck() const noexcept;
 
     bool isMate() const noexcept;
 

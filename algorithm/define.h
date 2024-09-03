@@ -362,7 +362,7 @@ struct Move {
     }
 
     template <Flag f>
-    constexpr inline bool isOnly() const noexcept {
+    constexpr inline bool is() const noexcept {
         if constexpr (f == Capture || f == Promotion){
             return f & flag(); // Có nhiều loại capture & promotion
         } else {
@@ -373,7 +373,6 @@ struct Move {
     constexpr inline int src() const noexcept { return move & 0x3f; }
     constexpr inline int dst() const noexcept { return (move >> 6) & 0x3f; }
     constexpr inline PieceType getPromotionPieceType() const noexcept { return PieceType(((move >> 12) & 0x03) + 2); }
-    constexpr inline int type() const noexcept { return move & (3 << 14); }
 
     std::string getDescription() const noexcept ;
 private:

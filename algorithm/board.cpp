@@ -13,6 +13,11 @@ Board::Board() noexcept {
 Board::~Board() noexcept {
 }
 
+bool Board::anyCheck() const noexcept
+{
+    return state->checkers;
+}
+
 bool Board::isMate() const noexcept {
 //    int countMove = MoveGen::instance->countMoveList(*this);
     return state->checkers
@@ -45,7 +50,6 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
 
     const int src = move.src();
     const int dst = move.dst();
-    const int type = move.type();
 
     const auto pieceSrc = pieces[src];
     const auto srcColor = pieceToColor(pieceSrc);
@@ -75,19 +79,19 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     pieces[src] = PieceNone;
 
     // Thực hiện nhập thành
-    if (move.isOnly<Move::KingCastling>()){
+    if (move.is<Move::KingCastling>()){
         checkAndDoMoveCastling<CastlingBK>(dst);
         checkAndDoMoveCastling<CastlingWK>(dst);
-    } else if (move.isOnly<Move::QueenCastling>()){
+    } else if (move.is<Move::QueenCastling>()){
         checkAndDoMoveCastling<CastlingWQ>(dst);
         checkAndDoMoveCastling<CastlingBQ>(dst);
-    } else if (move.isOnly<Move::Enpassant>()){
+    } else if (move.is<Move::Enpassant>()){
         int enemyPawn = srcColor == White ? dst - 8 : dst + 8;
         BB enemyPawnBB = indexToBB(enemyPawn);
         colors[enemyColor] &= ~enemyPawnBB;
         types[Pawn] &= ~enemyPawnBB;
         pieces[enemyPawn] = PieceNone;
-    } else if (move.isOnly<Move::Promotion>()){
+    } else if (move.is<Move::Promotion>()){
         auto promotionPiece = move.getPromotionPieceType();
         pieces[dst] = makePiece(srcColor, PieceType(promotionPiece));
         types[srcType] &= ~dstBB;
@@ -120,7 +124,6 @@ int Board::undoMove(Move move) noexcept
 {
     const int src = move.src();
     const int dst = move.dst();
-    const int type = move.type();
 
     const auto pieceDst = pieces[dst];
     auto dstColor = pieceToColor(pieceDst);
@@ -142,19 +145,19 @@ int Board::undoMove(Move move) noexcept
         types[dstType] |= indexToBB(dst);
     }
 
-    if (move.isOnly<Move::KingCastling>()){
+    if (move.is<Move::KingCastling>()){
         checkAndUndoMoveCastling<CastlingWK>(dst);
         checkAndUndoMoveCastling<CastlingBK>(dst);
-    } else if (move.isOnly<Move::QueenCastling>()){
+    } else if (move.is<Move::QueenCastling>()){
         checkAndUndoMoveCastling<CastlingWQ>(dst);
         checkAndUndoMoveCastling<CastlingBQ>(dst);
-    } else if (move.isOnly<Move::Enpassant>()){
+    } else if (move.is<Move::Enpassant>()){
         int enemyPawn = dstColor == White ? dst - 8 : dst + 8;
         BB enemyPawnBB = indexToBB(enemyPawn);
         colors[!dstColor] |= enemyPawnBB;
         types[Pawn] |= enemyPawnBB;
         pieces[enemyPawn] = makePiece(!dstColor, Pawn);
-    } else if (move.isOnly<Move::Promotion>()){
+    } else if (move.is<Move::Promotion>()){
         pieces[src] = makePiece(dstColor, Pawn);
         types[dstType] ^= srcBB;
         types[Pawn] |= srcBB;

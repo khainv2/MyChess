@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1496</width>
-    <height>824</height>
+    <width>692</width>
+    <height>367</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -94,72 +94,17 @@
          </column>
         </widget>
        </item>
-       <item row="6" column="0">
-        <widget class="ChessBoardView" name="chessBoard" native="true">
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>282</height>
-          </size>
-         </property>
-        </widget>
-       </item>
       </layout>
      </widget>
     </item>
     <item>
-     <widget class="QGroupBox" name="groupBox_2">
-      <property name="title">
-       <string>History</string>
+     <widget class="ChessBoardView" name="chessBoard" native="true">
+      <property name="minimumSize">
+       <size>
+        <width>0</width>
+        <height>282</height>
+       </size>
       </property>
-      <layout class="QVBoxLayout" name="verticalLayout_2">
-       <property name="leftMargin">
-        <number>4</number>
-       </property>
-       <property name="topMargin">
-        <number>4</number>
-       </property>
-       <property name="rightMargin">
-        <number>4</number>
-       </property>
-       <property name="bottomMargin">
-        <number>4</number>
-       </property>
-       <item>
-        <widget class="QScrollArea" name="scrollArea">
-         <property name="widgetResizable">
-          <bool>true</bool>
-         </property>
-         <widget class="QWidget" name="scrollAreaWidgetContents">
-          <property name="geometry">
-           <rect>
-            <x>0</x>
-            <y>0</y>
-            <width>1156</width>
-            <height>774</height>
-           </rect>
-          </property>
-          <layout class="QVBoxLayout" name="verticalLayout">
-           <property name="leftMargin">
-            <number>4</number>
-           </property>
-           <property name="topMargin">
-            <number>4</number>
-           </property>
-           <property name="rightMargin">
-            <number>4</number>
-           </property>
-           <property name="bottomMargin">
-            <number>4</number>
-           </property>
-           <item>
-            <widget class="TreeGraph" name="graph" native="true"/>
-           </item>
-          </layout>
-         </widget>
-        </widget>
-       </item>
-      </layout>
      </widget>
     </item>
    </layout>
@@ -170,12 +115,6 @@
    <class>ChessBoardView</class>
    <extends>QWidget</extends>
    <header>chessboardview.h</header>
-   <container>1</container>
-  </customwidget>
-  <customwidget>
-   <class>TreeGraph</class>
-   <extends>QWidget</extends>
-   <header>treegraph.h</header>
    <container>1</container>
   </customwidget>
  </customwidgets>

@@ -33,10 +33,10 @@ int main(int argc, char *argv[])
     attack::init();
     MoveGen::init();
 
-//    kc::Perft::testPerft();
+    kc::Perft::testPerft();
 
     MainWindow w;
-//    w.show();
+    w.show();
 
 //    Board _board;
 //    parseFENString("r2qk2r/pb4pp/1n2Pb2/2B2Q2/p1p5/2P5/2B2PPP/RN2R1K1 w - - 1 0", &_board); // mate in 2

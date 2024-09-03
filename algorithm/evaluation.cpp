@@ -13,8 +13,8 @@ int kc::eval::estimate(const Board &board)
             + (popCount(board.types[Queen] & w) - popCount(board.types[Queen] & b)) * Value_Queen
             + (popCount(board.types[King] & w) - popCount(board.types[King] & b)) * Value_King;
 
-    int mobilityValue = 10 * (MoveGen::instance->countMoveList<White>(board)
-                              - MoveGen::instance->countMoveList<Black>(board));
+//    int mobilityValue = 10 * (MoveGen::instance->countMoveList<White>(board)
+//                              - MoveGen::instance->countMoveList<Black>(board));
 //    materialValue += mobilityValue;
     return materialValue;
 }
