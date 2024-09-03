@@ -23,8 +23,7 @@ int MoveGen::genMoveList(const Board &board, Move *moveList) noexcept {
     return count;
 }
 
-int MoveGen::countMoveList(const Board &board) noexcept
-{
+int MoveGen::countMoveList(const Board &board) noexcept {
     if (board.side == White){
         return countMoveList<White>(board);
     } else {
@@ -52,13 +51,7 @@ void MoveGen::prepare(const Board &board) noexcept {
     kingBan = getKingBan<mine>(board);
 
     // Tìm kiếm các ô đang tấn công vua
-//    checkers = board.getSqAttackTo(myKingIdx, occ) & enemies;
     checkers = board.state->checkers;
-//    if (checkers != board.state->checkers){
-//        qDebug() << "Board diff checkers" << bbToString(checkers).c_str();
-//        qDebug() << bbToString(board.state->checkers).c_str();
-//        qDebug() << board.getPrintable().c_str();
-//    }
 }
 
 template <Color mine>
@@ -186,60 +179,55 @@ Move *MoveGen::getMoveListForPawn(const Board &board, Move *moveList) noexcept
         while (p1){
             const int to = popLsb(p1);
             const int from = to - up;
-            *moveList++ = Move::makePromotionMove(from, to, Queen);
-            *moveList++ = Move::makePromotionMove(from, to, Rook);
-            *moveList++ = Move::makePromotionMove(from, to, Bishop);
-            *moveList++ = Move::makePromotionMove(from, to, Knight);
+            *moveList++ = Move(from, to, Move::Promotion, Queen);
+            *moveList++ = Move(from, to, Move::Promotion, Rook);
+            *moveList++ = Move(from, to, Move::Promotion, Bishop);
+            *moveList++ = Move(from, to, Move::Promotion, Knight);
         }
     }
-
     {
         BB pl = shift<uLeft>(myAttackablePawnOn7 & ~pinLeft) & pawnAttackTarget;
         BB pr = shift<uRight>(myAttackablePawnOn7 & ~pinRight) & pawnAttackTarget;
-
         while (pl){
             const int to = popLsb(pl);
             const int from = to - uLeft;
-            *moveList++ = Move::makePromotionMove(from, to, Queen);
-            *moveList++ = Move::makePromotionMove(from, to, Rook);
-            *moveList++ = Move::makePromotionMove(from, to, Bishop);
-            *moveList++ = Move::makePromotionMove(from, to, Knight);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Queen);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Rook);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Bishop);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Knight);
         }
         while (pr){
             const int to = popLsb(pr);
             const int from = to - uRight;
-            *moveList++ = Move::makePromotionMove(from, to, Queen);
-            *moveList++ = Move::makePromotionMove(from, to, Rook);
-            *moveList++ = Move::makePromotionMove(from, to, Bishop);
-            *moveList++ = Move::makePromotionMove(from, to, Knight);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Queen);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Rook);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Bishop);
+            *moveList++ = Move(from, to, Move::CapturePromotion, Knight);
         }
     }
-
     {
         BB p1 = shift<up>(myPushablePawnNotOn7 & ~pinForPawnPush) & notOcc;
         BB p2 = shift<up>(p1 & rank3) & notOcc & checkMask;
         p1 &= checkMask;
         while (p1){
             const int to = popLsb(p1);
-            *moveList++ = Move::makeNormalMove(to - up, to);
+            *moveList++ = Move(to - up, to);
         }
         while (p2){
             const int to = popLsb(p2);
-            *moveList++ = Move::makeNormalMove(to - up2, to);
+            *moveList++ = Move(to - up2, to, Move::PawnPush2);
         }
     }
-
     {
         BB pl = shift<uLeft>(myAttackablePawnNotOn7 & ~pinLeft) & pawnAttackTarget;
         BB pr = shift<uRight>(myAttackablePawnNotOn7 & ~pinRight) & pawnAttackTarget;
-
         while (pl){
             const int to = popLsb(pl);
-            *moveList++ = Move::makeNormalMove(to - uLeft, to);
+            *moveList++ = Move(to - uLeft, to, Move::Capture);
         }
         while (pr){
             const int to = popLsb(pr);
-            *moveList++ = Move::makeNormalMove(to - uRight, to);
+            *moveList++ = Move(to - uRight, to, Move::Capture);
         }
         constexpr BB enPassantRankBB = mine == White ? rankBB(Rank5) : rankBB(Rank4);
 
@@ -256,7 +244,7 @@ Move *MoveGen::getMoveListForPawn(const Board &board, Move *moveList) noexcept
                 const BB occWithout2Pawn = occ & ~(enPassantBB | from);
                 BB rookQueenInRanks = attack::getRookAttacks(myKingIdx, occWithout2Pawn) & _enemyRookQueens & kingRank;
                 if (!rookQueenInRanks){
-                    *moveList++ = Move::makeEnpassantMove(index, board.state->enPassantTarget<mine>());
+                    *moveList++ = Move(index, board.state->enPassantTarget<mine>(), Move::Enpassant);
                 }
             }
         }
@@ -295,20 +283,17 @@ int MoveGen::countPawnMove(const Board &board) noexcept {
         BB p1 = shift<up>(myPushablePawnOn7 & ~pinForPawnPush) & pawnPushTarget;
         count += (popCount(p1) << 2);
     }
-
     {
         BB pl = shift<uLeft>(myAttackablePawnOn7 & ~pinLeft) & pawnAttackTarget;
         BB pr = shift<uRight>(myAttackablePawnOn7 & ~pinRight) & pawnAttackTarget;
         count += ((popCount(pl) + popCount(pr)) << 2);
     }
-
     {
         BB p1 = shift<up>(myPushablePawnNotOn7 & ~pinForPawnPush) & notOcc;
         BB p2 = shift<up>(p1 & rank3) & notOcc & checkMask;
         p1 &= checkMask;
         count += (popCount(p1) + popCount(p2));
     }
-
     {
         BB pl = shift<uLeft>(myAttackablePawnNotOn7 & ~pinLeft) & pawnAttackTarget;
         BB pr = shift<uRight>(myAttackablePawnNotOn7 & ~pinRight) & pawnAttackTarget;
@@ -339,8 +324,13 @@ Move *MoveGen::getMoveListForKnight(const Board &board, Move *moveList) noexcept
     while (myKnights){
         const int i = popLsb(myKnights);
         BB attack = attack::knights[i] & targetForHeavyPiece;
-        while (attack){
-            *moveList++ = Move::makeNormalMove(i, popLsb(attack));
+        BB attackToEmpty = attack & notOcc;
+        BB attackToEnemies = attack & enemies;
+        while (attackToEmpty) {
+            *moveList++ = Move(i, popLsb(attackToEmpty));
+        }
+        while (attackToEnemies){
+            *moveList++ = Move(i, popLsb(attackToEnemies), Move::Capture);
         }
     }
     return moveList;
@@ -366,8 +356,13 @@ Move *MoveGen::getMoveListForBishopQueen(const Board &board, Move *moveList) noe
         const BB from = indexToBB(i);
         BB attack = attack::getBishopAttacks(i, occ) & targetForHeavyPiece
                 & (~setAllBit(pinMaskDiagonal & from) | pinMaskDiagonal);
-        while (attack){
-            *moveList++ = Move::makeNormalMove(i, popLsb(attack));
+        BB attackToEmpty = attack & notOcc;
+        BB attackToEnemies = attack & enemies;
+        while (attackToEmpty) {
+            *moveList++ = Move(i, popLsb(attackToEmpty));
+        }
+        while (attackToEnemies){
+            *moveList++ = Move(i, popLsb(attackToEnemies), Move::Capture);
         }
     }
     return moveList;
@@ -394,8 +389,13 @@ Move *MoveGen::getMoveListForRookQueen(const Board &board, Move *moveList) noexc
         BB from = indexToBB(i);
         BB attack = attack::getRookAttacks(i, occ) & targetForHeavyPiece
                 & (~setAllBit(pinMaskCross & from) | pinMaskCross);
-        while (attack){
-            *moveList++ = Move::makeNormalMove(i, popLsb(attack));
+        BB attackToEmpty = attack & notOcc;
+        BB attackToEnemies = attack & enemies;
+        while (attackToEmpty) {
+            *moveList++ = Move(i, popLsb(attackToEmpty));
+        }
+        while (attackToEnemies){
+            *moveList++ = Move(i, popLsb(attackToEnemies), Move::Capture);
         }
     }
     return moveList;
@@ -416,9 +416,14 @@ int MoveGen::countRookQueenMove(const Board &board) noexcept {
 
 template<Color mine, bool isDoubleCheck>
 Move *MoveGen::getMoveListForKing([[maybe_unused]] const Board &board, Move *moveList) noexcept {
-    BB kingAttacks = attack::kings[myKingIdx] & notMines & ~kingBan;
-    while (kingAttacks){
-        *moveList++ = Move::makeNormalMove(myKingIdx, popLsb(kingAttacks));
+    BB attack = attack::kings[myKingIdx] & notMines & ~kingBan;
+    BB attackToEmpty = attack & notOcc;
+    BB attackToEnemies = attack & enemies;
+    while (attackToEmpty) {
+        *moveList++ = Move(myKingIdx, popLsb(attackToEmpty));
+    }
+    while (attackToEnemies){
+        *moveList++ = Move(myKingIdx, popLsb(attackToEnemies), Move::Capture);
     }
     if constexpr (!isDoubleCheck){
         if constexpr (mine == White) {
@@ -451,16 +456,15 @@ int MoveGen::countKingMove([[maybe_unused]] const Board &board) noexcept {
     }
 }
 
-
 template<Color color, CastlingRights right>
 Move *MoveGen::getCastlingMoveList(const Board &board, Move *moveList) noexcept {
     if ((occ & castlingSpace<right>()) == 0
             && (kingBan & castlingKingPath<right>()) == 0
             && (board.state->castlingRights & right)){
-        constexpr static auto castlingSrc = getCastlingIndex<right, King, true>();
-        constexpr static auto castlingDst = getCastlingIndex<right, King, false>();
-        constexpr static auto castlingMove = Move::makeCastlingMove(castlingSrc, castlingDst);
-        *moveList++ = castlingMove;
+        constexpr static auto src = getCastlingIndex<right, King, true>();
+        constexpr static auto dst = getCastlingIndex<right, King, false>();
+        constexpr static auto castlingMoveFlag = (right == CastlingBK || right == CastlingWK) ? Move::KingCastling : Move::QueenCastling;
+        *moveList++ = Move(src, dst, castlingMoveFlag);
     }
     return moveList;
 }

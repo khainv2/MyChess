@@ -9,7 +9,7 @@ struct Node {
 
     Board board;
     BoardState boardState;
-    Move move = Move::NullMove;
+    Move move;
     int score = 0;
     bool isBestMove;
     bool isSelected;
@@ -22,10 +22,6 @@ struct Node {
     }
 };
 
-class Tree {
-
-};
-
 class Engine {
     enum {
         MaxPly = 32,
@@ -35,7 +31,7 @@ public:
     Move calc(const Board &chessBoard);
 
     template <Color color, bool isRoot>
-    int negamax(Board &board, int depth, int alpha, int beta);
+    Move negamax(Board &board, int depth, int alpha, int beta);
     Node *getRootNode() const;
 
 private:

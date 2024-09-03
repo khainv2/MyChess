@@ -27,7 +27,7 @@ u64 pow2() noexcept {
     }
 }
 
-constexpr int Infinity = 1000000000;
+constexpr int Infinity = 32002;
 
 enum Color: u8 {
     White, Black, Color_NB
@@ -333,24 +333,41 @@ constexpr static BB castlingSpace() noexcept {
     }
 }
 
-class Move {
-public:
-    enum MoveValue {
-        NullMove = 0
+struct Move {
+    enum {
+        NullMove = 0,
+        FromToBit = 6, SpecialBit = 12,
     };
-
-    enum Type : u16 {
-        Normal,
-        Enpassant = (1 << 14),
-        Castling = (2 << 14),
-        Promotion = (3 << 14),
+    enum Flag : u16 {
+        Quiet           = (0 << SpecialBit),
+        PawnPush2       = (1 << SpecialBit),
+        KingCastling    = (2 << SpecialBit),
+        QueenCastling   = (3 << SpecialBit),
+        Capture         = (4 << SpecialBit),
+        Enpassant       = (5 << SpecialBit),
+        Promotion       = (8 << SpecialBit),
+        CapturePromotion= Capture + Promotion,
+        All             = (15 << SpecialBit),
     };
-
     constexpr inline Move() : move(NullMove), val(0){}
-    constexpr inline Move(u16 m) : move(m), val(0){}
 
-    constexpr inline bool operator!=(MoveValue val){
-        return move != val;
+    constexpr inline Move(int src, int dst, Flag flag = Quiet)
+        : move(flag + src + (dst << FromToBit)), val(0){}
+
+    constexpr inline Move(int src, int dst, Flag flag, PieceType p)
+        : move(flag + src + (dst << FromToBit) + ((p - 2) << 12)), val(0){}
+
+    constexpr inline u16 flag() const noexcept {
+        return move & All;
+    }
+
+    template <Flag f>
+    constexpr inline bool isOnly() const noexcept {
+        if constexpr (f == Capture || f == Promotion){
+            return f & flag(); // Có nhiều loại capture & promotion
+        } else {
+            return f == flag();
+        }
     }
 
     constexpr inline int src() const noexcept { return move & 0x3f; }
@@ -359,11 +376,6 @@ public:
     constexpr inline int type() const noexcept { return move & (3 << 14); }
 
     std::string getDescription() const noexcept ;
-
-    static constexpr inline Move makeNormalMove(int src, int dst) noexcept { return Move(src + (dst << 6)); }
-    static constexpr inline Move makeEnpassantMove(int src, int dst) noexcept { return Move(src + (dst << 6) + Enpassant); }
-    static constexpr inline Move makeCastlingMove(int src, int dst) noexcept { return Move(src + (dst << 6) + Castling); }
-    static constexpr inline Move makePromotionMove(int src, int dst, PieceType p) noexcept { return Move(src + (dst << 6) + Promotion + ((p - 2) << 12)); }
 private:
     u16 move;
 public:
