@@ -31,7 +31,7 @@ std::string kc::Move::getDescription() const noexcept {
     int srcRankIdx = s / 8;
     int dstFileIdx = d % 8;
     int dstRankIdx = d / 8;
-    if (type() == Promotion){
+    if (is<Promotion>()){
         auto p = getPromotionPieceType();
         return fileTxt[srcFileIdx] + rankTxt[srcRankIdx]
              + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx]

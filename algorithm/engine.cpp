@@ -33,8 +33,6 @@ Move kc::Engine::calc(const Board &chessBoard)
     if (rootNode != nullptr){
         delete rootNode;
     }
-    rootNode = new Node;
-    rootNode->score = eval::estimate(chessBoard);
     countBestMove = 0;
     Board board = chessBoard;
     int bestValue;
@@ -46,14 +44,7 @@ Move kc::Engine::calc(const Board &chessBoard)
     int r = getRand(0, countBestMove - 1);
     qDebug() << "Best move count" << countBestMove << "Select" << r << "best value" << bestValue;
     for (int i = 0; i < countBestMove; i++){
-        QString str;
-        for (int j = 0; j < fixedDepth; j++){
-            auto m = bestMoveHistories[i][j];
-            str.append(QString::fromStdString(m.getDescription())).append("|").append(QString::number(m.val))
-                    .append(", ");
-
-        }
-        qDebug() << "- move list" << str << "move ply count" << bestMoveHistoryCount[i];
+        qDebug() << "-" << bestMoves[i].getDescription().c_str();
     }
 
     Move move = bestMoves[r];
@@ -71,17 +62,16 @@ Node *Engine::getRootNode() const
 
 template <Color color, bool isRoot>
 int Engine::negamax(Board &board, int depth, int alpha, int beta){
-//    if constexpr
-    int level = fixedDepth - depth;
-    if (board.isMate()){
-        countTotalSearch++;
-        movePlyCount = level + 1;
-        return color ? -ScoreMate : ScoreMate;
+
+    if (board.anyCheck()){
+        if (board.isMate()){
+            countTotalSearch++;
+            return color ? -ScoreMate : ScoreMate;
+        }
     }
 
     if (depth == 0){
         countTotalSearch++;
-        movePlyCount = level + 1;
         return color ? -eval::estimate(board) : eval::estimate(board);
     }
 
@@ -110,8 +100,6 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
         auto move = movePtr[i];
         if constexpr (isRoot){
             qDebug() << "start calculate for" << move.getDescription().c_str();
-        } else {
-//            qDebug() << tab << move.getDescription().c_str();
         }
         board.doMove(move, state);
         int score = -negamax<!color, false>(board, depth - 1, -beta, -alpha);
@@ -120,18 +108,20 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
 
         // Thêm điều kiện =, cho phép kiểm tra nhiều nước đi cùng lúc
         if (score >= bestValue){
-            moves[level] = move;
             if constexpr (isRoot){
                 if (score > bestValue){
                     // Reset toàn bộ biến đếm các nước đi tốt nhất, trong trường hợp tìm thấy điểm cao hơn
                     countBestMove = 0;
                 }
-                memcpy(bestMoveHistories[countBestMove], moves, MaxPly * sizeof(Move));
-                bestMoveHistoryCount[countBestMove] = movePlyCount;
-                bestMoves[countBestMove] = move;
-                countBestMove++;
+                bestMoves[countBestMove++] = move;
+
+            }
+            bestValue = score;
+
+            if constexpr (isRoot){
                 // Ngừng tìm kiếm nếu thấy chiếu hết
                 if (score > 30000){
+                    qDebug() << "Found mate...";
                     break;
                 }
             }

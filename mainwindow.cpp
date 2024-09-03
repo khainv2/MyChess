@@ -42,7 +42,6 @@ void MainWindow::on_bt_StartCalculate_clicked()
     auto move = engine.calc(board);
     ui->chessBoard->doMove(move);
 
-    ui->graph->setRootNode(engine.getRootNode());
 //    ui->chessBoard->setBoard(board);
 }
 
