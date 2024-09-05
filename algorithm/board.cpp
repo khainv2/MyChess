@@ -69,6 +69,11 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
         auto dstType = pieceToType(pieceDst);
         colors[dstColor] &= ~dstBB;
         types[dstType] &= ~dstBB;
+        if (dstColor == White){
+//            material += dstType *
+        } else {
+
+        }
     }
 
     colors[srcColor] ^= toggleBB;
@@ -108,7 +113,8 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
 
     // Cập nhật trạng thái tốt qua đường
     int enPassantCondition = srcType == Pawn && abs(src - dst) == 16;
-    state->enPassant = Square(enPassantCondition * dst);
+
+    state->enPassant = Square(setAllBit32(enPassantCondition) & dst);
 
     state->halfMoveClock = (srcType == Pawn || pieceDst != PieceNone) ? 0 : state->halfMoveClock + 1;
 

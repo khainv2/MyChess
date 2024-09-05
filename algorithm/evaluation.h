@@ -4,5 +4,8 @@
 namespace kc {
 namespace eval {
 int estimate(const Board &board);
+
+int getMaterial(const Board &board);
+
 }
 }

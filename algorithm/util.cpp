@@ -1,5 +1,6 @@
 #include "util.h"
 #include <vector>
+#include "evaluation.h"
 using namespace kc;
 
 std::string toFenString(const Board &board){
@@ -238,6 +239,7 @@ bool parseFENString(const std::string &fen, Board *result)
     }
     result->state->halfMoveClock = std::stoi(halfMoveClock);
     result->refresh();
+    result->material = eval::getMaterial(*result);
     //    result->state->fullMoveNumber = std::stoi(fullMoveNumber);
     return true;
 }
