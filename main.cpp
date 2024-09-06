@@ -7,6 +7,7 @@
 #include <algorithm/movegen.h>
 #include <algorithm/util.h>
 #include <algorithm/perft.h>
+#include <algorithm/evaluation.h>
 
 #include "logger.h"
 #include <QElapsedTimer>
@@ -32,8 +33,9 @@ int main(int argc, char *argv[])
     logger::init();
     attack::init();
     MoveGen::init();
+    eval::init();
 
-    kc::Perft::testPerft();
+//    kc::Perft::testPerft();
 
     MainWindow w;
     w.show();

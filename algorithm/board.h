@@ -38,7 +38,7 @@ struct BoardState {
 };
 
 struct Board {
-    Piece pieces[Square_Count] = { PieceNone };
+    Piece pieces[Square_NB] = { PieceNone };
     BB colors[Color_NB] = {0};
     BB types[PieceType_NB] = {0};
     int material = 0;

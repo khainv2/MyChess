@@ -3,13 +3,13 @@
 namespace kc {
 namespace attack {
 
-extern u64 kings[Square_Count];
-extern u64 knights[Square_Count];
-extern u64 pawns[Color_NB][Square_Count];
-extern u64 pawnPushes[Color_NB][Square_Count];
-extern u64 pawnPushes2[Color_NB][Square_Count];
+extern u64 kings[Square_NB];
+extern u64 knights[Square_NB];
+extern u64 pawns[Color_NB][Square_NB];
+extern u64 pawnPushes[Color_NB][Square_NB];
+extern u64 pawnPushes2[Color_NB][Square_NB];
 
-extern BB between[Square_Count][Square_Count];
+extern BB between[Square_NB][Square_NB];
 
 struct MagicBitboard {
     u64 mask = 0;
