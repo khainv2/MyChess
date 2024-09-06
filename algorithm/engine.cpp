@@ -17,8 +17,7 @@ int getRand(int min, int max){
 }
 
 using namespace kc;
-Engine::Engine()
-{
+Engine::Engine(){
     fixedDepth = 6;
 }
 

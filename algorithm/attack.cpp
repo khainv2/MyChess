@@ -17,7 +17,7 @@ u64 kc::attack::rooks[64][262144] = { };
 u64 kc::attack::bishops[64][262144] = { };
 
 // Trả về các ô nằm giữa 2 ô để thuận tiện cho việc tính checkmask
-BB kc::attack::between[Square_Count][Square_Count];
+BB kc::attack::between[Square_NB][Square_NB];
 
 kc::attack::MagicBitboard kc::attack::rookMagicBitboards[64] = { };
 kc::attack::MagicBitboard kc::attack::bishopMagicBitboards[64] = { };

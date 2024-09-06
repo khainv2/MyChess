@@ -18,7 +18,7 @@ MainWindow::MainWindow(QWidget *parent)
         ui->label->setText(QString::fromStdString(toFenString(ui->chessBoard->board())));
     });
 
-    on_bt_StartCalculate_clicked();
+//    on_bt_StartCalculate_clicked();
 //    ui->chessBoard->setVisible(false);
 }
 

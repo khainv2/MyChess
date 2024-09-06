@@ -38,12 +38,12 @@ static constexpr Color operator!(Color c){
 }
 enum PieceType : u8 {
     PieceTypeNone = 0,
-    Pawn, Bishop, Knight, Rook, Queen, King, PieceType_NB = 8
+    Pawn, Knight, Bishop, Rook, Queen, King, PieceType_NB = 8
 };
 enum Piece : u8 {
     PieceNone = 0,
-    WhitePawn, WhiteBishop, WhiteKnight, WhiteRook, WhiteQueen, WhiteKing,
-    BlackPawn = WhitePawn + 8, BlackBishop, BlackKnight, BlackRook, BlackQueen, BlackKing,
+    WhitePawn, WhiteKnight, WhiteBishop, WhiteRook, WhiteQueen, WhiteKing,
+    BlackPawn = WhitePawn + 8, BlackKnight, BlackBishop, BlackRook, BlackQueen, BlackKing,
     Piece_NB = 16
 };
 constexpr PieceType pieceToType(Piece piece) noexcept {
@@ -82,7 +82,7 @@ enum Square: int {
     A7, B7, C7, D7, E7, F7, G7, H7,
     A8, B8, C8, D8, E8, F8, G8, H8,
     SquareNone = 0,
-    Square_Count = 64
+    Square_NB = 64
 };
 constexpr static Square makeSquare(Rank r, File f) noexcept {
     return Square((r << 3) + f);
@@ -101,6 +101,10 @@ constexpr static File getFile(int square) noexcept {
     return File(square & 7);
 }
 
+constexpr static inline int flip(int square) noexcept {
+    return square ^ 56;
+}
+
 enum Direction : int {
     North = 8,
     East  = 1,
@@ -114,11 +118,11 @@ enum Direction : int {
 };
 
 enum Value {
-    Value_Pawn = 208,
-    Value_Bishop = 825,
-    Value_Knight = 781,
-    Value_Rook = 1276,
-    Value_Queen = 2538,
+    Value_Pawn = 100,
+    Value_Bishop = 330,
+    Value_Knight = 320,
+    Value_Rook = 500,
+    Value_Queen = 900,
 //    Value_King = 32000,
 };
 
