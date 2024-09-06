@@ -7,5 +7,6 @@ int estimate(const Board &board);
 
 int getMaterial(const Board &board);
 
+
 }
 }

@@ -114,12 +114,12 @@ enum Direction : int {
 };
 
 enum Value {
-    Value_Pawn = 100,
-    Value_Bishop = 300,
-    Value_Knight = 300,
-    Value_Rook = 500,
-    Value_Queen = 900,
-    Value_King = 32000,
+    Value_Pawn = 208,
+    Value_Bishop = 825,
+    Value_Knight = 781,
+    Value_Rook = 1276,
+    Value_Queen = 2538,
+//    Value_King = 32000,
 };
 
 enum : u64 {
