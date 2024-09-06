@@ -19,7 +19,7 @@ int getRand(int min, int max){
 using namespace kc;
 Engine::Engine()
 {
-    fixedDepth = 5;
+    fixedDepth = 6;
 }
 
 int countTotalSearch = 0;
@@ -49,6 +49,7 @@ Move kc::Engine::calc(const Board &chessBoard)
 
     Move move = bestMoves[r];
 //    Move move = bestMoves[0];
+    qDebug() << r << bestMoves[r].flag();
     qDebug() << "Select best move" << move.getDescription().c_str();
     qDebug() << "Total move search..." << countTotalSearch;
     qDebug() << "Time to calculate" << (timer.nsecsElapsed() / 1000000);
@@ -63,14 +64,14 @@ Node *Engine::getRootNode() const
 template <Color color, bool isRoot>
 int Engine::negamax(Board &board, int depth, int alpha, int beta){
 
-    if (board.anyCheck()){
+    if (board.anyCheck()) {
         if (board.isMate()){
             countTotalSearch++;
             return color ? -ScoreMate : ScoreMate;
         }
     }
 
-    if (depth == 0){
+    if (depth == 0) {
         countTotalSearch++;
         return color ? -eval::estimate(board) : eval::estimate(board);
     }
@@ -79,13 +80,23 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
     int count = MoveGen::instance->genMoveList(board, movePtr);
 
     if constexpr (isRoot){
+        //
         std::vector<Move> moveData(count);
+        auto moveDataPtr = moveData.data();
+        // Perform insertion sort
+
         for (int i = 0; i < count; i++){
             moveData[i] = movePtr[i];
         }
+
+
+
         std::sort(moveData.begin(), moveData.begin() + count, [=](Move m1, Move m2){
-
-
+            if (m1.is<Move::Capture>() && !m2.is<Move::Capture>()){
+                return false;
+            } else if (!m1.is<Move::Capture>() && m2.is<Move::Capture>()){
+                return true;
+            }
             return m1.val > m2.val;
         });
 
@@ -121,7 +132,6 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
             if constexpr (isRoot){
                 // Ngừng tìm kiếm nếu thấy chiếu hết
                 if (score > 30000){
-                    qDebug() << "Found mate...";
                     break;
                 }
             }
