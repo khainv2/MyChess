@@ -12,19 +12,8 @@ using u32 = unsigned int;
 using i64 = long long;
 using u64 = unsigned long long;
 
-#define Bitloop(X) for(;X; X = _blsr_u64(X))
-
 constexpr u64 pow2(int v) noexcept {
     return v == 0 ? 1 : pow2(v - 1) * 2;
-}
-
-template <int v>
-u64 pow2() noexcept {
-    if constexpr (v == 0){
-        return 1;
-    } else {
-        return pow2(v - 1) * 2;
-    }
 }
 
 constexpr int Infinity = 32002;
@@ -32,7 +21,6 @@ constexpr int Infinity = 32002;
 enum Color: u8 {
     White, Black, Color_NB
 };
-// Create toggle operator for color
 static constexpr Color operator!(Color c){
     return Color(!int(c));
 }

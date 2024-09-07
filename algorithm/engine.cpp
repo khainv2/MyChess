@@ -91,9 +91,9 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
 
         std::sort(moveData.begin(), moveData.begin() + count, [=](Move m1, Move m2){
             if (m1.is<Move::Capture>() && !m2.is<Move::Capture>()){
-                return false;
-            } else if (!m1.is<Move::Capture>() && m2.is<Move::Capture>()){
                 return true;
+            } else if (!m1.is<Move::Capture>() && m2.is<Move::Capture>()){
+                return false;
             }
             return m1.val > m2.val;
         });
