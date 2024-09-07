@@ -34,7 +34,7 @@ SOURCES += \
     logger.cpp \
     main.cpp \
     mainwindow.cpp \
-    promotionselectoindialog.cpp \
+    promotionselectiondialog.cpp \
     treegraph.cpp
 
 HEADERS += \
@@ -49,12 +49,12 @@ HEADERS += \
     chessboardview.h \
     logger.h \
     mainwindow.h \
-    promotionselectoindialog.h \
+    promotionselectiondialog.h \
     treegraph.h
 
 FORMS += \
     mainwindow.ui \
-    promotionselectoindialog.ui
+    promotionselectiondialog.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin

@@ -1,5 +1,5 @@
 #include "chessboardview.h"
-#include "promotionselectoindialog.h"
+#include "promotionselectiondialog.h"
 #include "algorithm/evaluation.h"
 #include <QPainter>
 #include <QDebug>

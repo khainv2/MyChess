@@ -50,7 +50,7 @@ int kc::eval::estimate(const Board &board)
 
     for (int sq = 0; sq < 64; ++sq) {
         auto pc = board.pieces[sq];
-        if (pc != PieceNone) {
+        if (pc != PieceNone){
             mg[pieceToColor(pc)] += MG_Table[pc][sq];
             eg[pieceToColor(pc)] += EG_Table[pc][sq];
             gamePhase += gamephaseInc[pc];
@@ -59,45 +59,14 @@ int kc::eval::estimate(const Board &board)
 
     int mgScore = mg[White] - mg[Black];
     int egScore = eg[White] - eg[Black];
-//    qDebug() << "Game phase" << gamePhase << mgScore << egScore;
-    int mgPhase = gamePhase;
-    if (mgPhase > 24) mgPhase = 24; /* in case of early promotion */
+    constexpr int MaxGamePhase = 24;
+    int mgPhase = std::min(gamePhase, MaxGamePhase); // In case early promotion
     int egPhase = 24 - mgPhase;
-    return (mgScore * mgPhase + egScore * egPhase) / 24;
 
+    int mobility = 8 * (MoveGen::instance->countMoveList<White>(board)
+                              - MoveGen::instance->countMoveList<Black>(board));
 
-//    u64 b = board.colors[Black], w = board.colors[White];
-//    const BB b = board.colors[Black];
-//    const BB w = board.colors[White];
-//    const BB pawns = board.types[Pawn];
-//    const BB knights = board.types[Knight];
-//    const BB bishops = board.types[Bishop];
-//    const BB rooks = board.types[Rook];
-//    const BB queens = board.types[Queen];
-//    const BB kings = board.types[King];
-
-//    int material = (popCount(pawns & w) - popCount(pawns & b)) * Value_Pawn
-//            + (popCount(knights & w) - popCount(knights & b)) * Value_Knight
-//            + (popCount(bishops & w) - popCount(bishops & b)) * Value_Bishop
-//            + (popCount(rooks & w) - popCount(rooks & b)) * Value_Rook
-//            + (popCount(queens & w) - popCount(queens & b)) * Value_Queen;
-
-//    int mobility = 10 * (MoveGen::instance->countMoveList<White>(board)
-//                              - MoveGen::instance->countMoveList<Black>(board));
-
-//    int
-//    for (int i = 0; i < 64; i++){
-
-//    }
-
-
-//    auto wp = board.types[Pawn] & w;
-//    auto bp = board.types[Pawn] & b;
-    // Count isolated pawn
-
-
-
-//    return material + mobility;
+    return (mgScore * mgPhase + egScore * egPhase) / 24 + mobility;
 }
 
 int kc::eval::getMaterial(const Board &board) {

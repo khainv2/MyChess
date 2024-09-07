@@ -41,7 +41,6 @@ struct Board {
     Piece pieces[Square_NB] = { PieceNone };
     BB colors[Color_NB] = {0};
     BB types[PieceType_NB] = {0};
-    int material = 0;
 
     Color side = White;
     BoardState *state = nullptr;

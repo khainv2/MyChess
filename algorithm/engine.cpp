@@ -22,8 +22,7 @@ Engine::Engine(){
 }
 
 int countTotalSearch = 0;
-Move kc::Engine::calc(const Board &chessBoard)
-{
+Move kc::Engine::calc(const Board &chessBoard) {
     countBestMove = 0;
     QElapsedTimer timer;
     timer.start();

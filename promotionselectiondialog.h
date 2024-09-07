@@ -1,5 +1,5 @@
-#ifndef PROMOTIONSELECTOINDIALOG_H
-#define PROMOTIONSELECTOINDIALOG_H
+#ifndef PROMOTIONSELECTIONDIALOG_H
+#define PROMOTIONSELECTIONDIALOG_H
 
 #include <QDialog>
 #include <algorithm/define.h>
@@ -24,4 +24,4 @@ private:
     Ui::PromotionSelectoinDialog *ui;
 };
 
-#endif // PROMOTIONSELECTOINDIALOG_H
+#endif // PROMOTIONSELECTIONDIALOG_H
