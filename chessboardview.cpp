@@ -27,7 +27,8 @@ ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
 
 //    auto fen = "8/5k2/8/8/3R4/2K5/8/8 w - - 0 1";
 
-    auto fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    auto fen = "2r3k1/pp1n2p1/3b2pp/3pp3/3P3q/8/PPPBQrPP/R3K2R w KQ - 4 0"; // debug sort capture first
+//    auto fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     parseFENString(fen, &_board);
 
 //    parseFENString("rn1qkbnr/ppp1pppp/8/3p4/4P3/2N4b/PPPP1PPP/R1BQKBNR w KQkq - 2 0", &_board);
