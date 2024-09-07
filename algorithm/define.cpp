@@ -37,6 +37,10 @@ std::string kc::Move::getDescription() const noexcept {
              + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx]
              + "[P]" + pieceToChar(makePiece(White, PieceType(p)));
     }
+//    QString
+    if (is<Capture>()){
+
+    }
     return fileTxt[srcFileIdx] + rankTxt[srcRankIdx]
          + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx];
 }

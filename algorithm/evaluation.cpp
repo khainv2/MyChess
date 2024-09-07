@@ -32,12 +32,12 @@ void kc::eval::init() {
         }
     }
     for (auto pieceType: { Pawn, Knight, Bishop, Rook, Queen, King }){
-        for (int i = 0; i < Square_NB; i++){
-            int flipI = flip(i);
-            MG_Table[makePiece(White, pieceType)][i] = MG_Material[pieceType] + MG_Pieces[pieceType][i];
-            EG_Table[makePiece(White, pieceType)][i] = EG_Material[pieceType] + EG_Pieces[pieceType][i];
-            MG_Table[makePiece(Black, pieceType)][i] = MG_Material[pieceType] + MG_Pieces[pieceType][flipI];
-            EG_Table[makePiece(Black, pieceType)][i] = EG_Material[pieceType] + EG_Pieces[pieceType][flipI];
+        for (int sq = 0; sq < Square_NB; sq++){
+            int sqflip = flip(sq);
+            MG_Table[makePiece(White, pieceType)][sq] = MG_Material[pieceType] + MG_Pieces[pieceType][sqflip];
+            EG_Table[makePiece(White, pieceType)][sq] = EG_Material[pieceType] + EG_Pieces[pieceType][sqflip];
+            MG_Table[makePiece(Black, pieceType)][sq] = MG_Material[pieceType] + MG_Pieces[pieceType][sq];
+            EG_Table[makePiece(Black, pieceType)][sq] = EG_Material[pieceType] + EG_Pieces[pieceType][sq];
         }
     }
 }
@@ -48,18 +48,19 @@ int kc::eval::estimate(const Board &board)
     int eg[2] = { 0, 0 };
     int gamePhase = 0;
 
+    QString str;
     for (int sq = 0; sq < 64; ++sq) {
         auto pc = board.pieces[sq];
         if (pc != PieceNone) {
             mg[pieceToColor(pc)] += MG_Table[pc][sq];
             eg[pieceToColor(pc)] += EG_Table[pc][sq];
+//            str.append()
             gamePhase += gamephaseInc[pc];
         }
     }
 
     int mgScore = mg[White] - mg[Black];
     int egScore = eg[White] - eg[Black];
-//    qDebug() << "Game phase" << gamePhase << mgScore << egScore;
     int mgPhase = gamePhase;
     if (mgPhase > 24) mgPhase = 24; /* in case of early promotion */
     int egPhase = 24 - mgPhase;
