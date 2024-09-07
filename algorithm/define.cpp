@@ -37,12 +37,13 @@ std::string kc::Move::getDescription() const noexcept {
              + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx]
              + "[P]" + pieceToChar(makePiece(White, PieceType(p)));
     }
-//    QString
-    if (is<Capture>()){
+    std::string out = fileTxt[srcFileIdx] + rankTxt[srcRankIdx]
+            + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx];
 
+    if (is<Capture>()){
+        out += " cap";
     }
-    return fileTxt[srcFileIdx] + rankTxt[srcRankIdx]
-         + ">" + fileTxt[dstFileIdx] + rankTxt[dstRankIdx];
+    return out;
 }
 
 char kc::pieceToChar(Piece piece){
