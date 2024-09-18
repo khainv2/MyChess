@@ -7,8 +7,9 @@
 #include "util.h"
 #include <cmath>
 #include <random>
-#include <array>
 #include "QDateTime"
+
+constexpr bool DebugEngine = true;
 
 int getRand(int min, int max){
     unsigned int ms = static_cast<unsigned>(QDateTime::currentMSecsSinceEpoch());
@@ -19,7 +20,7 @@ int getRand(int min, int max){
 
 using namespace kc;
 Engine::Engine(){
-    fixedDepth = 7;
+    fixedDepth = 6;
 }
 
 int countTotalSearch = 0;
@@ -78,16 +79,31 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
     auto movePtr = buff[depth];
     int count = MoveGen::instance->genMoveList(board, movePtr);
 
-//    if constexpr (isRoot){
-    std::sort(movePtr, movePtr + count, [=](Move m1, Move m2){
-        if (m1.is<Move::Capture>() && !m2.is<Move::Capture>()){
-            return true;
-        } else if (!m1.is<Move::Capture>() && m2.is<Move::Capture>()){
-            return false;
+    if constexpr (isRoot){
+        //
+        std::vector<Move> moveData(count);
+        auto moveDataPtr = moveData.data();
+        // Perform insertion sort
+
+        for (int i = 0; i < count; i++){
+            moveData[i] = movePtr[i];
         }
-        return m1.val > m2.val;
-    });
-//    }
+
+
+
+        std::sort(moveData.begin(), moveData.begin() + count, [=](Move m1, Move m2){
+            if (m1.is<Move::Capture>() && !m2.is<Move::Capture>()){
+                return true;
+            } else if (!m1.is<Move::Capture>() && m2.is<Move::Capture>()){
+                return false;
+            }
+            return m1.val > m2.val;
+        });
+
+        for (int i = 0; i < count; i++){
+            movePtr[i] = moveData[i];
+        }
+    }
 
     int bestValue = -Infinity;
     BoardState state;
