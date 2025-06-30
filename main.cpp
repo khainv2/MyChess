@@ -30,11 +30,13 @@ int main(int argc, char *argv[])
     QApplication a(argc, argv);
     QElapsedTimer timer;
     timer.start();
+
     logger::init();
     attack::init();
     MoveGen::init();
     eval::init();
 
+    Perft::testPerft();
     MainWindow w;
     w.show();
 
