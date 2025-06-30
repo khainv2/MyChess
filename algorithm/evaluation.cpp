@@ -42,13 +42,11 @@ void kc::eval::init() {
     }
 }
 
-int kc::eval::estimate(const Board &board)
-{
+int kc::eval::estimate(const Board &board) {
     int mg[2] = { 0, 0 };
     int eg[2] = { 0, 0 };
     int gamePhase = 0;
 
-    QString str;
     for (int sq = 0; sq < 64; ++sq) {
         auto pc = board.pieces[sq];
         if (pc != PieceNone){
