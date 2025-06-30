@@ -1,0 +1,97 @@
+# Qt generated files
+*.pro.user
+*.pro.user.*
+moc_*.cpp
+ui_*.h
+qrc_*.cpp
+Makefile*
+*build-*
+*.qm
+
+# C++ compiled files
+*.obj
+*.o
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.lib
+*.exp
+
+# Visual Studio files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+*.VC.db
+*.VC.VC.opendb
+
+# Debug/Release directories
+debug/
+release/
+Debug/
+Release/
+x64/
+Win32/
+_build/
+build/
+Build/
+
+# Qt specific
+*.autosave
+*_qmlcache.qrc
+
+# Temporary files
+*~
+*.swp
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# CMake (nếu có)
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+*.cmake
+
+# MinGW
+*.a
+*.so
+*.dylib
+
+# Qt Creator
+*.creator
+*.creator.user
+*.includes
+*.files
+*.config
+*.cxxflags
+*.cflags
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Windows specific
+*.lnk
+ehthumbs.db
