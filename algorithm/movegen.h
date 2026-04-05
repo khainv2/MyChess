@@ -10,6 +10,7 @@ public:
     static void init();
 
     int genMoveList(const Board &board, Move *moveList) noexcept;
+    int genCaptureMoveList(const Board &board, Move *moveList) noexcept;
     int countMoveList(const Board &board) noexcept;
 
     std::vector<Move> getMoveListForSquare(const Board &board, Square square);
@@ -27,7 +28,21 @@ public:
     template <Color color>
     inline Move *genMoveList(const Board &board, Move *moveList) noexcept;
     template <Color color>
+    inline Move *genCaptureMoveList(const Board &board, Move *moveList) noexcept;
+    template <Color color>
     inline int countMoveList(const Board &board) noexcept;
+
+    // Capture-only move generators cho quiescence search
+    template <Color color>
+    inline Move *getCapturesForPawn(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline Move *getCapturesForKnight(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline Move *getCapturesForBishopQueen(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline Move *getCapturesForRookQueen(const Board &board, Move *moveList) noexcept;
+    template <Color color>
+    inline Move *getCapturesForKing(const Board &board, Move *moveList) noexcept;
 
     template <Color color>
     inline Move *getMoveListForPawn(const Board &board, Move *moveList) noexcept;

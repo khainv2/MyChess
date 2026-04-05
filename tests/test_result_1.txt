@@ -1,0 +1,337 @@
+PS G:\Projects\MyChess> python tests/test_wac.py --depth 20
+>> 
+Engine : g:\Projects\Stockfish\stockfish\stockfish-windows-x86-64-avx2.exe
+EPD    : g:\Projects\MyChess\tests\wac.epd (300 positions)
+Mode   : depth 20
+===========================================================================
+[  1/300] WAC.001     expected=Qg6           got=g3g6     score=mate 2        OK
+[  2/300] WAC.002     expected=Rxb2          got=b3b8     score=cp 316        FAIL
+[  3/300] WAC.003     expected=Rg3           got=e3g3     score=cp 401        OK
+[  4/300] WAC.004     expected=Qxh7+         got=h6h7     score=mate 2        OK
+[  5/300] WAC.005     expected=Qc4+          got=c6c4     score=mate 2        OK
+[  6/300] WAC.006     expected=Rb7           got=b6b7     score=cp 1285       OK
+[  7/300] WAC.007     expected=Ne3           got=g4e3     score=cp 539        OK
+[  8/300] WAC.008     expected=Rf7           got=e7f7     score=cp 1087       OK
+[  9/300] WAC.009     expected=Bh2+          got=d6h2     score=mate 5        OK
+[ 10/300] WAC.010     expected=Rxh7          got=h4h7     score=cp 432        OK
+[ 11/300] WAC.011     expected=Bxc6          got=f3c6     score=cp 515        OK
+[ 12/300] WAC.012     expected=Qxf3+         got=g4f3     score=mate 2        OK
+[ 13/300] WAC.013     expected=Qxf8+         got=f1f8     score=cp 182        OK
+[ 14/300] WAC.014     expected=Qxh7+         got=h3h7     score=mate 4        OK
+[ 15/300] WAC.015     expected=Rxb7          got=b8b7     score=cp 729        OK
+[ 16/300] WAC.016     expected=Nc3           got=e2c3     score=cp 426        OK
+[ 17/300] WAC.017     expected=Ne5           got=c4e5     score=cp 216        OK
+[ 18/300] WAC.018     expected=Rh8           got=a8h8     score=cp 421        OK
+[ 19/300] WAC.019     expected=c6            got=c5c6     score=cp 214        OK
+[ 20/300] WAC.020     expected=Bb5           got=d7b5     score=cp 722        OK
+[ 21/300] WAC.021     expected=Qh6           got=d2h6     score=cp 728        OK
+[ 22/300] WAC.022     expected=Ba2,Nxf7      got=g5f7     score=cp 123        OK
+[ 23/300] WAC.023     expected=g4            got=g2g4     score=cp 510        OK
+[ 24/300] WAC.024     expected=Bd4           got=g7d4     score=cp 636        OK
+[ 25/300] WAC.025     expected=Qh4+          got=g4h4     score=cp 807        OK
+[ 26/300] WAC.026     expected=Bf5           got=d7f5     score=cp 405        OK
+[ 27/300] WAC.027     expected=Qf8+          got=a3f8     score=mate 2        OK
+[ 28/300] WAC.028     expected=Qe1+          got=b4e1     score=cp 490        OK
+[ 29/300] WAC.029     expected=c6            got=c5c6     score=cp 340        OK
+[ 30/300] WAC.030     expected=Nxd6          got=e4d6     score=cp 134        OK
+[ 31/300] WAC.031     expected=Qxa8,d6,dxe6  got=g2g3     score=cp 465        FAIL
+[ 32/300] WAC.032     expected=Qd8+          got=d1d8     score=cp 287        OK
+[ 33/300] WAC.033     expected=Qe5+,Qf4      got=e4e5     score=cp 599        OK
+[ 34/300] WAC.034     expected=Bg1           got=d4g1     score=cp 411        OK
+[ 35/300] WAC.035     expected=Rxh7+         got=h4h7     score=mate 4        OK
+[ 36/300] WAC.036     expected=Re1+          got=e7e1     score=cp 445        OK
+[ 37/300] WAC.037     expected=Nxd4+         got=c6d4     score=cp 198        OK
+[ 38/300] WAC.038     expected=Rd8+          got=d2d8     score=cp 333        OK
+[ 39/300] WAC.039     expected=Na4           got=c3a4     score=cp 367        OK
+[ 40/300] WAC.040     expected=Rc8           got=d8c8     score=cp 407        OK
+[ 41/300] WAC.041     expected=Ka5,Kc5       got=b5a5     score=cp 780        OK
+[ 42/300] WAC.042     expected=Ba5           got=b4a5     score=cp 471        OK
+[ 43/300] WAC.043     expected=Be7,Qxa8      got=d5a8     score=cp 1096       OK
+[ 44/300] WAC.044     expected=dxc4          got=d5c4     score=cp 379        OK
+[ 45/300] WAC.045     expected=Qxa1          got=f1a1     score=cp 563        OK
+[ 46/300] WAC.046     expected=Nb5           got=c3b5     score=cp 223        OK
+[ 47/300] WAC.047     expected=Nxd4          got=c6d4     score=cp 109        OK
+[ 48/300] WAC.048     expected=Rb4           got=b8b4     score=cp 382        OK
+[ 49/300] WAC.049     expected=Qxh7+         got=h5h7     score=mate 6        OK
+[ 50/300] WAC.050     expected=Rxb6+         got=b7b6     score=mate 3        OK
+[ 51/300] WAC.051     expected=Rg4+          got=f4g4     score=mate 13       OK
+[ 52/300] WAC.052     expected=Re7           got=e1e7     score=cp 497        OK
+[ 53/300] WAC.053     expected=Re1           got=e3e1     score=cp 398        OK
+[ 54/300] WAC.054     expected=Qh1+          got=h5h1     score=mate 2        OK
+[ 55/300] WAC.055     expected=Qxg7+         got=d4g7     score=mate 4        OK
+[ 56/300] WAC.056     expected=Bxf2+         got=c5f2     score=cp 491        OK
+[ 57/300] WAC.057     expected=Rf8+          got=f3f8     score=mate 3        OK
+[ 58/300] WAC.058     expected=Qd1+          got=d3d1     score=cp 972        OK
+[ 59/300] WAC.059     expected=Nd5           got=c3d5     score=cp 569        OK
+[ 60/300] WAC.060     expected=Qh8+          got=h3h8     score=mate 2        OK
+[ 61/300] WAC.061     expected=Qf7+          got=f3f7     score=mate 2        OK
+[ 62/300] WAC.062     expected=Rxg3+         got=g6g3     score=cp 0          OK
+[ 63/300] WAC.063     expected=Nxf7          got=e5f7     score=cp 396        OK
+[ 64/300] WAC.064     expected=g4+           got=g2g4     score=mate 3        OK
+[ 65/300] WAC.065     expected=Ne7+          got=d5e7     score=cp 841        OK
+[ 66/300] WAC.066     expected=Qxe5          got=c7e5     score=cp 513        OK
+[ 67/300] WAC.067     expected=Rxd5          got=e5d5     score=cp 559        OK
+[ 68/300] WAC.068     expected=Qxe3          got=e2e3     score=cp 598        OK
+[ 69/300] WAC.069     expected=f3,h3         got=f2f3     score=cp 515        OK
+[ 70/300] WAC.070     expected=Na2+          got=b4a2     score=cp 510        OK
+[ 71/300] WAC.071     expected=Nxa7+         got=b5a7     score=cp 629        OK
+[ 72/300] WAC.072     expected=e6            got=e5e6     score=cp 368        OK
+[ 73/300] WAC.073     expected=Qd2           got=e2d2     score=cp 517        OK
+[ 74/300] WAC.074     expected=Qf1+          got=f4f1     score=cp 675        OK
+[ 75/300] WAC.075     expected=Qd6           got=d7d6     score=cp 530        OK
+[ 76/300] WAC.076     expected=Bxf6          got=g5f6     score=cp 442        OK
+[ 77/300] WAC.077     expected=Ng3           got=f5g3     score=cp 699        OK
+[ 78/300] WAC.078     expected=Ng5+          got=e4g5     score=cp 660        OK
+[ 79/300] WAC.079     expected=Qxh2+         got=h3h2     score=mate 3        OK
+[ 80/300] WAC.080     expected=Ra1           got=d1a1     score=cp 449        OK
+[ 81/300] WAC.081     expected=Bd6           got=e7d6     score=cp 139        OK
+[ 82/300] WAC.082     expected=Bh7+          got=e4h7     score=cp 716        OK
+[ 83/300] WAC.083     expected=Qxd7          got=d4d7     score=cp 491        OK
+[ 84/300] WAC.084     expected=Qg8+          got=d5g8     score=mate 2        OK
+[ 85/300] WAC.085     expected=Na6           got=c5a6     score=cp 734        OK
+[ 86/300] WAC.086     expected=Ng4+          got=f6g4     score=cp 232        OK
+[ 87/300] WAC.087     expected=Rxe5          got=e6e5     score=cp 668        OK
+[ 88/300] WAC.088     expected=Rxg2+         got=g6g2     score=mate 5        OK
+[ 89/300] WAC.089     expected=g5            got=h8g8     score=cp 534        FAIL
+[ 90/300] WAC.090     expected=Nxg7          got=f5g7     score=cp 412        OK
+[ 91/300] WAC.091     expected=Be6           got=b3e6     score=cp 277        OK
+[ 92/300] WAC.092     expected=Bxg4          got=e6g4     score=cp 132        OK
+[ 93/300] WAC.093     expected=Bh6           got=c1h6     score=cp 242        OK
+[ 94/300] WAC.094     expected=e4+           got=e5e4     score=cp 1470       OK
+[ 95/300] WAC.095     expected=Ng4+          got=f6g4     score=cp 867        OK
+[ 96/300] WAC.096     expected=Qd8+          got=h4d8     score=mate 9        OK
+[ 97/300] WAC.097     expected=Qa8+          got=g2a8     score=mate 3        OK
+[ 98/300] WAC.098     expected=Nxe4          got=c5e4     score=cp 661        OK
+[ 99/300] WAC.099     expected=Rh5           got=e5h5     score=mate 2        OK
+[100/300] WAC.100     expected=b6+           got=b5b6     score=cp 701        OK
+[101/300] WAC.101     expected=Bc3           got=d4c3     score=cp 377        OK
+[102/300] WAC.102     expected=Qxf8+         got=c8f8     score=mate 3        OK
+[103/300] WAC.103     expected=Qxg6+         got=h6g6     score=mate 4        OK
+[104/300] WAC.104     expected=Qxh5          got=e2h5     score=mate 3        OK
+[105/300] WAC.105     expected=Qxh4          got=h5h4     score=mate 9        OK
+[106/300] WAC.106     expected=Nf2+          got=e4f2     score=cp 1213       OK
+[107/300] WAC.107     expected=Nb5           got=d4b5     score=cp 444        OK
+[108/300] WAC.108     expected=Qe5           got=c5e5     score=cp 459        OK
+[109/300] WAC.109     expected=c3            got=c4c3     score=cp 153        OK
+[110/300] WAC.110     expected=Be3           got=a7e3     score=cp 760        OK
+[111/300] WAC.111     expected=Qf1+          got=g1d1     score=cp 780        FAIL
+[112/300] WAC.112     expected=Rxe6          got=e1e6     score=cp 509        OK
+[113/300] WAC.113     expected=Qxf6          got=d8f6     score=cp 337        OK
+[114/300] WAC.114     expected=Bxh7+         got=d3h7     score=cp 428        OK
+[115/300] WAC.115     expected=Nd6           got=e8d6     score=cp 465        OK
+[116/300] WAC.116     expected=Rd2           got=d8d2     score=cp 262        OK
+[117/300] WAC.117     expected=Ne4           got=d6e4     score=cp 669        OK
+[118/300] WAC.118     expected=Rh4           got=f4h4     score=cp 554        OK
+[119/300] WAC.119     expected=Qxd3          got=d8d3     score=cp 542        OK
+[120/300] WAC.120     expected=g6            got=g5g6     score=cp 511        OK
+[121/300] WAC.121     expected=Bxf3+         got=c6f3     score=cp 822        OK
+[122/300] WAC.122     expected=Rxf1+         got=d1f1     score=cp 823        OK
+[123/300] WAC.123     expected=Bxd5,Rc7      got=b7d5     score=cp 541        OK
+[124/300] WAC.124     expected=g3            got=g4g3     score=cp 562        OK
+[125/300] WAC.125     expected=Bxd4+         got=b6d4     score=cp 454        OK
+[126/300] WAC.126     expected=Rxc6+         got=f6c6     score=cp 476        OK
+[127/300] WAC.127     expected=Rxb7          got=b2b7     score=cp 386        OK
+[128/300] WAC.128     expected=Qg6           got=f7g6     score=cp 510        OK
+[129/300] WAC.129     expected=Bf3           got=b7f3     score=cp 232        OK
+[130/300] WAC.130     expected=Qh6,Qh8       got=g7h6     score=cp 97         OK
+[131/300] WAC.131     expected=Re8           got=d4f6     score=cp 481        FAIL
+[132/300] WAC.132     expected=Re1           got=e5e1     score=mate 3        OK
+[133/300] WAC.133     expected=Bh4           got=g3h4     score=cp 594        OK
+[134/300] WAC.134     expected=Rd1+          got=d8d1     score=mate 4        OK
+[135/300] WAC.135     expected=Nd4           got=e6d4     score=cp 364        OK
+[136/300] WAC.136     expected=Rc8+          got=c1c8     score=mate 3        OK
+[137/300] WAC.137     expected=Rd7           got=d1d7     score=cp 339        OK
+[138/300] WAC.138     expected=h5            got=h4h5     score=mate 5        OK
+[139/300] WAC.139     expected=Nf6+          got=e4f6     score=mate 4        OK
+[140/300] WAC.140     expected=Rc7           got=c3c7     score=cp 1005       OK
+[141/300] WAC.141     expected=Qxf4          got=c1f4     score=cp 734        OK
+[142/300] WAC.142     expected=Re8,f6+       got=c4e3     score=cp 481        FAIL
+[143/300] WAC.143     expected=Rxh6+         got=g6h6     score=mate 3        OK
+[144/300] WAC.144     expected=d3            got=d4d3     score=cp 334        OK
+[145/300] WAC.145     expected=Re8           got=f1f3     score=cp 845        FAIL
+[146/300] WAC.146     expected=Bc8           got=f5c8     score=cp 615        OK
+[147/300] WAC.147     expected=Nxg4          got=f6g4     score=cp 257        OK
+[148/300] WAC.148     expected=Rxg7          got=g1g7     score=cp 1056       OK
+[149/300] WAC.149     expected=Bxg2          got=e4g2     score=cp 481        OK
+[150/300] WAC.150     expected=Ba3,Bf8,e3    got=b2e2     score=cp 450        FAIL
+[151/300] WAC.151     expected=Nc3           got=a4c3     score=cp 172        OK
+[152/300] WAC.152     expected=Ne4           got=c3e4     score=cp 438        OK
+[153/300] WAC.153     expected=Nxd4          got=b5d4     score=cp 451        OK
+[154/300] WAC.154     expected=Qxf7+         got=f2f7     score=mate 2        OK
+[155/300] WAC.155     expected=d6            got=d5d6     score=cp 413        OK
+[156/300] WAC.156     expected=Qxh6+         got=h3h6     score=mate 2        OK
+[157/300] WAC.157     expected=Ne7+          got=d5e7     score=cp 444        OK
+[158/300] WAC.158     expected=Rxg7+         got=e7g7     score=mate 3        OK
+[159/300] WAC.159     expected=Ne6+          got=g5e6     score=cp 777        OK
+[160/300] WAC.160     expected=Qxd7+         got=g4d7     score=mate 2        OK
+[161/300] WAC.161     expected=Qxd8+         got=h4d8     score=mate 4        OK
+[162/300] WAC.162     expected=Bd5           got=c4d5     score=cp 473        OK
+[163/300] WAC.163     expected=Qg2+          got=f3g2     score=mate 12       OK
+[164/300] WAC.164     expected=Rxc4+         got=c2c4     score=cp 414        OK
+[165/300] WAC.165     expected=Re2           got=e3e2     score=cp 425        OK
+[166/300] WAC.166     expected=d4            got=d5d4     score=cp 448        OK
+[167/300] WAC.167     expected=Rxg2+         got=f2g2     score=mate 5        OK
+[168/300] WAC.168     expected=Qd2+          got=d7d2     score=mate 10       OK
+[169/300] WAC.169     expected=Bh6           got=g7h6     score=cp 534        OK
+[170/300] WAC.170     expected=Qxc4          got=a2c4     score=cp 503        OK
+[171/300] WAC.171     expected=Bh6+          got=e3h6     score=cp 429        OK
+[172/300] WAC.172     expected=Qe1+          got=e5e1     score=mate 3        OK
+[173/300] WAC.173     expected=Qh6+          got=e3h6     score=mate 3        OK
+[174/300] WAC.174     expected=Nxg2          got=f4g2     score=cp 456        OK
+[175/300] WAC.175     expected=Nh5           got=f4h5     score=cp 289        OK
+[176/300] WAC.176     expected=Rxh2+         got=d8d7     score=cp 294        FAIL
+[177/300] WAC.177     expected=Qa3+          got=e7a3     score=mate 3        OK
+[178/300] WAC.178     expected=Nxe6          got=f4e6     score=cp 137        OK
+[179/300] WAC.179     expected=Qg1+          got=f2g1     score=mate 3        OK
+[180/300] WAC.180     expected=Nxd5          got=f6d5     score=cp 122        OK
+[181/300] WAC.181     expected=Ng4           got=f6g4     score=cp 727        OK
+[182/300] WAC.182     expected=Qh5           got=d1h5     score=mate 6        OK
+[183/300] WAC.183     expected=Bf6           got=g5f6     score=cp 385        OK
+[184/300] WAC.184     expected=Qe7+          got=f6e7     score=mate 2        OK
+[185/300] WAC.185     expected=Qxh7+         got=h5h7     score=cp 507        OK
+[186/300] WAC.186     expected=Bf8+          got=h6f8     score=mate 3        OK
+[187/300] WAC.187     expected=Nh3+          got=f4h3     score=cp 631        OK
+[188/300] WAC.188     expected=Qg7+          got=f6g7     score=mate 2        OK
+[189/300] WAC.189     expected=Re8+          got=e7e8     score=cp 784        OK
+[190/300] WAC.190     expected=Bh3           got=d1f2     score=cp 372        FAIL
+[191/300] WAC.191     expected=Qc4           got=e2c4     score=mate 3        OK
+[192/300] WAC.192     expected=Nd3+          got=b4d3     score=cp 572        OK
+[193/300] WAC.193     expected=Qxe3          got=b3e3     score=cp 745        OK
+[194/300] WAC.194     expected=Nh6+          got=f5h6     score=cp 633        OK
+[195/300] WAC.195     expected=g3            got=g2g3     score=cp 450        OK
+[196/300] WAC.196     expected=Nb4           got=c6b4     score=cp 104        OK
+[197/300] WAC.197     expected=Qf1+          got=f2f1     score=mate 3        OK
+[198/300] WAC.198     expected=Rd3           got=d8d3     score=cp 510        OK
+[199/300] WAC.199     expected=Bxc6,Rfd1     got=f1d1     score=cp 462        OK
+[200/300] WAC.200     expected=Bxf6          got=b2f6     score=cp 491        OK
+[201/300] WAC.201     expected=Ra7           got=a1a7     score=mate 6        OK
+[202/300] WAC.202     expected=Rxa2          got=c2a2     score=cp 0          OK
+[203/300] WAC.203     expected=Qh6           got=g5h6     score=mate 3        OK
+[204/300] WAC.204     expected=Rxe5          got=e1e5     score=cp -80        OK
+[205/300] WAC.205     expected=Qxg5          got=d2g5     score=cp 564        OK
+[206/300] WAC.206     expected=Rc6           got=d6c6     score=cp 332        OK
+[207/300] WAC.207     expected=Qxg7+         got=g4g7     score=cp 603        OK
+[208/300] WAC.208     expected=Bf7+          got=h5f7     score=cp 647        OK
+[209/300] WAC.209     expected=Rxe5+         got=e1e5     score=cp 772        OK
+[210/300] WAC.210     expected=Rh1           got=d1h1     score=cp 631        OK
+[211/300] WAC.211     expected=Qxf7+         got=h5f7     score=mate 5        OK
+[212/300] WAC.212     expected=Qxg7+         got=h8g7     score=mate 5        OK
+[213/300] WAC.213     expected=Rxh7+         got=h5h7     score=cp 325        OK
+[214/300] WAC.214     expected=Ng5           got=e4g5     score=cp 524        OK
+[215/300] WAC.215     expected=Qh7+          got=d3h7     score=mate 4        OK
+[216/300] WAC.216     expected=Nxf7          got=e5f7     score=cp 294        OK
+[217/300] WAC.217     expected=Qd7+          got=e4f6     score=cp 497        FAIL
+[218/300] WAC.218     expected=Bh6           got=g5h6     score=mate 6        OK
+[219/300] WAC.219     expected=Qf1+          got=f7f1     score=mate 3        OK
+[220/300] WAC.220     expected=Qxf1+         got=e2f1     score=cp 590        OK
+[221/300] WAC.221     expected=Rd8+          got=d1d8     score=cp 647        OK
+[222/300] WAC.222     expected=Bf6           got=h4f6     score=mate 6        OK
+[223/300] WAC.223     expected=Nxe4          got=g1e2     score=cp -178       FAIL
+[224/300] WAC.224     expected=Rh6,e4        got=e5e4     score=cp 456        OK
+[225/300] WAC.225     expected=Qh4+          got=e7h4     score=mate 3        OK
+[226/300] WAC.226     expected=Nf7           got=d1d8     score=cp 583        FAIL
+[227/300] WAC.227     expected=d5            got=d6d5     score=cp 417        OK
+[228/300] WAC.228     expected=Bxe4          got=d3e4     score=cp 260        OK
+[229/300] WAC.229     expected=Rxh4,b4       got=b5b4     score=cp 513        OK
+[230/300] WAC.230     expected=Rb4           got=c8d7     score=cp 154        FAIL
+[231/300] WAC.231     expected=Bg5           got=c1g5     score=cp 135        OK
+[232/300] WAC.232     expected=Qb5,Rxe8      got=a6b5     score=cp 726        OK
+[233/300] WAC.233     expected=Nb3           got=d4b3     score=cp 756        OK
+[234/300] WAC.234     expected=Rb3           got=h3b3     score=cp 586        OK
+[235/300] WAC.235     expected=Qxf7+,Rxf7+   got=e6e4     score=cp 479        FAIL
+[236/300] WAC.236     expected=Rc1           got=c3c1     score=cp 40         OK
+[237/300] WAC.237     expected=Rc1+          got=c2c1     score=cp 966        OK
+[238/300] WAC.238     expected=Bxb7          got=g2b7     score=cp 515        OK
+[239/300] WAC.239     expected=Qf1+          got=f2f1     score=cp 1447       OK
+[240/300] WAC.240     expected=Qxc6          got=c2c6     score=cp 687        OK
+[241/300] WAC.241     expected=Qxh7+         got=f5f6     score=cp 379        FAIL
+[242/300] WAC.242     expected=Rxd7          got=d1d7     score=cp 470        OK
+[243/300] WAC.243     expected=Qe2           got=f2e2     score=cp 600        OK
+[244/300] WAC.244     expected=Qxc5+         got=e3c5     score=mate 4        OK
+[245/300] WAC.245     expected=Qxg6+         got=c3d5     score=cp 391        FAIL
+[246/300] WAC.246     expected=Qh5+          got=g4h5     score=mate 2        OK
+[247/300] WAC.247     expected=Rxb5          got=e7g5     score=cp 351        FAIL
+[248/300] WAC.248     expected=Qc5+          got=d6c5     score=cp 4          OK
+[249/300] WAC.249     expected=c5,d5         got=d4d5     score=cp 410        OK
+[250/300] WAC.250     expected=Re8+          got=e3e8     score=mate 8        OK
+[251/300] WAC.251     expected=Qe5,Qf4       got=d4e5     score=mate 6        OK
+[252/300] WAC.252     expected=Re2           got=f6d5     score=cp 373        FAIL
+[253/300] WAC.253     expected=Qe8+          got=e3e8     score=mate 4        OK
+[254/300] WAC.254     expected=Nxh3          got=f4h3     score=cp 246        OK
+[255/300] WAC.255     expected=Rfxg6+        got=f6g6     score=cp 541        OK
+[256/300] WAC.256     expected=Nf5           got=d4f5     score=cp 420        OK
+[257/300] WAC.257     expected=Rxd4          got=d1d4     score=cp 491        OK
+[258/300] WAC.258     expected=Bxg6          got=h5g6     score=cp 86         OK
+[259/300] WAC.259     expected=Qh5           got=d1h5     score=cp 127        OK
+[260/300] WAC.260     expected=Qe6+          got=d5e6     score=mate 5        OK
+[261/300] WAC.261     expected=Nd4           got=f3d4     score=cp 816        OK
+[262/300] WAC.262     expected=Rh6           got=g6h6     score=cp 373        OK
+[263/300] WAC.263     expected=Qg8+          got=f7g8     score=mate 4        OK
+[264/300] WAC.264     expected=Rab8          got=a8b8     score=cp 387        OK
+[265/300] WAC.265     expected=exf6          got=e5f6     score=cp 408        OK
+[266/300] WAC.266     expected=Rxh2+         got=h8h2     score=mate 6        OK
+[267/300] WAC.267     expected=Nc7+          got=d5c7     score=mate 5        OK
+[268/300] WAC.268     expected=Re8+          got=e2e8     score=cp 819        OK
+[269/300] WAC.269     expected=axb4          got=e1g1     score=cp 233        FAIL
+[270/300] WAC.270     expected=Qg4           got=e2e8     score=cp 0          FAIL
+[271/300] WAC.271     expected=Rd6           got=e6d6     score=cp 443        OK
+[272/300] WAC.272     expected=Bxc5          got=e3c5     score=cp 299        OK
+[273/300] WAC.273     expected=Ng3+          got=g4g3     score=cp 600        FAIL
+[274/300] WAC.274     expected=Rb6           got=g6g5     score=cp 369        FAIL
+[275/300] WAC.275     expected=Nxg2,b5       got=b7b5     score=cp 298        OK
+[276/300] WAC.276     expected=Qd5+          got=d1d5     score=cp 1021       OK
+[277/300] WAC.277     expected=Rg3,Rxg2      got=g8g2     score=cp 175        OK
+[278/300] WAC.278     expected=Bf7+          got=c4f7     score=mate 5        OK
+[279/300] WAC.279     expected=Nxf5          got=e3f5     score=cp 436        OK
+[280/300] WAC.280     expected=Bxa3          got=f8a3     score=cp 434        OK
+[281/300] WAC.281     expected=Rxh7+         got=c7h7     score=cp 634        OK
+[282/300] WAC.282     expected=Rh8+          got=h1h8     score=mate 4        OK
+[283/300] WAC.283     expected=Ng5           got=h3g5     score=mate 4        OK
+[284/300] WAC.284     expected=Nf5           got=d4f5     score=cp 439        OK
+[285/300] WAC.285     expected=Qxg7+         got=g2g7     score=mate 5        OK
+[286/300] WAC.286     expected=Rxd5+         got=d8d5     score=cp 467        OK
+[287/300] WAC.287     expected=Qh5           got=d1h5     score=cp 694        OK
+[288/300] WAC.288     expected=Nf6+          got=h5f6     score=cp 432        OK
+[289/300] WAC.289     expected=Qe5           got=e6e5     score=cp 524        OK
+[290/300] WAC.290     expected=Ne2+          got=f4e2     score=mate 4        OK
+[291/300] WAC.291     expected=h3            got=c5c3     score=cp 275        FAIL
+[292/300] WAC.292     expected=d6+           got=d5d6     score=cp 458        OK
+[293/300] WAC.293     expected=Nfg5          got=f3g5     score=mate 4        OK
+[294/300] WAC.294     expected=Bf8,Nf5,Qf4   got=g4f4     score=cp 970        OK
+[295/300] WAC.295     expected=Rxd5+         got=d1d5     score=mate 3        OK
+[296/300] WAC.296     expected=Rd4+,Rf8      got=d8f8     score=cp 644        OK
+[297/300] WAC.297     expected=Bxg2,Bxh2+    got=c6g2     score=cp 489        OK
+[298/300] WAC.298     expected=Qh8+          got=d8h8     score=mate 4        OK
+[299/300] WAC.299     expected=Nca4          got=b6a8     score=cp 950        FAIL
+[300/300] WAC.300     expected=g6            got=g5g6     score=cp 365        OK
+===========================================================================
+Result : 275/300 correct (91.7%)
+Failed : 25  |  Errors: 0
+Time   : 243.4s (0.81s per position)
+
+--- Failed positions (25) ---
+  WAC.002     expected=Rxb2  got=b3b8
+  WAC.031     expected=Qxa8,d6,dxe6  got=g2g3
+  WAC.089     expected=g5  got=h8g8
+  WAC.111     expected=Qf1+  got=g1d1
+  WAC.131     expected=Re8  got=d4f6
+  WAC.142     expected=Re8,f6+  got=c4e3
+  WAC.145     expected=Re8  got=f1f3
+  WAC.150     expected=Ba3,Bf8,e3  got=b2e2
+  WAC.176     expected=Rxh2+  got=d8d7
+  WAC.190     expected=Bh3  got=d1f2
+  WAC.217     expected=Qd7+  got=e4f6
+  WAC.223     expected=Nxe4  got=g1e2
+  WAC.226     expected=Nf7  got=d1d8
+  WAC.230     expected=Rb4  got=c8d7
+  WAC.235     expected=Qxf7+,Rxf7+  got=e6e4
+  WAC.241     expected=Qxh7+  got=f5f6
+  WAC.245     expected=Qxg6+  got=c3d5
+  WAC.247     expected=Rxb5  got=e7g5
+  WAC.252     expected=Re2  got=f6d5
+  WAC.269     expected=axb4  got=e1g1
+  WAC.270     expected=Qg4  got=e2e8
+  WAC.273     expected=Ng3+  got=g4g3
+  WAC.274     expected=Rb6  got=g6g5
+  WAC.291     expected=h3  got=c5c3
+  WAC.299     expected=Nca4  got=b6a8
