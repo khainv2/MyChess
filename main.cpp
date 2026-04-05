@@ -1,7 +1,9 @@
 #include "mainwindow.h"
+#include "testviewerdialog.h"
 
 #include <QApplication>
 #include <QDebug>
+#include <QDir>
 #include <algorithm/attack.h>
 #include <algorithm/board.h>
 #include <algorithm/movegen.h>
@@ -36,9 +38,40 @@ int main(int argc, char *argv[])
     MoveGen::init();
     eval::init();
 
-    Perft::testPerft();
-    MainWindow w;
-    w.show();
+//    Perft::testPerft();
+
+    // Check for --test flag or auto-detect CSV
+    QStringList args = a.arguments();
+    bool testMode = !args.contains("--no-test");
+    qDebug() << "Test mode" << testMode;
+
+    // Auto-detect test CSV relative to executable
+    QString appDir = QCoreApplication::applicationDirPath();
+    // Try common locations for the CSV
+    QStringList csvSearchPaths = {
+        appDir + "/../../tests/wac_results.csv",       // from _build/debug/
+        appDir + "/../tests/wac_results.csv",
+        appDir + "/tests/wac_results.csv",
+        "tests/wac_results.csv",                       // relative to CWD
+        "G:/Projects/MyChess/tests/wac_results.csv"
+    };
+
+    QString engineCsv;
+    for (const auto &p : csvSearchPaths) {
+        if (QFile::exists(p)) {
+            engineCsv = QFileInfo(p).absoluteFilePath();
+            break;
+        }
+    }
+
+    if (testMode && !engineCsv.isEmpty()) {
+        auto *viewer = new TestViewerDialog(engineCsv);
+        viewer->setAttribute(Qt::WA_DeleteOnClose);
+        viewer->show();
+    } else {
+        auto *w = new MainWindow;
+        w->show();
+    }
 
     return a.exec();
 }

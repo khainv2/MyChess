@@ -1,7 +1,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "testviewerdialog.h"
 #include "algorithm/engine.h"
 #include "algorithm/util.h"
+
+#include <QFileDialog>
 
 using namespace kc;
 struct BoardValue {
@@ -57,5 +60,16 @@ void MainWindow::on_bt_ParseFen_clicked()
 void MainWindow::on_bt_Undo_clicked()
 {
     ui->chessBoard->undoMove();
+}
+
+void MainWindow::on_bt_TestViewer_clicked()
+{
+    QString csvPath = QFileDialog::getOpenFileName(this,
+        "Open WAC Results CSV", "tests", "CSV files (*.csv)");
+    if (csvPath.isEmpty()) return;
+
+    auto *viewer = new TestViewerDialog(csvPath, "", this);
+    viewer->setAttribute(Qt::WA_DeleteOnClose);
+    viewer->show();
 }
 

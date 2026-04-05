@@ -22,6 +22,7 @@ private slots:
 
     void on_bt_ParseFen_clicked();
     void on_bt_Undo_clicked();
+    void on_bt_TestViewer_clicked();
 
 private:
     Ui::MainWindow *ui;

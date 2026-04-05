@@ -11,19 +11,8 @@
 
 using namespace kc;
 ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)
-{    
-    _pixmaps[WhitePawn] = QPixmap(":/w_pawn.png");
-    _pixmaps[WhiteBishop] = QPixmap(":/w_bishop.png");
-    _pixmaps[WhiteKnight] = QPixmap(":/w_knight.png");
-    _pixmaps[WhiteRook] = QPixmap(":/w_rook.png");
-    _pixmaps[WhiteQueen] = QPixmap(":/w_queen.png");
-    _pixmaps[WhiteKing] = QPixmap(":/w_king.png");
-    _pixmaps[BlackPawn] = QPixmap(":/b_pawn.png");
-    _pixmaps[BlackBishop] = QPixmap(":/b_bishop.png");
-    _pixmaps[BlackKnight] = QPixmap(":/b_knight.png");
-    _pixmaps[BlackRook] = QPixmap(":/b_rook.png");
-    _pixmaps[BlackQueen] = QPixmap(":/b_queen.png");
-    _pixmaps[BlackKing] = QPixmap(":/b_king.png");
+{
+    initPixmaps();
 
 //    auto fen = "8/5k2/8/8/3R4/2K5/8/8 w - - 0 1";
 
@@ -135,10 +124,16 @@ void ChessBoardView::paintEvent(QPaintEvent *) {
     auto val = eval::estimate(_board);
     painter.drawText(10, 20, tr("Score: %1").arg(val));
 
+    // Draw move arrows
+    for (const auto &arrow : _arrows) {
+        if (arrow.src >= 0 && arrow.dst >= 0)
+            drawArrow(painter, arrow.src, arrow.dst, arrow.color);
+    }
 }
 
 void ChessBoardView::mousePressEvent(QMouseEvent *event)
 {
+    if (!_interactive) return;
     auto pos = event->pos();
     if (event->button() == Qt::LeftButton){
         if (_canvasRect.contains(pos)){
@@ -217,4 +212,89 @@ void ChessBoardView::undoMove()
     _boardStates.pop_back();
     _moveList.pop_back();
     update();
+}
+
+void ChessBoardView::setArrows(const std::vector<MoveArrow> &arrows)
+{
+    _arrows = arrows;
+    update();
+}
+
+void ChessBoardView::clearArrows()
+{
+    _arrows.clear();
+    update();
+}
+
+void ChessBoardView::setInteractive(bool interactive)
+{
+    _interactive = interactive;
+}
+
+void ChessBoardView::initPixmaps()
+{
+    _pixmaps[WhitePawn] = QPixmap(":/w_pawn.png");
+    _pixmaps[WhiteBishop] = QPixmap(":/w_bishop.png");
+    _pixmaps[WhiteKnight] = QPixmap(":/w_knight.png");
+    _pixmaps[WhiteRook] = QPixmap(":/w_rook.png");
+    _pixmaps[WhiteQueen] = QPixmap(":/w_queen.png");
+    _pixmaps[WhiteKing] = QPixmap(":/w_king.png");
+    _pixmaps[BlackPawn] = QPixmap(":/b_pawn.png");
+    _pixmaps[BlackBishop] = QPixmap(":/b_bishop.png");
+    _pixmaps[BlackKnight] = QPixmap(":/b_knight.png");
+    _pixmaps[BlackRook] = QPixmap(":/b_rook.png");
+    _pixmaps[BlackQueen] = QPixmap(":/b_queen.png");
+    _pixmaps[BlackKing] = QPixmap(":/b_king.png");
+}
+
+void ChessBoardView::drawArrow(QPainter &painter, int src, int dst, const QColor &color)
+{
+    int ss = _canvasRect.width() / 8;
+    auto squareCenter = [&](int sq) -> QPointF {
+        int file = sq % 8;
+        int rank = 7 - (sq / 8);
+        double x = file * ss + ss / 2.0 + _canvasRect.left();
+        double y = rank * ss + ss / 2.0 + _canvasRect.top();
+        return QPointF(x, y);
+    };
+
+    QPointF p1 = squareCenter(src);
+    QPointF p2 = squareCenter(dst);
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+
+    // Draw line
+    QPen arrowPen(color, 3.0);
+    painter.setPen(arrowPen);
+    painter.drawLine(p1, p2);
+
+    // Draw arrowhead
+    double angle = std::atan2(p2.y() - p1.y(), p2.x() - p1.x());
+    double arrowSize = ss * 0.3;
+    QPointF tip = p2;
+    QPointF left(tip.x() - arrowSize * std::cos(angle - 0.4),
+                 tip.y() - arrowSize * std::sin(angle - 0.4));
+    QPointF right(tip.x() - arrowSize * std::cos(angle + 0.4),
+                  tip.y() - arrowSize * std::sin(angle + 0.4));
+
+    painter.setBrush(color);
+    painter.setPen(Qt::NoPen);
+    QPolygonF arrowHead;
+    arrowHead << tip << left << right;
+    painter.drawPolygon(arrowHead);
+
+    // Draw src/dst square highlight
+    auto highlightSq = [&](int sq, int alpha) {
+        int file = sq % 8;
+        int rank = 7 - (sq / 8);
+        QRect rect(file * ss + _canvasRect.left(), rank * ss + _canvasRect.top(), ss, ss);
+        QColor fill = color;
+        fill.setAlpha(alpha);
+        painter.fillRect(rect, fill);
+    };
+    highlightSq(src, 60);
+    highlightSq(dst, 90);
+
+    painter.restore();
 }

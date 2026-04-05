@@ -81,6 +81,13 @@
         </widget>
        </item>
        <item row="5" column="0">
+        <widget class="QPushButton" name="bt_TestViewer">
+         <property name="text">
+          <string>Test Viewer (WAC)</string>
+         </property>
+        </widget>
+       </item>
+       <item row="6" column="0">
         <widget class="QTreeWidget" name="treeWidget">
          <column>
           <property name="text">

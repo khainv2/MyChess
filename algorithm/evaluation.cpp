@@ -69,6 +69,29 @@ int kc::eval::estimate(const Board &board) {
     return (mgScore * mgPhase + egScore * egPhase) / 24 + mobility;
 }
 
+int kc::eval::estimateFast(const Board &board) {
+    int mg[2] = { 0, 0 };
+    int eg[2] = { 0, 0 };
+    int gamePhase = 0;
+
+    for (int sq = 0; sq < 64; ++sq) {
+        auto pc = board.pieces[sq];
+        if (pc != PieceNone){
+            mg[pieceToColor(pc)] += MG_Table[pc][sq];
+            eg[pieceToColor(pc)] += EG_Table[pc][sq];
+            gamePhase += gamephaseInc[pc];
+        }
+    }
+
+    int mgScore = mg[White] - mg[Black];
+    int egScore = eg[White] - eg[Black];
+    constexpr int MaxGamePhase = 24;
+    int mgPhase = std::min(gamePhase, MaxGamePhase);
+    int egPhase = 24 - mgPhase;
+
+    return (mgScore * mgPhase + egScore * egPhase) / 24;
+}
+
 int kc::eval::getMaterial(const Board &board) {
     u64 b = board.colors[Black], w = board.colors[White];
     return (popCount(board.types[Pawn] & w) - popCount(board.types[Pawn] & b)) * Value_Pawn

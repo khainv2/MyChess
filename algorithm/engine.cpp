@@ -1,17 +1,15 @@
 #include "engine.h"
 #include "movegen.h"
 #include "evaluation.h"
-#include <QElapsedTimer>
-#include <QDebug>
 #include <random>
 #include "util.h"
-#include <cmath>
-#include <random>
 #include <array>
 #include "QDateTime"
 
+// Bật/tắt Quiescence Search để so sánh (1 = bật, 0 = tắt)
+#define ENABLE_QUIESCENCE 1
 
-#define DEBUG_ENGINE true
+
 /**
  * @brief Sinh số ngẫu nhiên trong khoảng [min, max]
  * @param min Giá trị nhỏ nhất
@@ -31,10 +29,8 @@ using namespace kc;
  * @brief Constructor của Engine - khởi tạo độ sâu tìm kiếm mặc định
  */
 Engine::Engine(){
-    fixedDepth = 7;
+    fixedDepth = 4;
 }
-
-int countTotalSearch = 0;
 
 /**
  * @brief Tính toán nước đi tốt nhất cho vị thế hiện tại
@@ -43,48 +39,20 @@ int countTotalSearch = 0;
  */
 Move kc::Engine::calc(const Board &chessBoard) {
     countBestMove = 0;
-    QElapsedTimer timer;
-    timer.start();
-    countTotalSearch = 0;
-
-    // Xóa root node cũ nếu có
-    if (rootNode != nullptr){
-        delete rootNode;
-    }
-    countBestMove = 0;
     Board board = chessBoard;
     int bestValue;
-    
+
     // Gọi negamax tùy theo màu quân đang đi
     if (board.side == White){
         bestValue = negamax<White, true>(board, fixedDepth, -Infinity, Infinity);
     } else {
         bestValue = negamax<Black, true>(board, fixedDepth, -Infinity, Infinity);
     }
-    
+
     // Chọn ngẫu nhiên một nước đi trong số các nước đi tốt nhất
     int r = getRand(0, countBestMove - 1);
-    qDebug() << "Best move count" << countBestMove << "Select" << r << "best value" << bestValue;
-    for (int i = 0; i < countBestMove; i++){
-        qDebug() << "-" << bestMoves[i].getDescription().c_str();
-    }
-
     Move move = bestMoves[r];
-//    Move move = bestMoves[0];
-    qDebug() << r << bestMoves[r].flag();
-    qDebug() << "Select best move" << move.getDescription().c_str();
-    qDebug() << "Total move search..." << countTotalSearch;
-    qDebug() << "Time to calculate" << (timer.nsecsElapsed() / 1000000);
     return move;
-}
-
-/**
- * @brief Getter cho root node của cây tìm kiếm
- * @return Pointer đến root node
- */
-Node *Engine::getRootNode() const
-{
-    return rootNode;
 }
 
 /**
@@ -100,52 +68,25 @@ Node *Engine::getRootNode() const
 template <Color color, bool isRoot>
 int Engine::negamax(Board &board, int depth, int alpha, int beta){
 
-    #if DEBUG_ENGINE
-    if (depth >= fixedDepth - 2) { // Chỉ debug 2 level đầu để tránh quá nhiều log
-        qDebug() << QString("=== NEGAMAX: Color=%1, Depth=%2, Alpha=%3, Beta=%4 ===")
-                    .arg(color ? "Black" : "White")
-                    .arg(depth)
-                    .arg(alpha)
-                    .arg(beta);
-    }
-    #endif
-
     // Kiểm tra chiếu và chiếu hết
     if (board.anyCheck()) {
         if (board.isMate()){
-            countTotalSearch++;
-            #if DEBUG_ENGINE
-            if (depth >= fixedDepth - 2) {
-                qDebug() << QString("MATE FOUND: Color=%1, Score=%2")
-                            .arg(color ? "Black" : "White")
-                            .arg(color ? -ScoreMate : ScoreMate);
-            }
-            #endif
             return color ? -ScoreMate : ScoreMate;
         }
     }
 
     // Điều kiện dừng: hết độ sâu tìm kiếm
     if (depth == 0) {
-        countTotalSearch++;
-        int evalScore = color ? -eval::estimate(board) : eval::estimate(board);
-        #if DEBUG_ENGINE
-        qDebug() << QString("LEAF NODE: Color=%1, Eval=%2")
-                    .arg(color ? "Black" : "White")
-                    .arg(evalScore);
-        #endif
-        return evalScore;
+#if ENABLE_QUIESCENCE
+        return quiescence<color>(board, alpha, beta);
+#else
+        return color ? -eval::estimate(board) : eval::estimate(board);
+#endif
     }
 
     // Sinh tất cả nước đi hợp lệ
     auto movePtr = buff[depth];
     int count = MoveGen::instance->genMoveList(board, movePtr);
-
-    #if DEBUG_ENGINE
-    if (depth >= fixedDepth - 2) {
-        qDebug() << QString("MOVE GEN: Found %1 moves at depth %2").arg(count).arg(depth);
-    }
-    #endif
 
     // Sắp xếp nước đi: capture moves trước, sau đó theo giá trị
     std::sort(movePtr, movePtr + count, [=](Move m1, Move m2){
@@ -159,42 +100,15 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
 
     int bestValue = -Infinity;
     BoardState state;
-    
-    #if DEBUG_ENGINE
-    if (depth >= fixedDepth - 2) {
-        qDebug() << QString("MOVE ORDER: Top 3 moves:");
-        for (int i = 0; i < std::min(3, count); i++) {
-            qDebug() << QString("  %1: %2 (val=%3, capture=%4)")
-                        .arg(i+1)
-                        .arg(movePtr[i].getDescription().c_str())
-                        .arg(movePtr[i].val)
-                        .arg(movePtr[i].is<Move::Capture>() ? "YES" : "NO");
-        }
-    }
-    #endif
-    
+
     // Duyệt qua tất cả nước đi
     for (int i = 0; i < count; i++){
         auto move = movePtr[i];
-        if constexpr (isRoot){
-            qDebug() << "start calculate for" << move.getDescription().c_str();
-        }
-        
         // Thực hiện nước đi
         board.doMove(move, state);
         int score = -negamax<!color, false>(board, depth - 1, -beta, -alpha);
         move.val = score;
         board.undoMove(move);
-
-        #if DEBUG_ENGINE
-        if (depth >= fixedDepth - 2) {
-            qDebug() << QString("MOVE EVAL: %1 -> Score=%2 (Alpha=%3, Beta=%4)")
-                        .arg(move.getDescription().c_str())
-                        .arg(score)
-                        .arg(alpha)
-                        .arg(beta);
-        }
-        #endif
 
         // Cập nhật nước đi tốt nhất
         if (score >= bestValue){
@@ -202,58 +116,101 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
                 if (score > bestValue){
                     // Reset toàn bộ biến đếm các nước đi tốt nhất, trong trường hợp tìm thấy điểm cao hơn
                     countBestMove = 0;
-                    #if DEBUG_ENGINE
-                    qDebug() << QString("NEW BEST SCORE: %1 (better than %2)").arg(score).arg(bestValue);
-                    #endif
                 }
                 bestMoves[countBestMove++] = move;
-                #if DEBUG_ENGINE
-                qDebug() << QString("BEST MOVE ADDED: %1 (count=%2)").arg(move.getDescription().c_str()).arg(countBestMove);
-                #endif
             }
             bestValue = score;
 
             if constexpr (isRoot){
                 // Ngừng tìm kiếm nếu thấy chiếu hết
                 if (score > 30000){
-                    #if DEBUG_ENGINE
-                    qDebug() << "MATE SCORE FOUND - STOPPING SEARCH";
-                    #endif
                     break;
                 }
             }
         }
 
         // Alpha-beta pruning
-        int oldAlpha = alpha;
         alpha = std::max(alpha, score);
         if (alpha > beta) {
-            #if DEBUG_ENGINE
-            if (depth >= fixedDepth - 2) {
-                qDebug() << QString("ALPHA-BETA CUTOFF: Alpha=%1 > Beta=%2 at move %3")
-                            .arg(alpha)
-                            .arg(beta)
-                            .arg(move.getDescription().c_str());
-            }
-            #endif
             break;
         }
-        
-        #if DEBUG_ENGINE
-        if (depth >= fixedDepth - 2 && alpha > oldAlpha) {
-            qDebug() << QString("ALPHA IMPROVED: %1 -> %2").arg(oldAlpha).arg(alpha);
-        }
-        #endif
     }
-
-    #if DEBUG_ENGINE
-    if (depth >= fixedDepth - 2) {
-        qDebug() << QString("NEGAMAX RESULT: Depth=%1, BestValue=%2")
-                    .arg(depth)
-                    .arg(bestValue);
-    }
-    #endif
 
     return bestValue;
 
+}
+
+/**
+ * @brief Quiescence Search - tìm kiếm thêm chỉ các nước bắt quân
+ * cho đến khi vị thế "yên tĩnh" (không còn bắt quân có lợi)
+ * Giải quyết horizon effect: tránh đánh giá sai khi đang giữa chuỗi đổi quân
+ */
+template <Color color>
+int Engine::quiescence(Board &board, int alpha, int beta, int qdepth) {
+    // Đánh giá tĩnh (stand-pat): chỉ material + PST, bỏ mobility cho nhanh
+    int standPat = color ? -eval::estimateFast(board) : eval::estimateFast(board);
+
+    // Nếu stand-pat đã >= beta → cắt tỉa (vị thế đã quá tốt)
+    if (standPat >= beta) {
+        return beta;
+    }
+
+    // Cập nhật alpha nếu stand-pat tốt hơn
+    if (standPat > alpha) {
+        alpha = standPat;
+    }
+
+    // Giới hạn độ sâu quiescence để tránh explosion
+    if (qdepth >= MaxQDepth) {
+        return standPat;
+    }
+
+    // Kiểm tra chiếu hết
+    if (board.anyCheck()) {
+        if (board.isMate()) {
+            return color ? -ScoreMate : ScoreMate;
+        }
+    }
+
+    // Sinh CHỈ nước bắt quân + promotion (dùng buffer pre-allocated)
+    auto movePtr = qbuff[qdepth];
+    int count = MoveGen::instance->genCaptureMoveList(board, movePtr);
+
+    // MVV-LVA: gán val = giá trị quân bị bắt, sort giảm dần
+    static constexpr int pieceValues[] = { 0, 100, 320, 330, 500, 900, 0, 0,
+                                           0, 100, 320, 330, 500, 900, 0, 0 };
+    for (int i = 0; i < count; i++) {
+        Piece captured = board.pieces[movePtr[i].dst()];
+        movePtr[i].val = (captured != PieceNone) ? pieceValues[captured] : 0;
+        if (movePtr[i].is<Move::Promotion>()) movePtr[i].val += 800;
+    }
+    std::sort(movePtr, movePtr + count, [](Move m1, Move m2) {
+        return m1.val > m2.val;
+    });
+
+    BoardState state;
+
+    for (int i = 0; i < count; i++) {
+        auto move = movePtr[i];
+
+        // Delta pruning: bỏ qua nếu material gain + margin vẫn < alpha
+        if (!move.is<Move::Promotion>()) {
+            if (standPat + move.val + 200 < alpha) {
+                continue;
+            }
+        }
+
+        board.doMove(move, state);
+        int score = -quiescence<!color>(board, -beta, -alpha, qdepth + 1);
+        board.undoMove(move);
+
+        if (score >= beta) {
+            return beta;
+        }
+        if (score > alpha) {
+            alpha = score;
+        }
+    }
+
+    return alpha;
 }

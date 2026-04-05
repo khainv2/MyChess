@@ -159,6 +159,9 @@ void init();
 
 int estimate(const Board &board);
 
+// Eval nhanh chỉ material + PST, không tính mobility — dùng cho quiescence search
+int estimateFast(const Board &board);
+
 int getMaterial(const Board &board);
 
 

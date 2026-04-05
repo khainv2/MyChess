@@ -35,7 +35,8 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     promotionselectiondialog.cpp \
-    treegraph.cpp
+    testviewerdialog.cpp \
+    tests/wactest.cpp
 
 HEADERS += \
     algorithm/attack.h \
@@ -50,7 +51,8 @@ HEADERS += \
     logger.h \
     mainwindow.h \
     promotionselectiondialog.h \
-    treegraph.h
+    testviewerdialog.h \
+    tests/wactest.h
 
 FORMS += \
     mainwindow.ui \

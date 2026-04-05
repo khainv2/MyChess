@@ -476,6 +476,165 @@ int MoveGen::countCastlingMove(const Board &board) noexcept {
             && (board.state->castlingRights & right);
 }
 
+// ==================== Capture-only move generators ====================
+
+int MoveGen::genCaptureMoveList(const Board &board, Move *moveList) noexcept {
+    auto ptr = (board.side == White)
+            ? genCaptureMoveList<White>(board, moveList)
+            : genCaptureMoveList<Black>(board, moveList);
+    return ptr - moveList;
+}
+
+template<Color mine>
+Move *MoveGen::genCaptureMoveList(const Board &board, Move *moveList) noexcept {
+    prepare<mine>(board);
+    if (isMoreThanOne(checkers)) {
+        // Chiếu đôi: chỉ vua được đi, chỉ lấy captures của vua
+        return getCapturesForKing<mine>(board, moveList);
+    }
+    updateCheckMaskAndPin<mine>();
+    targetForHeavyPiece = notMines & checkMask;
+    moveList = getCapturesForPawn<mine>(board, moveList);
+    moveList = getCapturesForKnight<mine>(board, moveList);
+    moveList = getCapturesForBishopQueen<mine>(board, moveList);
+    moveList = getCapturesForRookQueen<mine>(board, moveList);
+    moveList = getCapturesForKing<mine>(board, moveList);
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getCapturesForPawn(const Board &board, Move *moveList) noexcept {
+    const BB myPawns = board.getPieceBB<mine, Pawn>();
+    constexpr auto enemyColor = !mine;
+    const BB kingRank = rankBB(getRank(Square(myKingIdx)));
+    constexpr Direction up = mine == White ? North : South;
+    constexpr Direction uLeft = mine == White ? NorthWest : SouthWest;
+    constexpr Direction uRight = mine == White ? NorthEast : SouthEast;
+
+    const BB pinForPawnPush = pinMaskCross & kingRank;
+    const BB pinLeft = getSideDiag<enemyColor>(myKingIdx) & pinMaskDiagonal;
+    const BB pinRight = getSideDiag<mine>(myKingIdx) & pinMaskDiagonal;
+
+    constexpr auto rank7 = mine == White ? rankBB(Rank7) : rankBB(Rank2);
+    const BB myPawnOn7 = myPawns & rank7;
+    const BB myPawnNotOn7 = myPawns & ~rank7;
+    BB myPushablePawnOn7 = myPawnOn7 & ~pinMaskDiagonal;
+    BB myAttackablePawnOn7 = myPawnOn7 & ~pinMaskCross;
+    BB myAttackablePawnNotOn7 = myPawnNotOn7 & ~pinMaskCross;
+
+    const BB pawnPushTarget = notOcc & checkMask;
+    const BB pawnAttackTarget = enemies & checkMask;
+
+    // Promotion bằng push (không bắt quân nhưng thay đổi material lớn)
+    {
+        BB p1 = shift<up>(myPushablePawnOn7 & ~pinForPawnPush) & pawnPushTarget;
+        while (p1) {
+            const int to = popLsb(p1);
+            *moveList++ = Move(to - up, to, Move::Promotion, Queen);
+        }
+    }
+    // Capture-promotion
+    {
+        BB pl = shift<uLeft>(myAttackablePawnOn7 & ~pinLeft) & pawnAttackTarget;
+        BB pr = shift<uRight>(myAttackablePawnOn7 & ~pinRight) & pawnAttackTarget;
+        while (pl) {
+            const int to = popLsb(pl);
+            *moveList++ = Move(to - uLeft, to, Move::CapturePromotion, Queen);
+        }
+        while (pr) {
+            const int to = popLsb(pr);
+            *moveList++ = Move(to - uRight, to, Move::CapturePromotion, Queen);
+        }
+    }
+    // Captures (không promotion)
+    {
+        BB pl = shift<uLeft>(myAttackablePawnNotOn7 & ~pinLeft) & pawnAttackTarget;
+        BB pr = shift<uRight>(myAttackablePawnNotOn7 & ~pinRight) & pawnAttackTarget;
+        while (pl) {
+            const int to = popLsb(pl);
+            *moveList++ = Move(to - uLeft, to, Move::Capture);
+        }
+        while (pr) {
+            const int to = popLsb(pr);
+            *moveList++ = Move(to - uRight, to, Move::Capture);
+        }
+        // En passant
+        constexpr BB enPassantRankBB = mine == White ? rankBB(Rank5) : rankBB(Rank4);
+        const BB enPassantBB = indexToBB(board.state->enPassant);
+        if (board.state->enPassant != SquareNone
+                && (pinMaskDiagonal & enPassantBB) == 0) {
+            BB pawnCanAttackEP = myAttackablePawnNotOn7
+                    & enPassantRankBB
+                    & ~pinMaskDiagonal
+                    & ((enPassantBB << 1) | (enPassantBB >> 1));
+            while (pawnCanAttackEP) {
+                const int index = popLsb(pawnCanAttackEP);
+                const BB from = indexToBB(index);
+                const BB occWithout2Pawn = occ & ~(enPassantBB | from);
+                BB rookQueenInRanks = attack::getRookAttacks(myKingIdx, occWithout2Pawn) & _enemyRookQueens & kingRank;
+                if (!rookQueenInRanks) {
+                    *moveList++ = Move(index, board.state->enPassantTarget<mine>(), Move::Enpassant);
+                }
+            }
+        }
+    }
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getCapturesForKnight(const Board &board, Move *moveList) noexcept {
+    BB myKnights = board.getPieceBB<mine, Knight>() & ~(pinMaskCross | pinMaskDiagonal);
+    while (myKnights) {
+        const int i = popLsb(myKnights);
+        BB attackToEnemies = attack::knights[i] & targetForHeavyPiece & enemies;
+        while (attackToEnemies) {
+            *moveList++ = Move(i, popLsb(attackToEnemies), Move::Capture);
+        }
+    }
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getCapturesForBishopQueen(const Board &board, Move *moveList) noexcept {
+    BB myBishopQueens = board.getPieceBB<mine, Bishop, Queen>() & ~pinMaskCross;
+    while (myBishopQueens) {
+        const int i = popLsb(myBishopQueens);
+        const BB from = indexToBB(i);
+        BB attack = attack::getBishopAttacks(i, occ) & targetForHeavyPiece
+                & (~setAllBit(pinMaskDiagonal & from) | pinMaskDiagonal);
+        BB attackToEnemies = attack & enemies;
+        while (attackToEnemies) {
+            *moveList++ = Move(i, popLsb(attackToEnemies), Move::Capture);
+        }
+    }
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getCapturesForRookQueen(const Board &board, Move *moveList) noexcept {
+    BB myRookQueens = board.getPieceBB<mine, Rook, Queen>() & ~pinMaskDiagonal;
+    while (myRookQueens) {
+        int i = popLsb(myRookQueens);
+        BB from = indexToBB(i);
+        BB attack = attack::getRookAttacks(i, occ) & targetForHeavyPiece
+                & (~setAllBit(pinMaskCross & from) | pinMaskCross);
+        BB attackToEnemies = attack & enemies;
+        while (attackToEnemies) {
+            *moveList++ = Move(i, popLsb(attackToEnemies), Move::Capture);
+        }
+    }
+    return moveList;
+}
+
+template<Color mine>
+Move *MoveGen::getCapturesForKing([[maybe_unused]] const Board &board, Move *moveList) noexcept {
+    BB attackToEnemies = attack::kings[myKingIdx] & enemies & ~kingBan;
+    while (attackToEnemies) {
+        *moveList++ = Move(myKingIdx, popLsb(attackToEnemies), Move::Capture);
+    }
+    return moveList;
+}
+
 std::vector<Move> MoveGen::getMoveListForSquare(const Board &board, Square square){
     Move moves[256];
     int count = genMoveList(board, moves);
