@@ -31,6 +31,15 @@
 // Bật/tắt Iterative Deepening (1 = bật, 0 = tắt)
 #define ENABLE_ID 1
 
+// Bật/tắt Aspiration Windows (1 = bật, 0 = tắt) — yêu cầu ENABLE_ID = 1
+#define ENABLE_ASPIRATION 1
+#define ASPIRATION_WINDOW 50    // Kích thước cửa sổ ban đầu (centipawns)
+#define ASPIRATION_MIN_DEPTH 4  // Chỉ dùng aspiration từ depth này trở lên
+
+// Bật/tắt Futility Pruning (1 = bật, 0 = tắt)
+#define ENABLE_FUTILITY 0
+#define FUTILITY_MARGIN 300     // Margin cho depth 1 (~3 tốt)
+
 
 /**
  * @brief Sinh số ngẫu nhiên trong khoảng [min, max]
@@ -51,7 +60,7 @@ using namespace kc;
  * @brief Constructor của Engine - khởi tạo độ sâu tìm kiếm mặc định
  */
 Engine::Engine(){
-    fixedDepth = 8;
+    fixedDepth = 10;
 }
 
 /**
@@ -76,14 +85,59 @@ Move kc::Engine::calc(const Board &chessBoard) {
 #if ENABLE_ID
     // Iterative Deepening: tìm từ depth 1 → fixedDepth
     // TT tự động lưu best move từ depth trước → move ordering tốt hơn
+    bestValue = 0;
     for (int d = 1; d <= fixedDepth; d++) {
         countBestMove = 0;
-        // Không clear killers/history giữa các iteration — chúng vẫn hữu ích
+
+#if ENABLE_ASPIRATION
+        // Aspiration Windows: dùng score từ depth trước để thu hẹp cửa sổ
+        if (d >= ASPIRATION_MIN_DEPTH) {
+            int alpha = bestValue - ASPIRATION_WINDOW;
+            int beta  = bestValue + ASPIRATION_WINDOW;
+            int delta = ASPIRATION_WINDOW;
+
+            while (true) {
+                if (board.side == White){
+                    bestValue = negamax<White, true>(board, d, alpha, beta);
+                } else {
+                    bestValue = negamax<Black, true>(board, d, alpha, beta);
+                }
+
+                // Nếu score nằm trong cửa sổ → xong
+                if (bestValue > alpha && bestValue < beta) break;
+
+                // Fail-low: score < alpha → mở rộng alpha
+                if (bestValue <= alpha) {
+                    alpha = std::max(bestValue - delta, -Infinity);
+                }
+                // Fail-high: score >= beta → mở rộng beta
+                if (bestValue >= beta) {
+                    beta = std::min(bestValue + delta, Infinity);
+                }
+
+                delta *= 2;  // Mở rộng gấp đôi mỗi lần fail
+
+                // Nếu cửa sổ đã quá rộng → full window search
+                if (alpha <= -Infinity && beta >= Infinity) break;
+
+                countBestMove = 0;  // Reset best moves cho lần search lại
+            }
+        } else {
+            // Depth thấp: full window search (chưa có score tham chiếu đáng tin cậy)
+            if (board.side == White){
+                bestValue = negamax<White, true>(board, d, -Infinity, Infinity);
+            } else {
+                bestValue = negamax<Black, true>(board, d, -Infinity, Infinity);
+            }
+        }
+#else
+        // Không dùng aspiration: full window search
         if (board.side == White){
             bestValue = negamax<White, true>(board, d, -Infinity, Infinity);
         } else {
             bestValue = negamax<Black, true>(board, d, -Infinity, Infinity);
         }
+#endif
     }
 #else
     // Gọi negamax trực tiếp ở fixedDepth
@@ -206,6 +260,15 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta, bool allowNull
         }
     }
 
+#if ENABLE_FUTILITY
+    // Futility Pruning: chỉ áp dụng ở depth 1, skip quiet moves khi thua quá nhiều
+    bool canFutility = false;
+    if (!isRoot && !inCheck && depth == 1) {
+        int staticEval = color ? -eval::estimateFast(board) : eval::estimateFast(board);
+        canFutility = (staticEval + FUTILITY_MARGIN <= alpha);
+    }
+#endif
+
     int bestValue = -Infinity;
     Move bestMove;
     BoardState state;
@@ -218,6 +281,17 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta, bool allowNull
                 std::swap(movePtr[i], movePtr[j]);
         }
         auto move = movePtr[i];
+
+#if ENABLE_FUTILITY
+        // Futility Pruning: skip quiet moves khi eval + margin < alpha
+        // Không skip: nước đầu tiên, captures, promotions, killers
+        if (canFutility && i > 0
+            && !move.is<Move::Capture>() && !move.is<Move::Promotion>()
+            && move.raw() != killer0 && move.raw() != killer1) {
+            continue;
+        }
+#endif
+
         board.doMove(move, state);
 
         int score;

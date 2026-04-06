@@ -154,6 +154,24 @@ const int gamephaseInc[Piece_NB] = {
 extern int MG_Table[Piece_NB][Square_NB];
 extern int EG_Table[Piece_NB][Square_NB];
 
+// ── Passed Pawn bonus theo rank (rank 0,1 = 0 vì tốt không ở đó) ──
+// Bonus tăng dần khi tốt tiến gần hàng phong cấp
+constexpr int PassedPawnBonus_MG[Rank_NB] = { 0, 0,  5, 10, 20, 35, 60, 0 };
+constexpr int PassedPawnBonus_EG[Rank_NB] = { 0, 0, 10, 20, 40, 70,120, 0 };
+
+// ── Bishop Pair bonus ──
+constexpr int BishopPairBonus_MG = 30;
+constexpr int BishopPairBonus_EG = 50;
+
+// ── King Safety ──
+// Penalty phi tuyến theo số attacker
+// Index = số quân tấn công vào king zone, value dùng để scale weight
+constexpr int KingSafetyTable[9] = { 0, 0, 40, 75, 115, 150, 175, 190, 200 };
+// Trọng số attacker theo loại quân
+constexpr int KingAttackWeight[PieceType_NB] = { 0, 0, 10, 10, 20, 40, 0 };
+
+// Mask cho passed pawn detection (precomputed)
+extern BB PassedPawnMask[Color_NB][Square_NB];
 
 void init();
 
@@ -164,6 +182,12 @@ int estimateFast(const Board &board);
 
 int getMaterial(const Board &board);
 
+// Eval helpers
+template<Color color>
+int evalPassedPawns(const Board &board);
+
+template<Color color>
+int evalKingSafety(const Board &board);
 
 }
 }
