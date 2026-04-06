@@ -4,10 +4,32 @@
 #include <random>
 #include "util.h"
 #include <array>
+#include <cstring>
 #include "QDateTime"
 
 // Bật/tắt Quiescence Search để so sánh (1 = bật, 0 = tắt)
 #define ENABLE_QUIESCENCE 1
+
+// Bật/tắt Transposition Table (1 = bật, 0 = tắt)
+#define ENABLE_TT 1
+
+// Bật/tắt Random Move Selection khi có nhiều nước cùng điểm (1 = ngẫu nhiên, 0 = chọn nước đầu tiên)
+#define ENABLE_RANDOM_BEST 1
+
+// Bật/tắt Null Move Pruning (1 = bật, 0 = tắt)
+#define ENABLE_NULL_MOVE 1
+#define NULL_MOVE_R 2  // Depth reduction
+
+// Bật/tắt Late Move Reduction (1 = bật, 0 = tắt)
+#define ENABLE_LMR 1
+#define LMR_FULL_MOVES 4   // Số nước đầu tìm đầy đủ
+#define LMR_MIN_DEPTH 4    // Depth tối thiểu để áp dụng LMR
+
+// Bật/tắt Principal Variation Search (1 = bật, 0 = tắt)
+#define ENABLE_PVS 1
+
+// Bật/tắt Iterative Deepening (1 = bật, 0 = tắt)
+#define ENABLE_ID 1
 
 
 /**
@@ -29,7 +51,7 @@ using namespace kc;
  * @brief Constructor của Engine - khởi tạo độ sâu tìm kiếm mặc định
  */
 Engine::Engine(){
-    fixedDepth = 4;
+    fixedDepth = 8;
 }
 
 /**
@@ -40,19 +62,44 @@ Engine::Engine(){
 Move kc::Engine::calc(const Board &chessBoard) {
     countBestMove = 0;
     Board board = chessBoard;
+    board.initHash();
     int bestValue;
 
-    // Gọi negamax tùy theo màu quân đang đi
+#if ENABLE_TT
+    tt.clear();
+#endif
+
+    // Clear killer moves & history
+    std::memset(killers, 0, sizeof(killers));
+    std::memset(history, 0, sizeof(history));
+
+#if ENABLE_ID
+    // Iterative Deepening: tìm từ depth 1 → fixedDepth
+    // TT tự động lưu best move từ depth trước → move ordering tốt hơn
+    for (int d = 1; d <= fixedDepth; d++) {
+        countBestMove = 0;
+        // Không clear killers/history giữa các iteration — chúng vẫn hữu ích
+        if (board.side == White){
+            bestValue = negamax<White, true>(board, d, -Infinity, Infinity);
+        } else {
+            bestValue = negamax<Black, true>(board, d, -Infinity, Infinity);
+        }
+    }
+#else
+    // Gọi negamax trực tiếp ở fixedDepth
     if (board.side == White){
         bestValue = negamax<White, true>(board, fixedDepth, -Infinity, Infinity);
     } else {
         bestValue = negamax<Black, true>(board, fixedDepth, -Infinity, Infinity);
     }
+#endif
 
-    // Chọn ngẫu nhiên một nước đi trong số các nước đi tốt nhất
+#if ENABLE_RANDOM_BEST
     int r = getRand(0, countBestMove - 1);
-    Move move = bestMoves[r];
-    return move;
+    return bestMoves[r];
+#else
+    return bestMoves[0];
+#endif
 }
 
 /**
@@ -66,17 +113,12 @@ Move kc::Engine::calc(const Board &chessBoard) {
  * @return Điểm đánh giá tốt nhất cho vị thế hiện tại
  */
 template <Color color, bool isRoot>
-int Engine::negamax(Board &board, int depth, int alpha, int beta){
+int Engine::negamax(Board &board, int depth, int alpha, int beta, bool allowNull){
 
-    // Kiểm tra chiếu và chiếu hết
-    if (board.anyCheck()) {
-        if (board.isMate()){
-            return color ? -ScoreMate : ScoreMate;
-        }
-    }
+    bool inCheck = board.anyCheck();
 
     // Điều kiện dừng: hết độ sâu tìm kiếm
-    if (depth == 0) {
+    if (depth <= 0 && !inCheck) {
 #if ENABLE_QUIESCENCE
         return quiescence<color>(board, alpha, beta);
 #else
@@ -84,45 +126,144 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
 #endif
     }
 
+#if ENABLE_TT
+    // === TT Probe ===
+    int origAlpha = alpha;
+    u64 hash = board.hash;
+    TTEntry ttEntry;
+    u16 ttMoveRaw = 0;
+
+    if (!isRoot && tt.probe(hash, ttEntry)) {
+        if (ttEntry.depth >= depth) {
+            int ttScore = ttEntry.score;
+            if (ttEntry.flag == TT_EXACT) {
+                return ttScore;
+            } else if (ttEntry.flag == TT_LOWER_BOUND) {
+                if (ttScore > alpha) alpha = ttScore;
+            } else if (ttEntry.flag == TT_UPPER_BOUND) {
+                if (ttScore < beta) beta = ttScore;
+            }
+            if (alpha >= beta) {
+                return ttScore;
+            }
+        }
+        // Lấy best move từ TT để ưu tiên trong move ordering
+        ttMoveRaw = ttEntry.bestMove;
+    }
+#endif
+
+#if ENABLE_NULL_MOVE
+    // === Null Move Pruning ===
+    if (!isRoot && allowNull && !inCheck && depth >= (1 + NULL_MOVE_R)) {
+        BB myPieces = board.colors[color];
+        BB bigPieces = myPieces & (board.types[Knight] | board.types[Bishop]
+                                  | board.types[Rook] | board.types[Queen]);
+        if (bigPieces) {
+            BoardState nullState;
+            board.doNullMove(nullState);
+            int nullScore = -negamax<!color, false>(board, depth - 1 - NULL_MOVE_R, -beta, -beta + 1, false);
+            board.undoNullMove();
+
+            if (nullScore >= beta && nullScore > -ScoreMate + MaxPly && nullScore < ScoreMate - MaxPly) {
+                return nullScore;
+            }
+        }
+    }
+#endif
+
     // Sinh tất cả nước đi hợp lệ
     auto movePtr = buff[depth];
     int count = MoveGen::instance->genMoveList(board, movePtr);
 
-    // Sắp xếp nước đi: capture moves trước, sau đó theo giá trị
-    std::sort(movePtr, movePtr + count, [=](Move m1, Move m2){
-        if (m1.is<Move::Capture>() && !m2.is<Move::Capture>()){
-            return true;
-        } else if (!m1.is<Move::Capture>() && m2.is<Move::Capture>()){
-            return false;
+    // Không còn nước đi: chiếu hết hoặc hòa (stalemate)
+    if (count == 0) {
+        return inCheck ? -ScoreMate : 0;
+    }
+
+    // Gán điểm move ordering: TT move > Captures(MVV-LVA) > Killers > History > Quiet
+    static constexpr int mvvlva[PieceType_NB] = { 0, 100, 320, 330, 500, 900, 0 };
+    u16 killer0 = (depth < MaxPly) ? killers[depth][0].raw() : 0;
+    u16 killer1 = (depth < MaxPly) ? killers[depth][1].raw() : 0;
+    for (int i = 0; i < count; i++) {
+        auto &m = movePtr[i];
+#if ENABLE_TT
+        if (m.raw() == ttMoveRaw && ttMoveRaw != 0) { m.val = 30000; continue; }
+#endif
+        if (m.is<Move::Capture>()) {
+            // MVV-LVA: giá trị quân bị bắt - giá trị quân tấn công / 100
+            Piece captured = board.pieces[m.dst()];
+            PieceType capturedType = (captured != PieceNone) ? pieceToType(captured) : PieceTypeNone;
+            PieceType attackerType = pieceToType(board.pieces[m.src()]);
+            m.val = 10000 + mvvlva[capturedType] * 10 - mvvlva[attackerType];
+        } else if (m.raw() == killer0 && killer0 != 0) {
+            m.val = 9000;
+        } else if (m.raw() == killer1 && killer1 != 0) {
+            m.val = 8999;
+        } else {
+            // History heuristic: quiet moves hay gây cutoff được ưu tiên
+            Piece pc = board.pieces[m.src()];
+            m.val = history[pc][m.dst()];
         }
-        return m1.val > m2.val;
-    });
+    }
 
     int bestValue = -Infinity;
+    Move bestMove;
     BoardState state;
 
-    // Duyệt qua tất cả nước đi
+    // Duyệt qua tất cả nước đi (pick-best: chỉ đưa nước tốt nhất lên, không sort hết)
     for (int i = 0; i < count; i++){
+        // Tìm nước có val cao nhất từ [i..count) và swap lên vị trí i
+        for (int j = i + 1; j < count; j++) {
+            if (movePtr[j].val > movePtr[i].val)
+                std::swap(movePtr[i], movePtr[j]);
+        }
         auto move = movePtr[i];
-        // Thực hiện nước đi
         board.doMove(move, state);
-        int score = -negamax<!color, false>(board, depth - 1, -beta, -alpha);
+
+        int score;
+#if ENABLE_PVS
+        // PVS: nước đầu tiên tìm full window, các nước sau tìm zero-window trước
+        // Không áp dụng PVS ở root (cần score chính xác cho mọi nước)
+        if (isRoot || i == 0) {
+            score = -negamax<!color, false>(board, depth - 1, -beta, -alpha);
+        } else {
+#if ENABLE_LMR
+            int newDepth = depth - 1;
+            // LMR: giảm depth cho nước quiet muộn
+            if (i >= LMR_FULL_MOVES && depth >= LMR_MIN_DEPTH && !inCheck
+                && !move.is<Move::Capture>() && !move.is<Move::Promotion>()
+                && move.raw() != killer0 && move.raw() != killer1) {
+                newDepth -= 1;
+            }
+            // Zero-window search
+            score = -negamax<!color, false>(board, newDepth, -alpha - 1, -alpha);
+#else
+            // Zero-window search
+            score = -negamax<!color, false>(board, depth - 1, -alpha - 1, -alpha);
+#endif
+            // Re-search full window nếu fail high
+            if (score > alpha && score < beta) {
+                score = -negamax<!color, false>(board, depth - 1, -beta, -alpha);
+            }
+        }
+#else
+        score = -negamax<!color, false>(board, depth - 1, -beta, -alpha);
+#endif
         move.val = score;
         board.undoMove(move);
 
         // Cập nhật nước đi tốt nhất
-        if (score >= bestValue){
+        if (score > bestValue || (score == bestValue && bestValue == -Infinity)){
             if constexpr (isRoot){
                 if (score > bestValue){
-                    // Reset toàn bộ biến đếm các nước đi tốt nhất, trong trường hợp tìm thấy điểm cao hơn
                     countBestMove = 0;
                 }
                 bestMoves[countBestMove++] = move;
             }
             bestValue = score;
+            bestMove = move;
 
             if constexpr (isRoot){
-                // Ngừng tìm kiếm nếu thấy chiếu hết
                 if (score > 30000){
                     break;
                 }
@@ -132,9 +273,33 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta){
         // Alpha-beta pruning
         alpha = std::max(alpha, score);
         if (alpha > beta) {
+            // Lưu killer move + history (chỉ quiet moves)
+            if (!move.is<Move::Capture>() && depth < MaxPly) {
+                // Killer moves
+                if (killers[depth][0].raw() != move.raw()) {
+                    killers[depth][1] = killers[depth][0];
+                    killers[depth][0] = move;
+                }
+                // History heuristic: tăng theo depth² (nước cắt ở depth cao quan trọng hơn)
+                Piece pc = board.pieces[move.src()];
+                history[pc][move.dst()] += depth * depth;
+            }
             break;
         }
     }
+
+#if ENABLE_TT
+    // === TT Store ===
+    TTFlag flag;
+    if (bestValue <= origAlpha) {
+        flag = TT_UPPER_BOUND;
+    } else if (bestValue >= beta) {
+        flag = TT_LOWER_BOUND;
+    } else {
+        flag = TT_EXACT;
+    }
+    tt.store(hash, bestValue, depth, flag, bestMove);
+#endif
 
     return bestValue;
 
@@ -150,9 +315,12 @@ int Engine::quiescence(Board &board, int alpha, int beta, int qdepth) {
     // Đánh giá tĩnh (stand-pat): chỉ material + PST, bỏ mobility cho nhanh
     int standPat = color ? -eval::estimateFast(board) : eval::estimateFast(board);
 
+    // Fail-soft: theo dõi giá trị tốt nhất thực sự
+    int bestValue = standPat;
+
     // Nếu stand-pat đã >= beta → cắt tỉa (vị thế đã quá tốt)
     if (standPat >= beta) {
-        return beta;
+        return standPat; // fail-soft: trả giá trị thực, không phải beta
     }
 
     // Cập nhật alpha nếu stand-pat tốt hơn
@@ -168,11 +336,27 @@ int Engine::quiescence(Board &board, int alpha, int beta, int qdepth) {
     // Kiểm tra chiếu hết
     if (board.anyCheck()) {
         if (board.isMate()) {
-            return color ? -ScoreMate : ScoreMate;
+            return -ScoreMate;
         }
+        // Khi bị chiếu: sinh TẤT CẢ nước đi (không chỉ bắt quân)
+        auto movePtr = qbuff[qdepth];
+        int count = MoveGen::instance->genMoveList(board, movePtr);
+
+        bestValue = -Infinity;
+        BoardState state;
+        for (int i = 0; i < count; i++) {
+            auto move = movePtr[i];
+            board.doMove(move, state);
+            int score = -quiescence<!color>(board, -beta, -alpha, qdepth + 1);
+            board.undoMove(move);
+            if (score > bestValue) bestValue = score;
+            if (score >= beta) return score; // fail-soft
+            if (score > alpha) alpha = score;
+        }
+        return bestValue;
     }
 
-    // Sinh CHỈ nước bắt quân + promotion (dùng buffer pre-allocated)
+    // Sinh CHỈ nước bắt quân + promotion
     auto movePtr = qbuff[qdepth];
     int count = MoveGen::instance->genCaptureMoveList(board, movePtr);
 
@@ -204,13 +388,14 @@ int Engine::quiescence(Board &board, int alpha, int beta, int qdepth) {
         int score = -quiescence<!color>(board, -beta, -alpha, qdepth + 1);
         board.undoMove(move);
 
+        if (score > bestValue) bestValue = score;
         if (score >= beta) {
-            return beta;
+            return score; // fail-soft: trả giá trị thực
         }
         if (score > alpha) {
             alpha = score;
         }
     }
 
-    return alpha;
+    return bestValue;
 }

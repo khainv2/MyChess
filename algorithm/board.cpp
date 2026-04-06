@@ -1,4 +1,5 @@
 #include "board.h"
+#include "tt.h"
 #include <math.h>
 #include "util.h"
 #include "evaluation.h"
@@ -8,6 +9,21 @@
 using namespace kc;
 
 Board::Board() noexcept {
+}
+
+void Board::initHash() noexcept {
+    hash = 0;
+    for (int sq = 0; sq < 64; sq++) {
+        if (pieces[sq] != PieceNone)
+            hash ^= zobrist::pieces[pieces[sq]][sq];
+    }
+    if (side == Black)
+        hash ^= zobrist::side;
+    if (state) {
+        hash ^= zobrist::castling[state->castlingRights & 0xF];
+        if (state->enPassant != SquareNone)
+            hash ^= zobrist::enPassant[state->enPassant];
+    }
 }
 
 Board::~Board() noexcept {
@@ -40,10 +56,42 @@ BB Board::getSqAttackTo(int sq, BB occ) const noexcept {
             ;
 }
 
+void kc::Board::doNullMove(BoardState &newState) noexcept {
+    // Xóa en passant cũ khỏi hash
+    if (state->enPassant != SquareNone)
+        hash ^= zobrist::enPassant[state->enPassant];
+
+    newState.castlingRights = state->castlingRights;
+    newState.enPassant = SquareNone;
+    newState.halfMoveClock = state->halfMoveClock;
+    newState.capturedPiece = PieceNone;
+    newState.previous = state;
+    state = &newState;
+
+    hash ^= zobrist::side;
+    side = !side;
+    refresh();
+}
+
+void kc::Board::undoNullMove() noexcept {
+    hash ^= zobrist::side;
+    // Khôi phục en passant cũ
+    if (state->previous->enPassant != SquareNone)
+        hash ^= zobrist::enPassant[state->previous->enPassant];
+
+    state = state->previous;
+    side = !side;
+}
+
 int kc::Board::doMove(Move move, BoardState &newState) noexcept {
     newState.castlingRights = state->castlingRights;
     newState.enPassant = state->enPassant;
     newState.halfMoveClock = state->halfMoveClock;
+
+    // Xóa castling & en passant cũ khỏi hash
+    hash ^= zobrist::castling[state->castlingRights & 0xF];
+    if (state->enPassant != SquareNone)
+        hash ^= zobrist::enPassant[state->enPassant];
 
     newState.previous = state;
     state = &newState;
@@ -69,15 +117,19 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
         auto dstType = pieceToType(pieceDst);
         colors[dstColor] &= ~dstBB;
         types[dstType] &= ~dstBB;
+        // Xóa quân bị bắt khỏi hash
+        hash ^= zobrist::pieces[pieceDst][dst];
         if (dstColor == White){
-//            material += dstType *
         } else {
-
         }
     }
 
     colors[srcColor] ^= toggleBB;
     types[srcType] ^= toggleBB;
+
+    // Cập nhật hash: xóa quân ở src, thêm quân ở dst
+    hash ^= zobrist::pieces[pieceSrc][src];
+    hash ^= zobrist::pieces[pieceSrc][dst];
 
     // Di chuyển ô
     pieces[dst] = pieceSrc;
@@ -95,10 +147,17 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
         BB enemyPawnBB = indexToBB(enemyPawn);
         colors[enemyColor] &= ~enemyPawnBB;
         types[Pawn] &= ~enemyPawnBB;
+        // Xóa tốt bị bắt en passant khỏi hash
+        Piece epPiece = makePiece(enemyColor, Pawn);
+        hash ^= zobrist::pieces[epPiece][enemyPawn];
         pieces[enemyPawn] = PieceNone;
     } else if (move.is<Move::Promotion>()){
         auto promotionPiece = move.getPromotionPieceType();
-        pieces[dst] = makePiece(srcColor, PieceType(promotionPiece));
+        Piece newPiece = makePiece(srcColor, PieceType(promotionPiece));
+        // Hash: xóa pawn ở dst (đã thêm ở trên), thêm quân mới
+        hash ^= zobrist::pieces[pieceSrc][dst];
+        hash ^= zobrist::pieces[newPiece][dst];
+        pieces[dst] = newPiece;
         types[srcType] &= ~dstBB;
         types[promotionPiece] ^= dstBB;
     }
@@ -113,12 +172,17 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
 
     // Cập nhật trạng thái tốt qua đường
     int enPassantCondition = srcType == Pawn && abs(src - dst) == 16;
-
     state->enPassant = Square(setAllBit32(enPassantCondition) & dst);
 
     state->halfMoveClock = (srcType == Pawn || pieceDst != PieceNone) ? 0 : state->halfMoveClock + 1;
 
-    // Chuyển màu
+    // Thêm castling & en passant mới vào hash
+    hash ^= zobrist::castling[state->castlingRights & 0xF];
+    if (state->enPassant != SquareNone)
+        hash ^= zobrist::enPassant[state->enPassant];
+
+    // Đổi bên
+    hash ^= zobrist::side;
     side = !side;
 
     refresh();
@@ -139,10 +203,30 @@ int Board::undoMove(Move move) noexcept
     const auto dstBB = indexToBB(dst);
     const auto toggleBB = srcBB | dstBB;
 
+    // Undo hash: xóa castling & en passant hiện tại
+    hash ^= zobrist::castling[state->castlingRights & 0xF];
+    if (state->enPassant != SquareNone)
+        hash ^= zobrist::enPassant[state->enPassant];
+    hash ^= zobrist::side;
+
+    // Undo hash: di chuyển quân ngược
+    hash ^= zobrist::pieces[pieceDst][dst];
+    // Nếu promotion, quân ở src là Pawn chứ không phải quân đã promote
+    if (move.is<Move::Promotion>()) {
+        Piece pawn = makePiece(dstColor, Pawn);
+        hash ^= zobrist::pieces[pawn][src];
+    } else {
+        hash ^= zobrist::pieces[pieceDst][src];
+    }
+
+    // Undo hash: khôi phục quân bị bắt
+    if (state->capturedPiece != PieceNone)
+        hash ^= zobrist::pieces[state->capturedPiece][dst];
+
     colors[dstColor] ^= toggleBB;
     types[dstType] ^= toggleBB;
     pieces[src] = pieceDst;
-    
+
     pieces[dst] = state->capturedPiece;
     if (state->capturedPiece != PieceNone){
         auto dstColor = pieceToColor(state->capturedPiece);
@@ -162,7 +246,9 @@ int Board::undoMove(Move move) noexcept
         BB enemyPawnBB = indexToBB(enemyPawn);
         colors[!dstColor] |= enemyPawnBB;
         types[Pawn] |= enemyPawnBB;
-        pieces[enemyPawn] = makePiece(!dstColor, Pawn);
+        Piece epPiece = makePiece(!dstColor, Pawn);
+        pieces[enemyPawn] = epPiece;
+        hash ^= zobrist::pieces[epPiece][enemyPawn];
     } else if (move.is<Move::Promotion>()){
         pieces[src] = makePiece(dstColor, Pawn);
         types[dstType] ^= srcBB;
@@ -171,7 +257,12 @@ int Board::undoMove(Move move) noexcept
 
     state = state->previous;
     side = !side;
-//    refresh();
+
+    // Khôi phục castling & en passant cũ vào hash
+    hash ^= zobrist::castling[state->castlingRights & 0xF];
+    if (state->enPassant != SquareNone)
+        hash ^= zobrist::enPassant[state->enPassant];
+
     return 0;
 }
 
@@ -257,10 +348,13 @@ void Board::checkAndDoMoveCastling(int dst) noexcept
         constexpr auto static rookSrc = getCastlingIndex<c, Rook, true>();
         constexpr auto static rookDst = getCastlingIndex<c, Rook, false>();
         constexpr auto static color = castlingRightToColor<c>();
+        constexpr auto static rookPiece = makePiece<color, Rook>();
         colors[color] ^= toggle;
         types[Rook] ^= toggle;
         pieces[rookSrc] = PieceNone;
-        pieces[rookDst] = makePiece<color, Rook>();
+        pieces[rookDst] = rookPiece;
+        hash ^= zobrist::pieces[rookPiece][rookSrc];
+        hash ^= zobrist::pieces[rookPiece][rookDst];
     }
 }
 
@@ -273,9 +367,12 @@ void Board::checkAndUndoMoveCastling(int dst) noexcept
         constexpr static auto rookSrc = getCastlingIndex<c, Rook, true>();
         constexpr static auto rookDst = getCastlingIndex<c, Rook, false>();
         constexpr auto static color = castlingRightToColor<c>();
+        constexpr auto static rookPiece = makePiece<color, Rook>();
         colors[color] ^= toggle;
         types[Rook] ^= toggle;
-        pieces[rookSrc] = makePiece<color, Rook>();
+        pieces[rookSrc] = rookPiece;
         pieces[rookDst] = PieceNone;
+        hash ^= zobrist::pieces[rookPiece][rookSrc];
+        hash ^= zobrist::pieces[rookPiece][rookDst];
     }
 }
