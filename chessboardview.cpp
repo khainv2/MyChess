@@ -8,6 +8,7 @@
 #include <algorithm/evaluation.h>
 #include <algorithm/perft.h>
 #include <algorithm>
+#include <cmath>
 
 using namespace kc;
 ChessBoardView::ChessBoardView(QWidget *parent) : QWidget(parent)

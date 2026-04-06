@@ -425,6 +425,11 @@ struct Move {
     constexpr inline PieceType getPromotionPieceType() const noexcept { return PieceType(((move >> 12) & 0x03) + 2); }
 
     std::string getDescription() const noexcept ;
+
+    // Accessor cho packed move data (dùng cho TT)
+    constexpr inline u16 raw() const noexcept { return move; }
+    static constexpr inline Move fromRaw(u16 raw) { Move m; m.move = raw; return m; }
+
 private:
     u16 move;  // Encoding: src(6 bits) + dst(6 bits) + flag(4 bits)
 public:

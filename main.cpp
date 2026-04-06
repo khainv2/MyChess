@@ -10,6 +10,7 @@
 #include <algorithm/util.h>
 #include <algorithm/perft.h>
 #include <algorithm/evaluation.h>
+#include <algorithm/tt.h>
 
 #include "logger.h"
 #include <QElapsedTimer>
@@ -37,6 +38,7 @@ int main(int argc, char *argv[])
     attack::init();
     MoveGen::init();
     eval::init();
+    kc::zobrist::init();
 
 //    Perft::testPerft();
 

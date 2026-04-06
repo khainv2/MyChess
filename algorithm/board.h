@@ -44,6 +44,7 @@ struct Board {
 
     Color side = White;
     BoardState *state = nullptr;
+    u64 hash = 0;  // Zobrist hash tăng dần
 
     Board() noexcept ;
     ~Board() noexcept ;
@@ -90,6 +91,11 @@ struct Board {
     bool isDraw() const noexcept;
 
     BB getSqAttackTo(int sq, BB occ) const noexcept ;
+
+    void initHash() noexcept;
+
+    void doNullMove(BoardState &newState) noexcept;
+    void undoNullMove() noexcept;
 
     int doMove(Move move, BoardState &state) noexcept ;
 
