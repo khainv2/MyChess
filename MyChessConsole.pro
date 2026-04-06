@@ -4,10 +4,16 @@ QT -= gui
 CONFIG += c++1z c++17 console
 CONFIG -= app_bundle
 
-QMAKE_CXXFLAGS += -std=c++17
-QMAKE_CXXFLAGS_RELEASE += -O3 -march=native -flto
-QMAKE_CFLAGS_RELEASE += -O3 -march=native -flto
-QMAKE_LFLAGS_RELEASE += -Wl,-O1 -Wl,--as-needed -Wl,--gc-sections -flto
+win32 {
+    QMAKE_CXXFLAGS += /std:c++17
+}
+
+unix {
+    QMAKE_CXXFLAGS += -std=c++17
+    QMAKE_CXXFLAGS_RELEASE += -O3 -march=native -flto
+    QMAKE_CFLAGS_RELEASE += -O3 -march=native -flto
+    QMAKE_LFLAGS_RELEASE += -Wl,-O1 -Wl,--as-needed -Wl,--gc-sections -flto
+}
 
 SOURCES += \
     algorithm/attack.cpp \

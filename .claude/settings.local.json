@@ -22,7 +22,8 @@
       "Bash(\"g:/Projects/Stockfish/stockfish/stockfish-windows-x86-64-avx2.exe\")",
       "Bash(printf \"uci\\\\nisready\\\\nposition fen 2rr3k/pp3pp1/1nnqbN1p/3pN3/2pP4/2P3Q1/PPB4P/R4RK1 w - -\\\\ngo depth 10\\\\n\")",
       "Bash(printf \"uci\\\\nsetoption name Threads value 1\\\\nisready\\\\nposition fen 2rr3k/pp3pp1/1nnqbN1p/3pN3/2pP4/2P3Q1/PPB4P/R4RK1 w - -\\\\ngo depth 15\\\\n\")",
-      "Bash(python -c \"import chess; print\\(''python-chess:'', chess.__version__\\)\")"
+      "Bash(python -c \"import chess; print\\(''python-chess:'', chess.__version__\\)\")",
+      "Bash(G:ProjectsStockfishstockfishstockfish-windows-x86-64-avx2.exe)"
     ]
   }
 }
