@@ -35,15 +35,18 @@ bool Board::anyCheck() const noexcept
 }
 
 bool Board::isMate() const noexcept {
-//    int countMove = MoveGen::instance->countMoveList(*this);
+    // Dùng MoveGen local để tránh corrupt internal state của MoveGen::instance
+    // (isMate có thể được gọi giữa lúc negamax đang iterate moves)
+    MoveGen mg;
     return state->checkers
-            && MoveGen::instance->countMoveList(*this) == 0;
+            && mg.countMoveList(*this) == 0;
 }
 
 bool Board::isDraw() const noexcept
 {
+    MoveGen mg;
     return state->halfMoveClock >= 100
-            || (state->checkers == 0 && MoveGen::instance->countMoveList(*this) == 0);
+            || (state->checkers == 0 && mg.countMoveList(*this) == 0);
 }
 
 BB Board::getSqAttackTo(int sq, BB occ) const noexcept {

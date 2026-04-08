@@ -2,17 +2,17 @@
 setlocal EnableDelayedExpansion
 
 echo =====================================
-echo     MyChess Console Build Script
+echo     MyChess UCI Build Script
 echo =====================================
 echo.
 
 REM Setup environment variables
 set QT_PATH=C:\Qt\Qt5.12.12\5.12.12
 set PROJECT_DIR=%~dp0
-set BUILD_DIR=%PROJECT_DIR%_build_console
+set BUILD_DIR=%PROJECT_DIR%_build_uci
 
 REM Check Qt installation
-echo [1/6] Checking Qt installation...
+echo [1/5] Checking Qt installation...
 if not exist "%QT_PATH%" (
     echo ERROR: Qt not found at %QT_PATH%
     pause
@@ -20,7 +20,7 @@ if not exist "%QT_PATH%" (
 )
 
 REM Setup MSVC 2017 compiler
-echo [2/6] Setting up MSVC 2017 compiler...
+echo [2/5] Setting up MSVC 2017 compiler...
 if exist "%QT_PATH%\msvc2017_64" (
     set QT_BIN_PATH=%QT_PATH%\msvc2017_64\bin
     set MAKE_CMD=nmake
@@ -32,7 +32,7 @@ if exist "%QT_PATH%\msvc2017_64" (
 )
 
 REM Setup Visual Studio 2017 environment
-echo [2.1/6] Setting up Visual Studio 2017 environment...
+echo [2.1/5] Setting up Visual Studio 2017 environment...
 set VS2017_PATHS[0]="C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
 set VS2017_PATHS[1]="C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\VC\Auxiliary\Build\vcvars64.bat"
 set VS2017_PATHS[2]="C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
@@ -56,19 +56,19 @@ if !VCVARS_FOUND! == 0 (
 echo.
 
 REM Create build directory
-echo [3/6] Preparing build directory...
+echo [3/5] Preparing build directory...
 if not exist "%BUILD_DIR%" (
     mkdir "%BUILD_DIR%"
-    echo Created _build_console directory
+    echo Created _build_uci directory
 ) else (
-    echo _build_console directory already exists
+    echo _build_uci directory already exists
 )
 
 cd /d "%BUILD_DIR%"
 
 REM Run qmake
-echo [4/6] Creating Makefile with qmake...
-"%QT_BIN_PATH%\qmake.exe" "..\MyChessConsole.pro"
+echo [4/5] Creating Makefile with qmake...
+"%QT_BIN_PATH%\qmake.exe" "..\MyChessUCI.pro"
 if errorlevel 1 (
     echo ERROR: qmake failed
     pause
@@ -77,7 +77,7 @@ if errorlevel 1 (
 echo qmake successful!
 
 REM Build
-echo [5/6] Building...
+echo [5/5] Building...
 if /i "%~1"=="release" (
     echo Building Release...
     !MAKE_CMD! release
@@ -93,29 +93,8 @@ if errorlevel 1 (
     exit /b 1
 )
 echo.
-echo Build successful!
-
-REM Run
-echo [6/6] Running MyChessConsole...
 echo =====================================
-echo.
-
-REM Add Qt DLLs to PATH
-set PATH=!QT_BIN_PATH!;%PATH%
-
-REM Change back to project directory so relative paths work
-cd /d "%PROJECT_DIR%"
-
-set EXTRA_ARGS=
-if not "%~2"=="" (
-    set EXTRA_ARGS=%EXTRA_ARGS% --limit %~2
-)
-if not "%~3"=="" (
-    set EXTRA_ARGS=%EXTRA_ARGS% --start %~3
-)
-
-"%BUILD_DIR%\!EXE_DIR!\MyChessConsole.exe" --epd "tests\wac.epd" --time 5000 --threads 20 %EXTRA_ARGS%
-
-echo.
+echo Build successful!
+echo Binary: %BUILD_DIR%\!EXE_DIR!\MyChessUCI.exe
 echo =====================================
 pause

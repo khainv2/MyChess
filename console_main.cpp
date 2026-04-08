@@ -1,7 +1,9 @@
 /**
  * Console-only WAC test runner (no GUI).
  * Build with MyChessConsole.pro
- * Usage: ./MyChessConsole <epd_path> <csv_output_path> [--limit N]
+ * Usage: ./MyChessConsole [--limit N] [--time N] [--threads N] [--epd path] [--csv path]
+ *   --time N    : giới hạn N ms mỗi nước (mặc định: fixed depth 9)
+ *   --threads N : số thread chạy song song (mặc định: 1, tối đa 20)
  */
 #include <QCoreApplication>
 #include <QDebug>
@@ -9,6 +11,16 @@
 #include <QTextStream>
 #include <QElapsedTimer>
 #include <QRegularExpression>
+
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <vector>
+#include <algorithm>
+#include <memory>
+#include <functional>
+#include <process.h>
+#include <windows.h>
 
 #include "algorithm/attack.h"
 #include "algorithm/board.h"
@@ -126,6 +138,18 @@ static QVector<EpdEntry> parseEpd(const QString &path) {
     return entries;
 }
 
+// Kết quả cho mỗi bài test (pre-allocated, thread ghi vào slot riêng)
+struct TestResult {
+    QString gotUci;
+    QString pvStr;
+    QStringList expectedUciList;
+    int depth = 0;
+    int score = 0;
+    int pvCount = 0;
+    qint64 elapsedMs = 0;
+    bool ok = false;
+};
+
 // ── main ─────────────────────────────────────────────────────────────
 int main(int argc, char *argv[]) {
     QCoreApplication app(argc, argv);
@@ -133,19 +157,28 @@ int main(int argc, char *argv[]) {
     // Defaults
     QString epdPath = "tests/wac.epd";
     QString csvPath = "wac_console_results.csv";
-    int limit = 0;  // 0 = all
+    int limit = 0;          // 0 = all
+    int startFrom = 0;      // Bỏ qua N bài đầu
+    int timePerMove = 0;    // 0 = fixed depth, >0 = ms per move
+    int numThreads = 1;     // Số thread chạy song song
 
     QStringList args = app.arguments();
     for (int i = 1; i < args.size(); i++) {
         if (args[i] == "--limit" && i + 1 < args.size())
             limit = args[++i].toInt();
+        else if (args[i] == "--start" && i + 1 < args.size())
+            startFrom = args[++i].toInt();
+        else if (args[i] == "--time" && i + 1 < args.size())
+            timePerMove = args[++i].toInt();
+        else if (args[i] == "--threads" && i + 1 < args.size())
+            numThreads = qBound(1, args[++i].toInt(), 20);
         else if (args[i] == "--epd" && i + 1 < args.size())
             epdPath = args[++i];
         else if (args[i] == "--csv" && i + 1 < args.size())
             csvPath = args[++i];
     }
 
-    // Init engine
+    // Init engine (read-only globals, chỉ cần gọi 1 lần)
     attack::init();
     MoveGen::init();
     eval::init();
@@ -157,69 +190,187 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Áp dụng startFrom: bỏ N bài đầu
+    if (startFrom > 0 && startFrom < entries.size()) {
+        entries = entries.mid(startFrom);
+    }
+
     int total = (limit > 0 && limit < entries.size()) ? limit : entries.size();
 
+    // Pre-allocate kết quả (mỗi slot được ghi bởi đúng 1 thread, không cần lock)
+    std::vector<TestResult> results(total);
+
+    // Atomic counter làm work queue
+    std::atomic<int> nextTask{0};
+    // Đếm số bài hoàn thành (để in progress)
+    std::atomic<int> doneCount{0};
+    // Mutex chỉ dùng cho console output
+    std::mutex printMtx;
+
+    if (timePerMove > 0) {
+        qDebug().noquote() << QString("Running %1 WAC positions (time: %2ms/move, threads: %3)...")
+            .arg(total).arg(timePerMove).arg(numThreads);
+    } else {
+        qDebug().noquote() << QString("Running %1 WAC positions (fixed depth, threads: %2)...")
+            .arg(total).arg(numThreads);
+    }
+    qDebug().noquote() << "-------------------------------------------";
+
+    QElapsedTimer wallTimer;
+    wallTimer.start();
+
+    // Worker function — mỗi thread có Engine + MoveGen riêng
+    // (MoveGen::instance là thread_local, mỗi thread cần init riêng)
+    auto worker = [&]() {
+        // Engine trên heap để tránh stack overflow
+        // (Engine chứa ~110KB buffers + negamax recursion sâu có thể tràn 1MB stack)
+        auto engine = std::make_unique<Engine>();
+        MoveGen::init();  // Tạo MoveGen instance cho thread này
+
+        while (true) {
+            int i = nextTask.fetch_add(1);
+            if (i >= total) break;
+
+            const auto &e = entries[i];
+            Board board;
+            std::string fenStr = (e.fen + " 0 1").toStdString();
+            parseFENString(fenStr, &board);
+
+            QElapsedTimer timer;
+            timer.start();
+
+            Move bestMove;
+            if (timePerMove > 0) {
+                TimeInfo ti;
+                ti.moveTimeMs = timePerMove;
+                bestMove = engine->calc(board, ti);
+            } else {
+                bestMove = engine->calc(board);
+            }
+
+            qint64 elapsed = timer.elapsed();
+            int depth = engine->getCompletedDepth();
+            int score = engine->getBestScore();
+            const auto &pv = engine->getPV();
+            QString gotUci = moveToUci(bestMove);
+
+            // Build PV string
+            QString pvStr;
+            for (int p = 0; p < pv.count; p++) {
+                if (p > 0) pvStr += ' ';
+                pvStr += moveToUci(pv.moves[p]);
+            }
+
+            // Tìm expected UCI (MoveGen::instance read-only, thread-safe)
+            Move moveList[256];
+            int moveCount = MoveGen::instance->genMoveList(board, moveList);
+            QStringList expectedUciList;
+            for (const auto &san : e.bmSan)
+                for (int m = 0; m < moveCount; m++)
+                    if (matchSan(san, moveList[m], board)) {
+                        expectedUciList.append(moveToUci(moveList[m]));
+                        break;
+                    }
+
+            bool ok = expectedUciList.contains(gotUci);
+
+            // Ghi kết quả vào slot riêng (không cần lock)
+            auto &r = results[i];
+            r.gotUci = gotUci;
+            r.pvStr = pvStr;
+            r.expectedUciList = expectedUciList;
+            r.depth = depth;
+            r.score = score;
+            r.pvCount = pv.count;
+            r.elapsedMs = elapsed;
+            r.ok = ok;
+
+            int done = doneCount.fetch_add(1) + 1;
+            QString status = ok ? "OK" : "FAIL";
+
+            // Mate-in-N display (chính xác từ PV length)
+            QString mateStr;
+            if (score >= 32000 - 64) {
+                int mateIn = (r.pvCount + 1) / 2;
+                mateStr = QString("M%1").arg(mateIn);
+            } else if (score <= -32000 + 64) {
+                int mateIn = (r.pvCount + 1) / 2;
+                mateStr = QString("-M%1").arg(mateIn);
+            }
+
+            // In progress (lock chỉ để tránh output lẫn lộn)
+            {
+                std::lock_guard<std::mutex> lock(printMtx);
+                QString line = QString("[%1/%2] %3  expected=%4  got=%5  d=%6  %7  %8ms  %9")
+                    .arg(done, 3).arg(total)
+                    .arg(e.id, -10)
+                    .arg(e.bmSan.join(","), -12)
+                    .arg(gotUci, -7)
+                    .arg(depth, 2)
+                    .arg(mateStr, -4)
+                    .arg(elapsed, 5)
+                    .arg(status);
+                if (!pvStr.isEmpty())
+                    line += "  PV: " + pvStr;
+                qDebug().noquote() << line;
+            }
+        }
+    };
+
+    // Spawn threads (stack 8MB — negamax deep recursion cần nhiều hơn default 1MB)
+    std::vector<HANDLE> threadHandles;
+    std::vector<std::function<void()>*> threadFuncs;
+    for (int t = 0; t < numThreads; t++) {
+        auto fn = new std::function<void()>(worker);
+        HANDLE h = (HANDLE)_beginthreadex(
+            nullptr,
+            8 * 1024 * 1024,  // 8MB stack
+            [](void* arg) -> unsigned {
+                auto fn = static_cast<std::function<void()>*>(arg);
+                (*fn)();
+                return 0;
+            },
+            fn, 0, nullptr);
+        threadHandles.push_back(h);
+        threadFuncs.push_back(fn);
+    }
+    // Wait for all threads
+    WaitForMultipleObjects((DWORD)threadHandles.size(), threadHandles.data(), TRUE, INFINITE);
+    for (auto h : threadHandles) CloseHandle(h);
+    for (auto fn : threadFuncs) delete fn;
+
+    qint64 wallMs = wallTimer.elapsed();
+
+    // Ghi CSV theo thứ tự gốc
     QFile csvFile(csvPath);
     csvFile.open(QIODevice::WriteOnly | QIODevice::Text);
     QTextStream csv(&csvFile);
-    csv << "id;fen;expected_san;expected_uci;got_uci;time_ms;status\n";
+    csv << "id;fen;expected_san;expected_uci;got_uci;depth;score;time_ms;status;pv\n";
 
-    Engine engine;
     int correct = 0;
-    qint64 totalMs = 0;
-
-    qDebug().noquote() << QString("Running %1 WAC positions...").arg(total);
-    qDebug().noquote() << "-------------------------------------------";
-
+    qint64 totalCpuMs = 0;
     for (int i = 0; i < total; i++) {
         const auto &e = entries[i];
-        Board board;
-        std::string fenStr = (e.fen + " 0 1").toStdString();
-        parseFENString(fenStr, &board);
-
-        QElapsedTimer timer;
-        timer.start();
-        Move bestMove = engine.calc(board);
-        qint64 elapsed = timer.elapsed();
-        totalMs += elapsed;
-
-        QString gotUci = moveToUci(bestMove);
-
-        // Find expected UCI
-        Move moveList[256];
-        int moveCount = MoveGen::instance->genMoveList(board, moveList);
-        QStringList expectedUciList;
-        for (const auto &san : e.bmSan)
-            for (int m = 0; m < moveCount; m++)
-                if (matchSan(san, moveList[m], board)) {
-                    expectedUciList.append(moveToUci(moveList[m]));
-                    break;
-                }
-
-        bool ok = expectedUciList.contains(gotUci);
-        if (ok) correct++;
-        QString status = ok ? "OK" : "FAIL";
+        const auto &r = results[i];
+        if (r.ok) correct++;
+        totalCpuMs += r.elapsedMs;
+        QString status = r.ok ? "OK" : "FAIL";
 
         csv << e.id << ";" << e.fen << ";" << e.bmSan.join(",") << ";"
-            << expectedUciList.join(",") << ";" << gotUci << ";"
-            << elapsed << ";" << status << "\n";
-
-        qDebug().noquote() << QString("[%1/%2] %3  expected=%4  got=%5  %6ms  %7")
-            .arg(i + 1, 3).arg(total)
-            .arg(e.id, -10)
-            .arg(e.bmSan.join(","), -12)
-            .arg(gotUci, -7)
-            .arg(elapsed, 5)
-            .arg(status);
+            << r.expectedUciList.join(",") << ";" << r.gotUci << ";"
+            << r.depth << ";" << r.score << ";" << r.elapsedMs << ";" << status
+            << ";" << r.pvStr << "\n";
     }
-
     csvFile.close();
 
     qDebug().noquote() << "===========================================";
-    qDebug().noquote() << QString("Result: %1/%2 correct (%3%) in %4s")
+    qDebug().noquote() << QString("Result: %1/%2 correct (%3%)")
         .arg(correct).arg(total)
-        .arg(correct * 100.0 / total, 0, 'f', 1)
-        .arg(totalMs / 1000.0, 0, 'f', 1);
+        .arg(correct * 100.0 / total, 0, 'f', 1);
+    qDebug().noquote() << QString("Wall time: %1s  |  CPU time: %2s  |  Threads: %3")
+        .arg(wallMs / 1000.0, 0, 'f', 1)
+        .arg(totalCpuMs / 1000.0, 0, 'f', 1)
+        .arg(numThreads);
     qDebug().noquote() << "CSV:" << csvPath;
 
     return 0;

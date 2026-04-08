@@ -6,9 +6,7 @@ CONFIG -= app_bundle
 
 win32 {
     QMAKE_CXXFLAGS += /std:c++17
-    # Debug symbols trong release build (để debug crash có tên hàm + line number)
     QMAKE_CXXFLAGS_RELEASE += /Zi
-    # Stack 8MB cho threads (default 1MB không đủ cho negamax recursive sâu)
     QMAKE_LFLAGS_RELEASE += /DEBUG /OPT:REF /OPT:ICF /STACK:8388608
 }
 
@@ -29,7 +27,7 @@ SOURCES += \
     algorithm/perft.cpp \
     algorithm/tt.cpp \
     algorithm/util.cpp \
-    console_main.cpp
+    uci_main.cpp
 
 HEADERS += \
     algorithm/attack.h \
@@ -42,4 +40,4 @@ HEADERS += \
     algorithm/tt.h \
     algorithm/util.h
 
-TARGET = MyChessConsole
+TARGET = MyChessUCI
