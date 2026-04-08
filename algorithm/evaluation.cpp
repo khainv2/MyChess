@@ -220,8 +220,11 @@ int kc::eval::estimate(const Board &board) {
     int mgPhase = std::min(gamePhase, MaxGamePhase);
     int egPhase = 24 - mgPhase;
 
-    int mobility = 8 * (MoveGen::instance->countMoveList<White>(board)
-                              - MoveGen::instance->countMoveList<Black>(board));
+    // Dùng MoveGen riêng cho mobility để tránh ghi đè internal state
+    // (genMoveList/countMoveList gọi prepare() → corrupt state của caller)
+    MoveGen mobilityGen;
+    int mobility = 8 * (mobilityGen.countMoveList<White>(board)
+                              - mobilityGen.countMoveList<Black>(board));
 
     // King safety scale theo game phase (mạnh ở middlegame, yếu ở endgame)
     int scaledKingSafety = (kingSafety * mgPhase) / 24;

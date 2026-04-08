@@ -6,7 +6,7 @@ namespace kc {
 
 class MoveGen {
 public:
-    static MoveGen *instance;
+    static thread_local MoveGen *instance;
     static void init();
 
     int genMoveList(const Board &board, Move *moveList) noexcept;

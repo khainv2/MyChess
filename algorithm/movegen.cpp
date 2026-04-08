@@ -7,7 +7,7 @@
 #include "util.h"
 
 using namespace kc;
-MoveGen *MoveGen::instance = nullptr;
+thread_local MoveGen *MoveGen::instance = nullptr;
 
 void MoveGen::init() {
     instance = new MoveGen;
@@ -232,8 +232,11 @@ Move *MoveGen::getMoveListForPawn(const Board &board, Move *moveList) noexcept
         constexpr BB enPassantRankBB = mine == White ? rankBB(Rank5) : rankBB(Rank4);
 
         const BB enPassantBB = indexToBB(board.state->enPassant);
+        const BB epTargetBB = indexToBB(board.state->enPassantTarget<mine>());
+        // EP chỉ hợp lệ khi bị chiếu nếu: ô đích chặn chiếu HOẶC tốt bị bắt là quân chiếu
         if (board.state->enPassant != SquareNone
-                && (pinMaskDiagonal & enPassantBB) == 0){
+                && (pinMaskDiagonal & enPassantBB) == 0
+                && ((epTargetBB | enPassantBB) & checkMask)){
             BB pawnCanAttackEP =  myAttackablePawnNotOn7
                     & enPassantRankBB
                     & ~pinMaskDiagonal
@@ -300,8 +303,10 @@ int MoveGen::countPawnMove(const Board &board) noexcept {
         count += (popCount(pl) + popCount(pr));
         constexpr BB enPassantRankBB = mine == White ? rankBB(Rank5) : rankBB(Rank4);
         const BB enPassantBB = indexToBB(board.state->enPassant);
+        const BB epTargetBB2 = indexToBB(board.state->enPassantTarget<mine>());
         if (board.state->enPassant != SquareNone
-                && (pinMaskDiagonal & enPassantBB) == 0){
+                && (pinMaskDiagonal & enPassantBB) == 0
+                && ((epTargetBB2 | enPassantBB) & checkMask)){
             BB pawnCanAttackEP =  myAttackablePawnNotOn7
                     & enPassantRankBB
                     & ~pinMaskDiagonal
@@ -561,8 +566,10 @@ Move *MoveGen::getCapturesForPawn(const Board &board, Move *moveList) noexcept {
         // En passant
         constexpr BB enPassantRankBB = mine == White ? rankBB(Rank5) : rankBB(Rank4);
         const BB enPassantBB = indexToBB(board.state->enPassant);
+        const BB epTargetBB3 = indexToBB(board.state->enPassantTarget<mine>());
         if (board.state->enPassant != SquareNone
-                && (pinMaskDiagonal & enPassantBB) == 0) {
+                && (pinMaskDiagonal & enPassantBB) == 0
+                && ((epTargetBB3 | enPassantBB) & checkMask)) {
             BB pawnCanAttackEP = myAttackablePawnNotOn7
                     & enPassantRankBB
                     & ~pinMaskDiagonal
