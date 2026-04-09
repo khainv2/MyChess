@@ -11,8 +11,7 @@
 #include <memory>
 #include <mutex>
 #include <atomic>
-#include <process.h>
-#include <windows.h>
+#include <thread>
 
 #include "algorithm/attack.h"
 #include "algorithm/board.h"
@@ -105,7 +104,7 @@ static Board currentBoard;
 static std::vector<BoardState> stateHistory;
 static BoardState rootState; // BoardState for initial position
 static std::unique_ptr<Engine> engine;
-static HANDLE searchThread = nullptr;
+static std::thread searchThread;
 static std::atomic<bool> searching{false};
 static std::mutex outputMtx;
 
@@ -121,40 +120,29 @@ struct SearchArgs {
     TimeInfo ti;
 };
 
-static unsigned __stdcall searchWorker(void *arg) {
-    auto *args = static_cast<SearchArgs *>(arg);
-
+static void searchWorker(SearchArgs args) {
     MoveGen::init(); // thread_local init
 
-    Move best = engine->calc(args->board, args->ti);
+    Move best = engine->calc(args.board, args.ti);
 
-    syncOutput("bestmove " + moveToUci(best));
+    if (best.raw() == 0)
+        syncOutput("bestmove (none)");
+    else
+        syncOutput("bestmove " + moveToUci(best));
     searching = false;
-    delete args;
-    return 0;
 }
 
 static void startSearch(const Board &board, const TimeInfo &ti) {
     if (searching) return;
     searching = true;
 
-    auto *args = new SearchArgs{board, ti};
-
-    searchThread = (HANDLE)_beginthreadex(
-        nullptr,
-        8 * 1024 * 1024, // 8MB stack
-        searchWorker,
-        args, 0, nullptr);
+    if (searchThread.joinable()) searchThread.join();
+    searchThread = std::thread(searchWorker, SearchArgs{board, ti});
 }
 
 static void stopSearch() {
-    if (!searching) return;
     engine->abort();
-    if (searchThread) {
-        WaitForSingleObject(searchThread, INFINITE);
-        CloseHandle(searchThread);
-        searchThread = nullptr;
-    }
+    if (searchThread.joinable()) searchThread.join();
 }
 
 // ── Command handlers ────────────────────────────────────────────────
