@@ -98,3 +98,6 @@ cmake_install.cmake
 # Windows specific
 *.lnk
 ehthumbs.db
+
+# Test results
+tests/*.csv

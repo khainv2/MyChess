@@ -239,6 +239,16 @@ Move kc::Engine::calc(const Board &chessBoard, const TimeInfo &timeInfo) {
     searchStart = Clock::now();
     allocateTime(timeInfo);
 
+    // Kiểm tra nếu không còn nước đi hợp lệ (checkmate/stalemate)
+    {
+        auto movePtr = buff[0];
+        int count = MoveGen::instance->genMoveList(board, movePtr);
+        if (count == 0) {
+            bestScore = board.anyCheck() ? -ScoreMate : 0;
+            return Move(); // Không còn nước đi
+        }
+    }
+
     // Xác định depth tối đa
     int maxDepth = (timeInfo.depth > 0) ? timeInfo.depth : MaxDepthLimit;
 
