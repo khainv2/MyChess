@@ -32,6 +32,10 @@ public:
     template <Color color>
     inline int countMoveList(const Board &board) noexcept;
 
+    // Pseudo-mobility: đếm số ô tấn công (không cần pin/check) — dùng cho eval
+    template <Color color>
+    static int countPseudoMobility(const Board &board) noexcept;
+
     // Capture-only move generators cho quiescence search
     template <Color color>
     inline Move *getCapturesForPawn(const Board &board, Move *moveList) noexcept;

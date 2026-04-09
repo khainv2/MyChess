@@ -455,11 +455,19 @@ int Engine::negamax(Board &board, int depth, int alpha, int beta, PVLine &pv, bo
         auto &m = movePtr[i];
         if (m.raw() == ttMoveRaw && ttMoveRaw != 0) { m.val = 30000; continue; }
         if (m.is<Move::Capture>()) {
-            // MVV-LVA: giá trị quân bị bắt - giá trị quân tấn công / 100
-            Piece captured = board.pieces[m.dst()];
-            PieceType capturedType = (captured != PieceNone) ? pieceToType(captured) : PieceTypeNone;
+            // MVV-LVA: victim value * 10 - attacker value
+            PieceType capturedType;
+            if (m.is<Move::Enpassant>()) {
+                capturedType = Pawn;
+            } else {
+                Piece captured = board.pieces[m.dst()];
+                capturedType = (captured != PieceNone) ? pieceToType(captured) : PieceTypeNone;
+            }
             PieceType attackerType = pieceToType(board.pieces[m.src()]);
             m.val = 10000 + mvvlva[capturedType] * 10 - mvvlva[attackerType];
+        } else if (m.is<Move::Promotion>()) {
+            // Non-capture promotion (queen promotion rất mạnh)
+            m.val = 9500;
         } else if (m.raw() == killer0 && killer0 != 0) {
             m.val = 9000;
         } else if (m.raw() == killer1 && killer1 != 0) {
@@ -599,7 +607,7 @@ int Engine::quiescence(Board &board, int alpha, int beta, int qdepth) {
     }
     if (searchAborted) return 0;
 
-    // Đánh giá tĩnh (stand-pat): chỉ material + PST, bỏ mobility cho nhanh
+    // Đánh giá tĩnh (stand-pat): chỉ material + PST, cần nhanh vì gọi ở mọi leaf node
     int standPat = color ? -eval::estimateFast(board) : eval::estimateFast(board);
 
     // Fail-soft: theo dõi giá trị tốt nhất thực sự
@@ -651,8 +659,12 @@ int Engine::quiescence(Board &board, int alpha, int beta, int qdepth) {
     static constexpr int pieceValues[] = { 0, 100, 320, 330, 500, 900, 0, 0,
                                            0, 100, 320, 330, 500, 900, 0, 0 };
     for (int i = 0; i < count; i++) {
-        Piece captured = board.pieces[movePtr[i].dst()];
-        movePtr[i].val = (captured != PieceNone) ? pieceValues[captured] : 0;
+        if (movePtr[i].is<Move::Enpassant>()) {
+            movePtr[i].val = 100; // En passant bắt tốt = 100
+        } else {
+            Piece captured = board.pieces[movePtr[i].dst()];
+            movePtr[i].val = (captured != PieceNone) ? pieceValues[captured] : 0;
+        }
         if (movePtr[i].is<Move::Promotion>()) movePtr[i].val += 800;
     }
     std::sort(movePtr, movePtr + count, [](Move m1, Move m2) {

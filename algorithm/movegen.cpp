@@ -642,6 +642,39 @@ Move *MoveGen::getCapturesForKing([[maybe_unused]] const Board &board, Move *mov
     return moveList;
 }
 
+template<Color mine>
+int MoveGen::countPseudoMobility(const Board &board) noexcept {
+    BB occ = board.getOccupancy();
+    BB myPieces = board.colors[mine];
+    BB targets = ~myPieces; // ô không có quân mình
+    int count = 0;
+
+    // Knight
+    BB knights = board.getPieceBB<mine, Knight>();
+    while (knights) {
+        count += popCount(attack::knights[popLsb(knights)] & targets);
+    }
+    // Bishop
+    BB bishops = board.getPieceBB<mine, Bishop>();
+    while (bishops) {
+        count += popCount(attack::getBishopAttacks(popLsb(bishops), occ) & targets);
+    }
+    // Rook
+    BB rooks = board.getPieceBB<mine, Rook>();
+    while (rooks) {
+        count += popCount(attack::getRookAttacks(popLsb(rooks), occ) & targets);
+    }
+    // Queen
+    BB queens = board.getPieceBB<mine, Queen>();
+    while (queens) {
+        count += popCount(attack::getQueenAttacks(popLsb(queens), occ) & targets);
+    }
+    return count;
+}
+
+template int MoveGen::countPseudoMobility<White>(const Board &board) noexcept;
+template int MoveGen::countPseudoMobility<Black>(const Board &board) noexcept;
+
 std::vector<Move> MoveGen::getMoveListForSquare(const Board &board, Square square){
     Move moves[256];
     int count = genMoveList(board, moves);
