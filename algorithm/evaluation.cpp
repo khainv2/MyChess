@@ -154,6 +154,50 @@ int kc::eval::evalKingSafety(const Board &board) {
     return attackWeight * KingSafetyTable[safetyIdx] / 100;
 }
 
+// ── Pawn structure + Rook file eval (dùng chung cho estimate & estimateFast) ──
+static void evalPawnStructureAndRooks(const kc::Board &board, int mg[2], int eg[2]) {
+    using namespace kc;
+    BB allPawns = board.types[Pawn];
+
+    for (auto color : { White, Black }) {
+        BB myPawns = allPawns & board.colors[color];
+        BB enemyPawns = allPawns & board.colors[!color];
+
+        // Doubled & isolated pawns
+        BB pawns = myPawns;
+        while (pawns) {
+            Square sq = popLsb(pawns);
+            File f = getFile(sq);
+            // Doubled: có tốt khác cùng màu trên cùng file
+            if (myPawns & FileMask[f] & ~indexToBB(sq)) {
+                mg[color] += DoubledPawnPenalty_MG;
+                eg[color] += DoubledPawnPenalty_EG;
+            }
+            // Isolated: không có tốt mình trên file liền kề
+            if (!(myPawns & AdjacentFileMask[f])) {
+                mg[color] += IsolatedPawnPenalty_MG;
+                eg[color] += IsolatedPawnPenalty_EG;
+            }
+        }
+
+        // Rook on open/semi-open file
+        BB rooks = board.types[Rook] & board.colors[color];
+        while (rooks) {
+            Square sq = popLsb(rooks);
+            BB file = FileMask[getFile(sq)];
+            if (!(allPawns & file)) {
+                // Open file: không có tốt nào
+                mg[color] += RookOpenFileBonus_MG;
+                eg[color] += RookOpenFileBonus_EG;
+            } else if (!(myPawns & file)) {
+                // Semi-open: không có tốt mình, có tốt đối phương
+                mg[color] += RookSemiOpenFileBonus_MG;
+                eg[color] += RookSemiOpenFileBonus_EG;
+            }
+        }
+    }
+}
+
 // ── Main evaluation ──────────────────────────────────────────────────
 int kc::eval::estimate(const Board &board) {
     int mg[2] = { 0, 0 };
@@ -205,6 +249,9 @@ int kc::eval::estimate(const Board &board) {
         eg[Black] += BishopPairBonus_EG;
     }
 
+    // ── Pawn structure + Rook files ──
+    evalPawnStructureAndRooks(board, mg, eg);
+
     // ── King Safety (chỉ áp dụng trong middlegame) ──
     int kingSafety = 0;
     if (gamePhase > 6) { // Chỉ tính khi còn đủ quân (middlegame)
@@ -220,11 +267,9 @@ int kc::eval::estimate(const Board &board) {
     int mgPhase = std::min(gamePhase, MaxGamePhase);
     int egPhase = 24 - mgPhase;
 
-    // Dùng MoveGen riêng cho mobility để tránh ghi đè internal state
-    // (genMoveList/countMoveList gọi prepare() → corrupt state của caller)
-    MoveGen mobilityGen;
-    int mobility = 8 * (mobilityGen.countMoveList<White>(board)
-                              - mobilityGen.countMoveList<Black>(board));
+    // Pseudo-mobility: đếm attack squares (rẻ hơn nhiều so với countMoveList)
+    int mobility = 3 * (MoveGen::countPseudoMobility<White>(board)
+                      - MoveGen::countPseudoMobility<Black>(board));
 
     // King safety scale theo game phase (mạnh ở middlegame, yếu ở endgame)
     int scaledKingSafety = (kingSafety * mgPhase) / 24;
@@ -245,6 +290,42 @@ int kc::eval::estimateFast(const Board &board) {
             gamePhase += gamephaseInc[pc];
         }
     }
+
+    // ── Passed Pawns (tapered) ──
+    {
+        BB whitePawns = board.getPieceBB<White, Pawn>();
+        BB blackPawns = board.getPieceBB<Black, Pawn>();
+        BB wp = whitePawns;
+        while (wp) {
+            Square sq = popLsb(wp);
+            if (!(PassedPawnMask[White][sq] & blackPawns)) {
+                mg[White] += PassedPawnBonus_MG[getRank(sq)];
+                eg[White] += PassedPawnBonus_EG[getRank(sq)];
+            }
+        }
+        BB bp = blackPawns;
+        while (bp) {
+            Square sq = popLsb(bp);
+            if (!(PassedPawnMask[Black][sq] & whitePawns)) {
+                Rank r = Rank(7 - getRank(sq));
+                mg[Black] += PassedPawnBonus_MG[r];
+                eg[Black] += PassedPawnBonus_EG[r];
+            }
+        }
+    }
+
+    // ── Bishop Pair ──
+    if (popCount(board.getPieceBB<White, Bishop>()) >= 2) {
+        mg[White] += BishopPairBonus_MG;
+        eg[White] += BishopPairBonus_EG;
+    }
+    if (popCount(board.getPieceBB<Black, Bishop>()) >= 2) {
+        mg[Black] += BishopPairBonus_MG;
+        eg[Black] += BishopPairBonus_EG;
+    }
+
+    // ── Pawn structure + Rook files ──
+    evalPawnStructureAndRooks(board, mg, eg);
 
     int mgScore = mg[White] - mg[Black];
     int egScore = eg[White] - eg[Black];

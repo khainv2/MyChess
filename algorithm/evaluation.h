@@ -156,12 +156,49 @@ extern int EG_Table[Piece_NB][Square_NB];
 
 // ── Passed Pawn bonus theo rank (rank 0,1 = 0 vì tốt không ở đó) ──
 // Bonus tăng dần khi tốt tiến gần hàng phong cấp
-constexpr int PassedPawnBonus_MG[Rank_NB] = { 0, 0,  5, 10, 20, 35, 60, 0 };
-constexpr int PassedPawnBonus_EG[Rank_NB] = { 0, 0, 10, 20, 40, 70,120, 0 };
+// EG bonus cao hơn nhiều vì tốt thông trong endgame cực kỳ nguy hiểm
+constexpr int PassedPawnBonus_MG[Rank_NB] = { 0, 0,  5, 10, 20,  40,  70, 0 };
+constexpr int PassedPawnBonus_EG[Rank_NB] = { 0, 0, 15, 30, 65, 130, 250, 0 };
 
 // ── Bishop Pair bonus ──
 constexpr int BishopPairBonus_MG = 30;
 constexpr int BishopPairBonus_EG = 50;
+
+// ── Pawn structure penalties ──
+constexpr int DoubledPawnPenalty_MG = -10;
+constexpr int DoubledPawnPenalty_EG = -20;
+constexpr int IsolatedPawnPenalty_MG = -15;
+constexpr int IsolatedPawnPenalty_EG = -20;
+
+// ── Rook on open/semi-open file ──
+constexpr int RookOpenFileBonus_MG = 25;
+constexpr int RookOpenFileBonus_EG = 15;
+constexpr int RookSemiOpenFileBonus_MG = 15;
+constexpr int RookSemiOpenFileBonus_EG = 10;
+
+// File masks (cột A-H)
+constexpr BB FileMask[8] = {
+    0x0101010101010101ULL << 0,
+    0x0101010101010101ULL << 1,
+    0x0101010101010101ULL << 2,
+    0x0101010101010101ULL << 3,
+    0x0101010101010101ULL << 4,
+    0x0101010101010101ULL << 5,
+    0x0101010101010101ULL << 6,
+    0x0101010101010101ULL << 7,
+};
+
+// Adjacent file masks (2 cột liền kề) — dùng cho isolated pawn detection
+constexpr BB AdjacentFileMask[8] = {
+    FileMask[1],
+    FileMask[0] | FileMask[2],
+    FileMask[1] | FileMask[3],
+    FileMask[2] | FileMask[4],
+    FileMask[3] | FileMask[5],
+    FileMask[4] | FileMask[6],
+    FileMask[5] | FileMask[7],
+    FileMask[6],
+};
 
 // ── King Safety ──
 // Penalty phi tuyến theo số attacker

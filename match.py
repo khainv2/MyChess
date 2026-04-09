@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """
 Engine vs Engine match via UCI protocol.
-Usage: python3 match.py [--games N] [--movetime MS] [--depth D]
+Usage: python3 match.py [--games N] [--movetime MS] [--depth D] [--workers W]
 """
 
 import subprocess
 import sys
 import time
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
-MYCHESS = "/home/dev2/test/MyChess/_build_uci/MyChessUCI"
-STOCKFISH = "/home/dev2/test/Stockfish/src/stockfish"
+if sys.platform == "win32":
+    MYCHESS = r"G:\Projects\MyChess\_build_uci\release\MyChessUCI.exe"
+    STOCKFISH = r"G:\Projects\Stockfish\stockfish\stockfish-windows-x86-64-avx2.exe"
+else:
+    MYCHESS = "/home/dev2/test/MyChess/_build_uci/MyChessUCI"
+    STOCKFISH = "/home/dev2/test/Stockfish/src/stockfish"
 
 PIECE_UNICODE = {
     'K': '\u2654', 'Q': '\u2655', 'R': '\u2656', 'B': '\u2657', 'N': '\u2658', 'P': '\u2659',
@@ -19,10 +25,12 @@ PIECE_UNICODE = {
 
 def parse_args():
     p = argparse.ArgumentParser()
-    p.add_argument('--games', type=int, default=2, help='Number of games (default 2, alternating colors)')
-    p.add_argument('--movetime', type=int, default=500, help='Time per move in ms (default 500)')
+    p.add_argument('--games', type=int, default=10, help='Number of games (default 10, alternating colors)')
+    p.add_argument('--movetime', type=int, default=1000, help='Time per move in ms (default 1000)')
     p.add_argument('--depth', type=int, default=0, help='Fixed depth (0=use movetime)')
-    p.add_argument('--sf-skill', type=int, default=0, help='Stockfish Skill Level 0-20 (default 0)')
+    p.add_argument('--sf-skill', type=int, default=10, help='Stockfish Skill Level 0-20 (default 10)')
+    p.add_argument('--workers', type=int, default=1, help='Number of parallel games (default 1)')
+    p.add_argument('--quiet', action='store_true', help='Suppress board display (auto-enabled when workers>1)')
     return p.parse_args()
 
 class UCIEngine:
@@ -169,7 +177,7 @@ def is_game_over(moves):
     return False, None
 
 
-def play_game(white_engine, black_engine, movetime, depth):
+def play_game(white_engine, black_engine, movetime, depth, quiet=False):
     white_engine.newgame()
     black_engine.newgame()
 
@@ -177,7 +185,8 @@ def play_game(white_engine, black_engine, movetime, depth):
     engines = [white_engine, black_engine]
     move_num = 1
 
-    print_board(moves, white_engine.name, black_engine.name, move_num)
+    if not quiet:
+        print_board(moves, white_engine.name, black_engine.name, move_num)
 
     while True:
         turn = len(moves) % 2  # 0=white, 1=black
@@ -187,35 +196,71 @@ def play_game(white_engine, black_engine, movetime, depth):
             bestmove = eng.go(moves, movetime=movetime, depth=depth)
         except Exception as e:
             winner = engines[1 - turn].name
-            print(f"\n  {eng.name} crashed! {winner} wins.")
+            if not quiet:
+                print(f"\n  {eng.name} crashed! {winner} wins.")
             return winner
 
         if bestmove in ("(none)", "0000", "none"):
-            # Engine has no legal move = checkmate or stalemate
             winner = engines[1 - turn].name
-            print(f"\n  {eng.name} has no move. {winner} wins!")
+            if not quiet:
+                print(f"\n  {eng.name} has no move. {winner} wins!")
             return winner
 
-        # Detect invalid move (src == dst)
         if len(bestmove) >= 4 and bestmove[:2] == bestmove[2:4]:
             winner = engines[1 - turn].name
-            print(f"\n  {eng.name} returned invalid move '{bestmove}'. {winner} wins!")
+            if not quiet:
+                print(f"\n  {eng.name} returned invalid move '{bestmove}'. {winner} wins!")
             return winner
 
         moves.append(bestmove)
         if turn == 0:
             move_num += 1
 
-        print_board(moves, white_engine.name, black_engine.name, move_num)
+        if not quiet:
+            print_board(moves, white_engine.name, black_engine.name, move_num)
 
         over, reason = is_game_over(moves)
         if over:
-            print(f"\n  Game over: {reason}")
+            if not quiet:
+                print(f"\n  Game over: {reason}")
             return "draw"
+
+
+def play_single_match(game_num, total_games, movetime, depth, sf_skill, quiet=False):
+    """Run one game independently. Returns (game_num, winner_name)."""
+    mychess = UCIEngine(MYCHESS, "MyChess")
+    stockfish = UCIEngine(STOCKFISH, "Stockfish")
+    stockfish.set_option("Skill Level", sf_skill)
+    stockfish.set_option("Threads", 1)
+    stockfish.set_option("Hash", 16)
+
+    if game_num % 2 == 1:
+        white, black = mychess, stockfish
+        colors = "MyChess=White, Stockfish=Black"
+    else:
+        white, black = stockfish, mychess
+        colors = "Stockfish=White, MyChess=Black"
+
+    if not quiet:
+        print(f"\n{'='*50}")
+        print(f"  Game {game_num}/{total_games} | {colors}")
+
+    try:
+        winner = play_game(white, black, movetime, depth, quiet=quiet)
+    except Exception as e:
+        winner = "draw"
+        if not quiet:
+            print(f"\n  Game {game_num} error: {e}")
+    finally:
+        mychess.quit()
+        stockfish.quit()
+
+    return game_num, winner
 
 
 def main():
     args = parse_args()
+    quiet = args.quiet or args.workers > 1
 
     print("=" * 50)
     print("  MyChess vs Stockfish")
@@ -225,39 +270,45 @@ def main():
     else:
         print(f"  Time per move: {args.movetime}ms")
     print(f"  Stockfish Skill: {args.sf_skill}")
+    print(f"  Workers: {args.workers}")
     print("=" * 50)
 
     results = {"MyChess": 0, "Stockfish": 0, "draw": 0}
+    lock = threading.Lock()
 
-    for game_num in range(1, args.games + 1):
-        print(f"\n{'='*50}")
-        print(f"  Game {game_num}/{args.games}")
-
-        mychess = UCIEngine(MYCHESS, "MyChess")
-        stockfish = UCIEngine(STOCKFISH, "Stockfish")
-        stockfish.set_option("Skill Level", args.sf_skill)
-        stockfish.set_option("Threads", 1)
-        stockfish.set_option("Hash", 16)
-
-        # Alternate colors
-        if game_num % 2 == 1:
-            print("  MyChess = White, Stockfish = Black")
-            white, black = mychess, stockfish
-        else:
-            print("  Stockfish = White, MyChess = Black")
-            white, black = stockfish, mychess
-
-        winner = play_game(white, black, args.movetime, args.depth)
-
-        if winner == "draw":
-            results["draw"] += 1
-        else:
-            results[winner] += 1
-
-        mychess.quit()
-        stockfish.quit()
-
-        print(f"\n  Score: MyChess {results['MyChess']} - Stockfish {results['Stockfish']} - Draws {results['draw']}")
+    if args.workers <= 1:
+        # Sequential mode (original behavior)
+        for game_num in range(1, args.games + 1):
+            _, winner = play_single_match(
+                game_num, args.games, args.movetime, args.depth, args.sf_skill, quiet=quiet
+            )
+            if winner == "draw":
+                results["draw"] += 1
+            else:
+                results[winner] += 1
+            print(f"\n  Score: MyChess {results['MyChess']} - Stockfish {results['Stockfish']} - Draws {results['draw']}")
+    else:
+        # Parallel mode
+        completed = 0
+        with ThreadPoolExecutor(max_workers=args.workers) as executor:
+            futures = {
+                executor.submit(
+                    play_single_match,
+                    gn, args.games, args.movetime, args.depth, args.sf_skill, quiet=True
+                ): gn
+                for gn in range(1, args.games + 1)
+            }
+            for future in as_completed(futures):
+                game_num, winner = future.result()
+                with lock:
+                    completed += 1
+                    if winner == "draw":
+                        results["draw"] += 1
+                    else:
+                        results[winner] += 1
+                    colors = "MyChess=W" if game_num % 2 == 1 else "Stockfish=W"
+                    print(f"  [{completed}/{args.games}] Game {game_num} ({colors}): {winner}"
+                          f"  |  MyChess {results['MyChess']} - Stockfish {results['Stockfish']} - Draws {results['draw']}")
 
     print(f"\n{'='*50}")
     print(f"  FINAL: MyChess {results['MyChess']} - Stockfish {results['Stockfish']} - Draws {results['draw']}")
