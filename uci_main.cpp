@@ -1,9 +1,7 @@
 /**
  * UCI Protocol interface for MyChess engine.
- * Build with MyChessUCI.pro
+ * Build with MyChessUCI.pro (Qt) or Makefile.uci (standalone).
  */
-#include <QCoreApplication>
-
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -245,7 +243,7 @@ static void infoCallback(int depth, int score, int timeMs, u64 nodes, const PVLi
 // ── Main ────────────────────────────────────────────────────────────
 
 int main(int argc, char *argv[]) {
-    QCoreApplication app(argc, argv);
+    (void)argc; (void)argv;
 
     // Flush stdout after every output
     std::cout.setf(std::ios::unitbuf);
@@ -276,5 +274,7 @@ int main(int argc, char *argv[]) {
         else if (cmd == "quit")    { stopSearch(); break; }
     }
 
+    // EOF cleanup: ensure search thread is stopped and joined.
+    stopSearch();
     return 0;
 }

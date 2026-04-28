@@ -15,7 +15,7 @@ if sys.platform == "win32":
     MYCHESS = r"G:\Projects\MyChess\_build_uci\release\MyChessUCI.exe"
     STOCKFISH = r"G:\Projects\Stockfish\stockfish\stockfish-windows-x86-64-avx2.exe"
 else:
-    MYCHESS = "/home/dev2/test/MyChess/_build_uci/MyChessUCI"
+    MYCHESS = "/home/dev2/test/MyChess/_build_uci_nodeps/MyChessUCI"
     STOCKFISH = "/home/dev2/test/Stockfish/src/stockfish"
 
 PIECE_UNICODE = {
@@ -28,7 +28,8 @@ def parse_args():
     p.add_argument('--games', type=int, default=10, help='Number of games (default 10, alternating colors)')
     p.add_argument('--movetime', type=int, default=1000, help='Time per move in ms (default 1000)')
     p.add_argument('--depth', type=int, default=0, help='Fixed depth (0=use movetime)')
-    p.add_argument('--sf-skill', type=int, default=10, help='Stockfish Skill Level 0-20 (default 10)')
+    p.add_argument('--sf-skill', type=int, default=10, help='Stockfish Skill Level 0-20 (default 10, ignored when --sf-elo>0)')
+    p.add_argument('--sf-elo', type=int, default=0, help='Stockfish UCI_Elo cap (1320-3190). Overrides --sf-skill when >0.')
     p.add_argument('--workers', type=int, default=1, help='Number of parallel games (default 1)')
     p.add_argument('--quiet', action='store_true', help='Suppress board display (auto-enabled when workers>1)')
     return p.parse_args()
@@ -226,11 +227,15 @@ def play_game(white_engine, black_engine, movetime, depth, quiet=False):
             return "draw"
 
 
-def play_single_match(game_num, total_games, movetime, depth, sf_skill, quiet=False):
+def play_single_match(game_num, total_games, movetime, depth, sf_skill, sf_elo, quiet=False):
     """Run one game independently. Returns (game_num, winner_name)."""
     mychess = UCIEngine(MYCHESS, "MyChess")
     stockfish = UCIEngine(STOCKFISH, "Stockfish")
-    stockfish.set_option("Skill Level", sf_skill)
+    if sf_elo > 0:
+        stockfish.set_option("UCI_LimitStrength", "true")
+        stockfish.set_option("UCI_Elo", sf_elo)
+    else:
+        stockfish.set_option("Skill Level", sf_skill)
     stockfish.set_option("Threads", 1)
     stockfish.set_option("Hash", 16)
 
@@ -269,7 +274,10 @@ def main():
         print(f"  Depth: {args.depth}")
     else:
         print(f"  Time per move: {args.movetime}ms")
-    print(f"  Stockfish Skill: {args.sf_skill}")
+    if args.sf_elo > 0:
+        print(f"  Stockfish UCI_Elo: {args.sf_elo} (LimitStrength=true)")
+    else:
+        print(f"  Stockfish Skill: {args.sf_skill}")
     print(f"  Workers: {args.workers}")
     print("=" * 50)
 
@@ -280,7 +288,7 @@ def main():
         # Sequential mode (original behavior)
         for game_num in range(1, args.games + 1):
             _, winner = play_single_match(
-                game_num, args.games, args.movetime, args.depth, args.sf_skill, quiet=quiet
+                game_num, args.games, args.movetime, args.depth, args.sf_skill, args.sf_elo, quiet=quiet
             )
             if winner == "draw":
                 results["draw"] += 1
@@ -294,7 +302,7 @@ def main():
             futures = {
                 executor.submit(
                     play_single_match,
-                    gn, args.games, args.movetime, args.depth, args.sf_skill, quiet=True
+                    gn, args.games, args.movetime, args.depth, args.sf_skill, args.sf_elo, quiet=True
                 ): gn
                 for gn in range(1, args.games + 1)
             }

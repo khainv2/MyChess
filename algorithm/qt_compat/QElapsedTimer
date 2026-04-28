@@ -1,0 +1,22 @@
+// Stub <QElapsedTimer> for non-Qt builds (UCI standalone).
+#pragma once
+
+#include <chrono>
+#include "QDebug" // for qint64
+
+class QElapsedTimer {
+    std::chrono::steady_clock::time_point t_;
+public:
+    void start() { t_ = std::chrono::steady_clock::now(); }
+    void restart() { start(); }
+
+    qint64 elapsed() const {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - t_).count();
+    }
+
+    qint64 nsecsElapsed() const {
+        return std::chrono::duration_cast<std::chrono::nanoseconds>(
+            std::chrono::steady_clock::now() - t_).count();
+    }
+};

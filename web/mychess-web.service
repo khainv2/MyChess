@@ -1,0 +1,27 @@
+[Unit]
+Description=MyChess Web GUI (UCI bridge)
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dev2
+Group=dev2
+WorkingDirectory=/home/dev2/test/MyChess/web
+ExecStart=/usr/bin/node /home/dev2/test/MyChess/web/server.js
+Environment=PORT=8080
+Environment=HOST=0.0.0.0
+Environment=MYCHESS_UCI_PATH=/home/dev2/test/MyChess/_build_uci_nodeps/MyChessUCI
+Restart=on-failure
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+# Hardening (an toàn cho service public LAN)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/dev2/test/MyChess/web
+
+[Install]
+WantedBy=multi-user.target

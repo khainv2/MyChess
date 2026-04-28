@@ -63,30 +63,89 @@ void TranspositionTable::resize(size_t sizeMB) {
 
 void TranspositionTable::clear() {
     std::memset(table, 0, numEntries * sizeof(TTEntry));
+    currentAge = 0;
+    stats = TTStats();
+}
+
+void TranspositionTable::newSearch() {
+    // Wrap-around an toàn vì entryWorth() dùng (u8) subtraction.
+    currentAge++;
+}
+
+size_t TranspositionTable::countCurrentAgeEntries() const {
+    size_t n = 0;
+    for (size_t i = 0; i < numEntries; i++) {
+        // key != 0 coi như slot có dữ liệu (xác suất key = 0 thật sự ~ 1/2^64)
+        if (table[i].key != 0 && table[i].age == currentAge) n++;
+    }
+    return n;
 }
 
 void TranspositionTable::store(u64 key, int score, int depth, TTFlag flag, Move bestMove) {
+    stats.stores++;
+
     size_t idx = key % numEntries;
     TTEntry &e = table[idx];
 
-    // Replace nếu: entry trống, depth mới >= depth cũ, hoặc key trùng VÀ depth mới >= depth cũ
-    if (e.key == 0 || depth >= e.depth) {
-        e.key = key;
-        e.score = static_cast<i16>(score);
-        e.depth = static_cast<i16>(depth);
-        e.flag = static_cast<u8>(flag);
+    // Trường hợp 1: slot trống
+    if (e.key == 0) {
+        e.key      = key;
+        e.score    = static_cast<i16>(score);
+        e.depth    = static_cast<i16>(depth);
+        e.flag     = static_cast<u8>(flag);
         e.bestMove = bestMove.raw();
-    } else if (e.key == key && bestMove.raw() != 0) {
-        // Cùng position nhưng depth thấp hơn: chỉ cập nhật best move (không ghi đè score/depth)
+        e.age      = currentAge;
+        stats.writes++;
+        stats.emptyWrites++;
+        return;
+    }
+
+    // Trường hợp 2: cùng vị trí — refresh lại
+    if (e.key == key) {
+        // Chỉ ghi đè score/depth nếu depth mới >= cũ hoặc entry là EXACT
+        // (PV node đáng giữ hơn bound node cùng depth)
+        if (depth >= e.depth || flag == TT_EXACT) {
+            e.score = static_cast<i16>(score);
+            e.depth = static_cast<i16>(depth);
+            e.flag  = static_cast<u8>(flag);
+        }
+        // Best move luôn cập nhật nếu có (move mới thường đáng tin hơn)
+        if (bestMove.raw() != 0) e.bestMove = bestMove.raw();
+        e.age = currentAge;  // refresh age để entry này không bị evict oan
+        stats.writes++;
+        stats.sameKeyWrites++;
+        return;
+    }
+
+    // Trường hợp 3: collision — dùng công thức worth để quyết định
+    // Entry mới có "worth ảo" = depth (ageDiff = 0 vì age = currentAge)
+    int oldWorth = entryWorth(e);
+    bool oldAgeStale = (e.age != currentAge);
+
+    if (depth >= oldWorth) {
+        // Ghi đè
+        if (oldAgeStale) stats.ageEvicts++;
+        else             stats.depthEvicts++;
+
+        e.key      = key;
+        e.score    = static_cast<i16>(score);
+        e.depth    = static_cast<i16>(depth);
+        e.flag     = static_cast<u8>(flag);
         e.bestMove = bestMove.raw();
+        e.age      = currentAge;
+        stats.writes++;
+    } else {
+        stats.rejected++;
     }
 }
 
-bool TranspositionTable::probe(u64 key, TTEntry &entry) const {
+bool TranspositionTable::probe(u64 key, TTEntry &entry) {
+    stats.probes++;
     size_t idx = key % numEntries;
     const TTEntry &e = table[idx];
     if (e.key == key) {
         entry = e;
+        stats.hits++;
         return true;
     }
     return false;
