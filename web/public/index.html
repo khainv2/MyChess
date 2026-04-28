@@ -3,46 +3,17 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MyChess</title>
+  <title>KChess</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="site-header">
+    <div class="brand">KChess</div>
+  </header>
+
   <div class="layout">
-    <main class="board-pane">
-      <div class="player-bar" id="player-top">
-        <div class="player-info">
-          <span class="player-icon" id="player-top-icon">🤖</span>
-          <span class="player-name" id="player-top-name">Máy</span>
-        </div>
-        <div class="clock" id="clock-top"></div>
-      </div>
-
-      <div class="board-wrap" id="board-wrap-2d">
-        <div id="files-top" class="coord coord-files"></div>
-        <div id="ranks-left" class="coord coord-ranks"></div>
-        <div id="board" class="board"></div>
-        <div id="ranks-right" class="coord coord-ranks"></div>
-        <div id="files-bottom" class="coord coord-files"></div>
-      </div>
-      <div class="board3d" id="board-wrap-3d" style="display:none;">
-        <button id="btn-reset-view" class="board3d-reset" title="Reset góc nhìn">↺</button>
-      </div>
-
-      <div class="player-bar" id="player-bottom">
-        <div class="player-info">
-          <span class="player-icon" id="player-bottom-icon">👤</span>
-          <span class="player-name" id="player-bottom-name">Bạn</span>
-        </div>
-        <div class="clock" id="clock-bottom"></div>
-      </div>
-
-      <div id="status" class="status">Đang kết nối…</div>
-      <div class="btn-row" style="justify-content:center;margin-top:6px;">
-        <button id="btn-reconnect" style="display:none;">Kết nối lại</button>
-      </div>
-    </main>
-
-    <aside class="sidebar">
+    <!-- LEFT: settings -->
+    <aside class="settings-pane">
       <section class="card">
         <h3>Trận đấu</h3>
 
@@ -63,17 +34,23 @@
           </select>
         </label>
 
-        <label class="row" id="row-level">
-          Mức độ máy
-          <select id="level">
-            <option value="200">Rất dễ (0.2s)</option>
-            <option value="500">Dễ (0.5s)</option>
-            <option value="1000" selected>Vừa (1s)</option>
-            <option value="3000">Khó (3s)</option>
-            <option value="8000">Rất khó (8s)</option>
-            <option value="custom">Tự chọn…</option>
+        <label class="row" id="row-persona">
+          Đối thủ
+          <select id="persona">
+            <option value="" selected>(Mặc định — không nhân vật)</option>
           </select>
         </label>
+
+        <div class="row persona-summary" id="persona-summary" style="display:none;"></div>
+
+        <label class="row" id="row-level">
+          Độ khó (Elo)
+          <input id="elo-slider" type="range" min="600" max="2200" step="50" value="1400">
+        </label>
+        <div class="row elo-row" id="elo-row">
+          <span id="elo-label">Elo: 1400</span>
+          <span id="elo-detail" class="elo-detail">~400ms · blunder 4%</span>
+        </div>
 
         <label class="row">
           Thời gian
@@ -102,7 +79,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section class="card history-card">
         <h3>Lịch sử</h3>
         <ol id="history" class="history"></ol>
       </section>
@@ -137,7 +114,70 @@
         </div>
       </details>
     </aside>
+
+    <!-- CENTER: board -->
+    <main class="board-pane">
+      <div class="player-bar" id="player-top">
+        <div class="player-info">
+          <span class="player-icon" id="player-top-icon">🤖</span>
+          <span class="player-name" id="player-top-name">Máy</span>
+        </div>
+        <div class="clock" id="clock-top"></div>
+      </div>
+
+      <div class="board-wrap" id="board-wrap-2d">
+        <div id="files-top" class="coord coord-files"></div>
+        <div id="ranks-left" class="coord coord-ranks"></div>
+        <div id="board" class="board"></div>
+        <div id="ranks-right" class="coord coord-ranks"></div>
+        <div id="files-bottom" class="coord coord-files"></div>
+      </div>
+      <div class="board3d" id="board-wrap-3d" style="display:none;">
+        <button id="btn-reset-view" class="board3d-reset" title="Reset góc nhìn">↺</button>
+      </div>
+
+      <div class="player-bar" id="player-bottom">
+        <div class="player-info">
+          <span class="player-icon" id="player-bottom-icon">👤</span>
+          <span class="player-name" id="player-bottom-name">Bạn</span>
+        </div>
+        <div class="clock" id="clock-bottom"></div>
+      </div>
+
+      <div id="status" class="status">Đang kết nối…</div>
+      <div class="btn-row" style="justify-content:center;margin-top:6px;">
+        <button id="btn-reconnect" style="display:none;">Kết nối lại</button>
+      </div>
+    </main>
+
+    <!-- RIGHT: chat panel (đóng/mở được) -->
+    <aside class="right-pane">
+      <section class="card chat-card">
+        <div class="chat-card-head">
+          <h3>
+            Chat
+            <span id="chat-persona-tag" class="chat-persona-tag"></span>
+          </h3>
+          <button type="button" id="btn-chat-close" class="chat-close-btn"
+                  title="Đóng panel chat">×</button>
+        </div>
+        <div id="chat-log" class="chat-log" aria-live="polite"></div>
+        <form id="chat-form" class="chat-form" autocomplete="off">
+          <textarea id="chat-input" rows="2"
+                    placeholder="Nhắn cho đối thủ… (Enter gửi, Shift+Enter xuống dòng)"></textarea>
+          <div class="chat-form-actions">
+            <span id="chat-status" class="chat-status"></span>
+            <button type="submit" id="chat-send">Gửi</button>
+          </div>
+        </form>
+      </section>
+    </aside>
   </div>
+
+  <button type="button" id="btn-chat-open" class="chat-open-fab" title="Mở chat" aria-label="Mở chat">
+    <span class="chat-fab-icon">💬</span>
+    <span class="chat-fab-label">Chat</span>
+  </button>
 
   <div id="promo-overlay" class="overlay hidden">
     <div class="promo-box">
@@ -150,6 +190,10 @@
       </div>
     </div>
   </div>
+
+  <footer class="site-footer">
+    Engine cờ vua – Thiết kế bởi Khainv9
+  </footer>
 
   <dialog id="end-dialog" class="end-dialog">
     <div class="end-icon" id="end-icon">🏁</div>

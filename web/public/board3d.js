@@ -7,12 +7,12 @@ import { OrbitControls } from './vendor/OrbitControls.js';
 const FILES = ['a','b','c','d','e','f','g','h'];
 
 const COLORS = {
-    bg:               0x1e1e1e,
+    bg:               0xd4cec3,
     boardBase:        0x2a1f15,
     light:            0xf0d9b5,
     dark:             0xb58863,
     whitePiece:       0xeeeae0,
-    blackPiece:       0x252525,
+    blackPiece:       0x5a3a20,
     highlightFrom:    0xffe066,
     highlightTo:      0xfff299,
     highlightSelected:0x4a90e2,
@@ -40,6 +40,8 @@ export class Board3D {
         this.renderer.shadowMap.enabled = true;
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.05;
         this.container.appendChild(this.renderer.domElement);
 
         // FoV 42° + camera farther back so a 8-unit board fits horizontally
@@ -60,20 +62,25 @@ export class Board3D {
         this.controls.maxPolarAngle = Math.PI / 2 - 0.05;
         this.controls.update();
 
-        // Lights
-        this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-        const dir = new THREE.DirectionalLight(0xffffff, 0.95);
+        // Lights — 3-point setup: key (front-right) + fill (back-left, cool) + rim (top-back, warm).
+        // Rim adds a bright edge along the top of pieces so they separate from same-tone squares.
+        this.scene.add(new THREE.AmbientLight(0xffffff, 0.42));
+        const dir = new THREE.DirectionalLight(0xffffff, 1.05);
         dir.position.set(4, 10, 6);
         dir.castShadow = true;
-        dir.shadow.mapSize.set(1024, 1024);
+        dir.shadow.mapSize.set(2048, 2048);
+        dir.shadow.bias = -0.0005;
+        dir.shadow.radius = 3;
         const c = dir.shadow.camera;
         c.left = -7; c.right = 7; c.top = 7; c.bottom = -7;
         c.near = 1; c.far = 25;
         this.scene.add(dir);
-        // Fill light from opposite side, no shadow
-        const fill = new THREE.DirectionalLight(0xa0c4ff, 0.25);
+        const fill = new THREE.DirectionalLight(0xa0c4ff, 0.28);
         fill.position.set(-5, 6, -4);
         this.scene.add(fill);
+        const rim = new THREE.DirectionalLight(0xffe0b0, 0.55);
+        rim.position.set(-3, 8, -7);
+        this.scene.add(rim);
 
         // Board base (border around the 8x8 squares)
         const baseGeom = new THREE.BoxGeometry(9.4, 0.4, 9.4);
@@ -146,8 +153,8 @@ export class Board3D {
     _setCamera() {
         // Higher distance + lower y → less steep angle, full board visible.
         // White at +Z (rank 1). Flipped → camera on -Z side for black player.
-        const z = this.flipped ? -10 : 10;
-        this.camera.position.set(0, 8, z);
+        const z = this.flipped ? -13 : 13;
+        this.camera.position.set(0, 11, z);
         this.camera.lookAt(0, 0, 0);
         if (this.controls) {
             this.controls.target.set(0, 0, 0);
@@ -470,10 +477,17 @@ export class Board3D {
 // ── Piece geometry (procedural) ─────────────────────────────────────
 
 function pieceMaterial(color) {
-    return new THREE.MeshStandardMaterial({
-        color: color === 'w' ? COLORS.whitePiece : COLORS.blackPiece,
-        roughness: 0.45,
-        metalness: 0.18,
+    // Physical material with clearcoat = lacquered wood / polished plastic.
+    // Black pieces a touch glossier so the rim light catches their silhouette.
+    const isWhite = color === 'w';
+    return new THREE.MeshPhysicalMaterial({
+        color: isWhite ? COLORS.whitePiece : COLORS.blackPiece,
+        roughness: isWhite ? 0.38 : 0.32,
+        metalness: 0.05,
+        clearcoat: 0.55,
+        clearcoatRoughness: isWhite ? 0.30 : 0.22,
+        sheen: isWhite ? 0.15 : 0.0,
+        sheenColor: 0xffffff,
     });
 }
 
