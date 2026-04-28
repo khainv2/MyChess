@@ -167,7 +167,7 @@ function buildBoard() {
         rankLabels.map(r => `<div>${r}</div>`).join('');
 }
 
-function renderPosition() {
+function renderPosition(opts = {}) {
     const display = boardForView();
 
     document.querySelectorAll('.sq').forEach(sq => {
@@ -216,13 +216,19 @@ function renderPosition() {
     }
 
     fenEl.value = game.fen();
-    syncBoard3D();
+    syncBoard3D(opts.animatedMove);
 }
 
-function syncBoard3D() {
+function syncBoard3D(animatedMove = null) {
     if (!board3d || !view3D) return;
     const display = boardForView();
-    board3d.setBoardFromFen(display.fen());
+    let animated = false;
+    if (animatedMove && viewIdx === -1) {
+        animated = board3d.animateMove(animatedMove);
+    }
+    if (!animated) {
+        board3d.setBoardFromFen(display.fen());
+    }
     let checkSq = null;
     if (display.inCheck()) checkSq = findKingSquare(display, display.turn());
     board3d.setHighlights({
@@ -319,7 +325,7 @@ function onMoveDone(result) {
     // Sound for the move type.
     playMoveSound(result);
 
-    renderPosition();
+    renderPosition({ animatedMove: result });
     renderHistory();
     syncEngine();
 
