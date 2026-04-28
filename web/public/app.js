@@ -16,13 +16,28 @@ const fenEl = $('fen');
 const histEl = $('history');
 const modeEl = $('mode');
 const humanSideEl = $('human-side');
-const levelEl = $('level');
+const personaEl = $('persona');
+const personaSummaryEl = $('persona-summary');
+const eloSliderEl = $('elo-slider');
+const eloLabelEl = $('elo-label');
+const eloDetailEl = $('elo-detail');
 const timeControlEl = $('time-control');
 const thinktimeEl = $('thinktime');
 const thinktimeLabel = $('thinktime-label');
 const rowThinktime = $('row-thinktime');
 const rowSide = $('row-side');
 const rowLevel = $('row-level');
+const rowPersona = $('row-persona');
+const rowEloDetail = $('elo-row');
+const chatLogEl = $('chat-log');
+const chatFormEl = $('chat-form');
+const chatInputEl = $('chat-input');
+const chatSendEl = $('chat-send');
+const chatStatusEl = $('chat-status');
+const chatPersonaTagEl = $('chat-persona-tag');
+const btnChatClose = $('btn-chat-close');
+const btnChatOpen = $('btn-chat-open');
+const layoutEl = document.querySelector('.layout');
 const promoOverlay = $('promo-overlay');
 const infoDepth = $('info-depth'), infoScore = $('info-score');
 const infoNodes = $('info-nodes'), infoNps = $('info-nps');
@@ -59,7 +74,18 @@ let pendingHint = false;
 let mode = 'pve';             // 'pve' | 'eve' | 'pvp'
 let gameOver = false;
 let board3d = null;
-let view3D = localStorage.getItem('mychess.view3d') === 'on';
+let view3D = localStorage.getItem('mychess.view3d') !== 'off';
+let personas = [];
+let currentPersona = null;
+let chatReqSeq = 0;
+const pendingChatRequests = new Map(); // requestId -> resolver
+let plyCount = 0;
+let lastChatPly = -10; // ensure first chat opportunity isn't gated by cooldown
+let chatHistory = [];   // [{role:'user'|'assistant', content}] — full convo within current game
+const MAX_CHAT_TURNS = 60; // 60 pairs = 120 messages; safety cap (Qwen3.6 ctx is 256k anyway)
+let chatBusy = false;   // a chat request (auto or manual) is in flight
+let chatTypingNode = null;
+let chatPanelOpen = localStorage.getItem('mychess.chatPanel') !== 'closed';
 
 // ── WebSocket ────────────────────────────────────────────────────────
 
@@ -117,6 +143,7 @@ function handleServerMessage(msg) {
             }
             updateStatus();
             updateButtons();
+            refreshChatInputState();
             maybeTriggerEngine();
             break;
         case 'info':
@@ -136,6 +163,14 @@ function handleServerMessage(msg) {
             if (msg.uci) applyEngineMove(msg.uci);
             else { updateStatus(); updateButtons(); }
             break;
+        case 'chat': {
+            const resolver = pendingChatRequests.get(msg.requestId);
+            if (resolver) {
+                pendingChatRequests.delete(msg.requestId);
+                resolver(msg);
+            }
+            break;
+        }
         case 'error':
             setStatus('Máy báo lỗi: ' + msg.msg);
             break;
@@ -310,6 +345,7 @@ async function tryUserMove(from, to) {
     if (!result) { clearSelection(); return false; }
 
     onMoveDone(result);
+    triggerPersonaChat('user_move', { san: result.san, result });
     return true;
 }
 
@@ -318,6 +354,7 @@ function onMoveDone(result) {
     lastMove = { from: result.from, to: result.to };
     historySAN.push(result.san);
     viewIdx = -1;
+    plyCount++;
 
     // Clock: increment to mover, then it's the other side's turn.
     applyIncrement(result.color);
@@ -343,6 +380,18 @@ function onMoveDone(result) {
 
 function applyEngineMove(uci) {
     if (uci.length < 4) return;
+
+    // Elo-based weakening: with `blunderProb`, replace engine's bestmove with a
+    // random legal move. Only applied when engine is the side to move (PvE/EvE).
+    const blunderP = currentBlunderProb();
+    if (blunderP > 0 && Math.random() < blunderP) {
+        const legal = game.moves({ verbose: true });
+        if (legal.length > 1) {
+            const pick = legal[Math.floor(Math.random() * legal.length)];
+            uci = pick.from + pick.to + (pick.promotion || '');
+        }
+    }
+
     const from = uci.slice(0, 2), to = uci.slice(2, 4);
     const promo = uci.length >= 5 ? uci[4] : undefined;
     let result;
@@ -353,6 +402,7 @@ function applyEngineMove(uci) {
         return;
     }
     onMoveDone(result);
+    triggerPersonaChat('engine_move', { san: result.san, uci, result });
 }
 
 // ── Engine ────────────────────────────────────────────────────────────
@@ -365,11 +415,39 @@ function syncEngine() {
         .map(m => m.from + m.to + (m.promotion || ''));
     send({ type: 'position', moves: uciHistory });
 }
+// Map Elo target to engine think-time and a blunder probability that the
+// client uses to override the engine's bestmove with a random legal move.
+// Engine MyChess has no UCI Skill option, so weakening is purely external.
+function eloConfig(elo) {
+    if (elo <= 600)  return { movetimeMs: 50,   blunderProb: 0.50 };
+    if (elo <= 800)  return { movetimeMs: 80,   blunderProb: 0.30 };
+    if (elo <= 1000) return { movetimeMs: 120,  blunderProb: 0.18 };
+    if (elo <= 1200) return { movetimeMs: 200,  blunderProb: 0.10 };
+    if (elo <= 1400) return { movetimeMs: 400,  blunderProb: 0.05 };
+    if (elo <= 1600) return { movetimeMs: 800,  blunderProb: 0.02 };
+    if (elo <= 1800) return { movetimeMs: 1500, blunderProb: 0.005 };
+    if (elo <= 2000) return { movetimeMs: 3000, blunderProb: 0    };
+    return                  { movetimeMs: 6000, blunderProb: 0    };
+}
+
+function currentEloValue() {
+    return parseInt(eloSliderEl.value, 10) || 1400;
+}
+
 function currentMovetimeMs() {
-    if (levelEl.value === 'custom') {
-        return parseInt(thinktimeEl.value, 10) || 1000;
-    }
-    return parseInt(levelEl.value, 10) || 1000;
+    return eloConfig(currentEloValue()).movetimeMs;
+}
+
+function currentBlunderProb() {
+    return eloConfig(currentEloValue()).blunderProb;
+}
+
+function renderEloLabel() {
+    const elo = currentEloValue();
+    const cfg = eloConfig(elo);
+    eloLabelEl.textContent = `Elo: ${elo}`;
+    const blunderPct = (cfg.blunderProb * 100).toFixed(cfg.blunderProb < 0.01 ? 1 : 0);
+    eloDetailEl.textContent = `~${cfg.movetimeMs}ms · blunder ${blunderPct}%`;
 }
 function maybeTriggerEngine() {
     if (!engineReady) return;
@@ -516,10 +594,7 @@ function topPlayerColor() {
 }
 
 function levelLabel() {
-    const opt = levelEl.options[levelEl.selectedIndex];
-    if (!opt) return 'Vừa';
-    // Strip the "(1s)" suffix if present.
-    return opt.textContent.replace(/\s*\([^)]*\)\s*$/, '');
+    return `Elo ${currentEloValue()}`;
 }
 
 function renderPlayers() {
@@ -657,27 +732,49 @@ function onTimeOut(loserColor) {
 
 // ── End-of-game ─────────────────────────────────────────────────────
 
+function personaSideColor() {
+    if (mode !== 'pve' || !currentPersona) return null;
+    return humanSideEl.value === 'white' ? 'b' : 'w';
+}
+
+function announceEnd(icon, title, msg, outcome) {
+    showEndDialog(icon, title, msg);
+    gameOver = true; stopClock(); updateStatus();
+    if (outcome === 'mate') playMateSound();
+    // outcome: 'win' (persona won), 'lose' (persona lost), 'draw'
+    const personaColor = personaSideColor();
+    if (personaColor) {
+        let evt = 'draw';
+        if (outcome === 'mate') {
+            // game.turn() is the side who got checkmated.
+            const losingColor = game.turn();
+            evt = (losingColor === personaColor) ? 'lose' : 'win';
+        }
+        triggerPersonaChat(evt);
+    }
+}
+
 function checkAndAnnounceEnd() {
     if (game.isCheckmate()) {
         const winner = game.turn() === 'w' ? 'Đen' : 'Trắng';
-        showEndDialog('♚', 'Chiếu hết', `${winner} thắng.`);
-        gameOver = true; stopClock(); playMateSound(); updateStatus(); return true;
+        announceEnd('♚', 'Chiếu hết', `${winner} thắng.`, 'mate');
+        return true;
     }
     if (game.isStalemate()) {
-        showEndDialog('🤝', 'Hòa', 'Hết nước đi (stalemate).');
-        gameOver = true; stopClock(); updateStatus(); return true;
+        announceEnd('🤝', 'Hòa', 'Hết nước đi (stalemate).', 'draw');
+        return true;
     }
     if (game.isInsufficientMaterial()) {
-        showEndDialog('🤝', 'Hòa', 'Hai bên không đủ quân chiếu hết.');
-        gameOver = true; stopClock(); updateStatus(); return true;
+        announceEnd('🤝', 'Hòa', 'Hai bên không đủ quân chiếu hết.', 'draw');
+        return true;
     }
     if (game.isThreefoldRepetition()) {
-        showEndDialog('🤝', 'Hòa', 'Lặp lại vị trí ba lần.');
-        gameOver = true; stopClock(); updateStatus(); return true;
+        announceEnd('🤝', 'Hòa', 'Lặp lại vị trí ba lần.', 'draw');
+        return true;
     }
     if (game.isDraw()) {
-        showEndDialog('🤝', 'Hòa', 'Luật 50 nước không bắt/đẩy tốt.');
-        gameOver = true; stopClock(); updateStatus(); return true;
+        announceEnd('🤝', 'Hòa', 'Luật 50 nước không bắt/đẩy tốt.', 'draw');
+        return true;
     }
     return false;
 }
@@ -979,6 +1076,12 @@ $('btn-fen-load').addEventListener('click', () => {
         lastMove = null;
         viewIdx = -1;
         gameOver = false;
+        plyCount = 0;
+        lastChatPly = -10;
+        chatHistory = [];
+        clearChatLog();
+        appendChatMsg('system', '— Đã nạp FEN, bắt đầu lại cuộc trò chuyện —');
+        refreshChatInputState();
         clearInfo();
         setupClockFromSelect();
         renderPosition();
@@ -998,6 +1101,9 @@ modeEl.addEventListener('change', () => {
     mode = modeEl.value;
     rowSide.style.display = (mode === 'pve') ? '' : 'none';
     rowLevel.style.display = (mode === 'pvp') ? 'none' : '';
+    rowEloDetail.style.display = (mode === 'pvp') ? 'none' : '';
+    rowPersona.style.display = (mode === 'pve') ? '' : 'none';
+    refreshChatInputState();
     renderPlayers();
     updateStatus();
     updateButtons();
@@ -1011,18 +1117,9 @@ humanSideEl.addEventListener('change', () => {
     renderClocks();
     setTimeout(maybeTriggerEngine, 50);
 });
-levelEl.addEventListener('change', () => {
-    if (levelEl.value === 'custom') {
-        rowThinktime.style.display = '';
-    } else {
-        rowThinktime.style.display = 'none';
-        thinktimeEl.value = levelEl.value;
-        thinktimeLabel.textContent = thinktimeEl.value;
-    }
+eloSliderEl.addEventListener('input', () => {
+    renderEloLabel();
     renderPlayers();
-});
-thinktimeEl.addEventListener('input', () => {
-    thinktimeLabel.textContent = thinktimeEl.value;
 });
 timeControlEl.addEventListener('change', () => {
     setupClockFromSelect();
@@ -1052,6 +1149,17 @@ function newGame() {
     updateStatus();
     updateButtons();
     playStartSound();
+    plyCount = 0;
+    lastChatPly = -10;
+    chatHistory = [];
+    clearChatLog();
+    if (mode === 'pve' && currentPersona) {
+        appendChatMsg('system', `— Ván mới · đối thủ ${currentPersona.emoji} ${currentPersona.name} —`);
+    } else {
+        appendChatMsg('system', '— Ván mới —');
+    }
+    refreshChatInputState();
+    triggerPersonaChat('start');
     // Start clock now (white's clock begins ticking on game start).
     if (timeControl) startClock();
     setTimeout(maybeTriggerEngine, 50);
@@ -1068,7 +1176,7 @@ function undoMove() {
             pendingHint = false;
         }
         const sim = new Chess(game.fen());
-        if (sim.turn() !== humanColor) count = 2;
+        if (sim.turn() === humanColor) count = 2;
     }
     for (let i = 0; i < count && historySAN.length; i++) {
         game.undo();
@@ -1101,16 +1209,493 @@ function updateButtons() {
     btnUndo.disabled = over || !historySAN.length;
 }
 
+// ── Persona + LLM chat ─────────────────────────────────────────────
+
+async function loadPersonas() {
+    try {
+        const res = await fetch('personas.json', { cache: 'no-cache' });
+        personas = await res.json();
+    } catch (e) {
+        personas = [];
+        console.warn('Không tải được personas.json', e);
+    }
+    // Populate dropdown (preserve the leading "no persona" option)
+    while (personaEl.options.length > 1) personaEl.remove(1);
+    for (const p of personas) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.emoji} ${p.name} · ${p.elo} elo`;
+        personaEl.appendChild(opt);
+    }
+    const saved = localStorage.getItem('mychess.persona');
+    if (saved && personas.some(p => p.id === saved)) {
+        personaEl.value = saved;
+    }
+    applyPersonaSelection();
+}
+
+function applyPersonaSelection() {
+    const id = personaEl.value;
+    const prev = currentPersona;
+    currentPersona = personas.find(p => p.id === id) || null;
+    localStorage.setItem('mychess.persona', id || '');
+    if (currentPersona) {
+        eloSliderEl.value = String(currentPersona.elo);
+        renderEloLabel();
+        personaSummaryEl.style.display = '';
+        personaSummaryEl.textContent = `${currentPersona.emoji} ${currentPersona.summary}`;
+    } else {
+        personaSummaryEl.style.display = 'none';
+        personaSummaryEl.textContent = '';
+    }
+    // Different persona = different conversation. Clear so the new persona
+    // doesn't see the old one's lines and try to "continue" them.
+    if (!prev || !currentPersona || prev.id !== currentPersona.id) {
+        chatHistory = [];
+        clearChatLog();
+        if (currentPersona) {
+            appendChatMsg('system',
+                `— Đã chọn ${currentPersona.emoji} ${currentPersona.name} (${currentPersona.elo} elo) —`);
+        }
+    }
+    refreshChatInputState();
+    renderPlayers();
+}
+
+personaEl.addEventListener('change', applyPersonaSelection);
+
+function pieceNameVN(type) {
+    return ({ p: 'Tốt', n: 'Mã', b: 'Tượng', r: 'Xe', q: 'Hậu', k: 'Vua' })[type] || type;
+}
+
+// Material delta from persona's perspective (positive = persona ahead).
+function materialBalanceForPersona() {
+    if (!currentPersona) return 0;
+    const personaColor = humanSideEl.value === 'white' ? 'b' : 'w';
+    const VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+    let pSum = 0, oSum = 0;
+    const board = game.board();
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+        const sq = board[r][c];
+        if (!sq) continue;
+        const v = VALUES[sq.type] || 0;
+        if (sq.color === personaColor) pSum += v;
+        else oSum += v;
+    }
+    return pSum - oSum;
+}
+
+function materialDescription() {
+    const d = materialBalanceForPersona();
+    if (d >=  5) return 'bạn đang ưu thế quân lớn';
+    if (d >=  2) return 'bạn đang nhỉnh hơn về quân';
+    if (d >=  1) return 'bạn đang nhỉnh hơn 1 chút';
+    if (d <= -5) return 'bạn đang lép vế quân lớn';
+    if (d <= -2) return 'bạn đang kém hơn về quân';
+    if (d <= -1) return 'bạn đang kém hơn 1 chút';
+    return 'thế cờ cân bằng về quân';
+}
+
+// Plain-Vietnamese description of a chess.js verbose move result.
+function describeMove(result, eventType) {
+    if (!result) return '';
+    const parts = [`đi quân ${pieceNameVN(result.piece)} (ký hiệu ${result.san})`];
+    if (result.captured) parts.push(`ăn quân ${pieceNameVN(result.captured)} của đối thủ`);
+    if (result.promotion) parts.push(`phong cấp thành ${pieceNameVN(result.promotion)}`);
+    const flags = result.flags || '';
+    if (flags.includes('k')) parts.push('nhập thành cánh Vua (O-O)');
+    if (flags.includes('q')) parts.push('nhập thành cánh Hậu (O-O-O)');
+    if (flags.includes('e')) parts.push('bắt tốt qua đường (en passant)');
+    if (game.inCheck()) {
+        parts.push(eventType === 'engine_move'
+            ? 'nước này chiếu vua đối thủ'
+            : 'nước này chiếu vua của bạn');
+    }
+    return parts.join(', ');
+}
+
+// Convention: user-role messages from auto-commentary start with the EVENT_TAG.
+// Free-chat user messages do NOT have it. The system prompts explain the
+// distinction so the bot knows when to talk chess vs. when to just chat.
+const EVENT_TAG = '[SỰ-KIỆN-BÀN-CỜ]';
+
+function buildSystemPrompt(persona) {
+    const humanColor = humanSideEl.value === 'white' ? 'Trắng' : 'Đen';
+    const personaColor = humanSideEl.value === 'white' ? 'Đen' : 'Trắng';
+    return [
+        persona.system_prompt,
+        '',
+        `Bối cảnh trận đấu: bạn cầm bên ${personaColor}. Đối thủ của bạn (người chơi) cầm bên ${humanColor}.`,
+        '',
+        `QUY ƯỚC: tin nhắn user bắt đầu bằng ${EVENT_TAG} là tường thuật sự kiện cờ — hãy bình luận 1 câu ngắn về sự kiện đó. Tin user KHÔNG có tag là CHAT TRỰC TIẾP của người chơi (xem khối quy tắc free-chat ở dưới nếu có).`,
+        '',
+        'Yêu cầu nghiêm ngặt khi bình luận sự kiện cờ: trả lời thật ngắn 1 câu (tối đa 2 câu). Tiếng Việt thuần. Không emoji, không markdown, không xuống dòng.',
+        'TUYỆT ĐỐI KHÔNG bịa thông tin về quân cờ. Chỉ nhắc đến những quân/sự kiện đã được nêu trong tin user. Nếu không chắc, nói chung chung ("lại đi rồi", "thấy ghê chưa", "không tệ") thay vì gọi sai tên quân.',
+    ].join('\n');
+}
+
+function buildEventPrompt(eventType, ctx) {
+    const movesSan = historySAN.length ? historySAN.slice(-6).join(' ') : '(chưa có nước nào)';
+    const matDesc  = materialDescription();
+    const TAG = EVENT_TAG + ' ';
+    switch (eventType) {
+        case 'start':
+            return TAG + `Ván đấu vừa bắt đầu. Hãy chào đối thủ một câu thật ngắn theo đúng tính cách của bạn.`;
+        case 'engine_move':
+            return TAG + [
+                `Bạn vừa ${describeMove(ctx.result, eventType)}.`,
+                `Tình thế tổng quan: ${matDesc}.`,
+                `Lịch sử gần đây: ${movesSan}.`,
+                `Hãy nói 1 câu thật ngắn theo đúng tính cách (trash-talk nhẹ, bình luận về nước mình, hoặc tự nói chuyện). Không phân tích chuyên môn dài dòng.`,
+            ].join(' ');
+        case 'user_move':
+            return TAG + [
+                `Đối thủ vừa ${describeMove(ctx.result, eventType)}.`,
+                `Tình thế tổng quan: ${matDesc}.`,
+                `Lịch sử gần đây: ${movesSan}.`,
+                `Hãy phản ứng 1 câu ngắn theo đúng tính cách (chê, khen, trêu, hoặc dửng dưng — tùy bạn).`,
+            ].join(' ');
+        case 'win':
+            return TAG + `Bạn vừa thắng ván này (${matDesc}). Nói 1 câu cảm nghĩ thật ngắn theo tính cách.`;
+        case 'lose':
+            return TAG + `Bạn vừa thua ván này. Nói 1 câu phản ứng thật ngắn theo tính cách (cay cú, chấp nhận, đùa cợt — tùy bạn).`;
+        case 'draw':
+            return TAG + `Ván cờ vừa hòa (${matDesc}). Nói 1 câu thật ngắn theo tính cách.`;
+        default:
+            return TAG + `Hãy nói 1 câu phù hợp tình huống.`;
+    }
+}
+
+function requestChat(messages, maxTokens = 110) {
+    return new Promise((resolve, reject) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            reject(new Error('ws not open'));
+            return;
+        }
+        const requestId = `chat-${++chatReqSeq}`;
+        const timer = setTimeout(() => {
+            pendingChatRequests.delete(requestId);
+            reject(new Error('timeout'));
+        }, 12000);
+        pendingChatRequests.set(requestId, (msg) => {
+            clearTimeout(timer);
+            if (msg.ok) resolve(msg.text);
+            else reject(new Error(msg.error || 'chat failed'));
+        });
+        send({ type: 'chat_request', requestId, messages, maxTokens });
+    });
+}
+
+// Importance score of a just-played move (per chess.js verbose result).
+// Higher = more "noteworthy" → more likely to trigger LLM commentary.
+function moveImportance(ctx) {
+    const r = ctx.result;
+    if (!r) return 0;
+    let score = 0;
+    if (r.captured) {
+        score += ({ q: 80, r: 50, b: 32, n: 32, p: 12 }[r.captured]) || 0;
+    }
+    const flags = r.flags || '';
+    if (flags.includes('e')) score += 18;                     // en passant
+    if (r.promotion) score += 70;                              // promotion
+    if (flags.includes('k') || flags.includes('q')) score += 40; // castling
+    if (game.inCheck()) score += 55;                           // delivers check
+    if (plyCount <= 3) score += 28;                            // opening 1-3 plies
+    // Re-engage if there's been long silence (player may feel persona is "off")
+    const sinceLast = plyCount - lastChatPly;
+    if (sinceLast >= 9) score += 25;
+    return score;
+}
+
+function shouldChat(eventType, ctx) {
+    // Game-state milestones always speak.
+    if (['start', 'win', 'lose', 'draw'].includes(eventType)) return true;
+    if (!currentPersona) return false;
+
+    // Threshold scales with persona chattiness:
+    //   chatti=0.25 → threshold ≈ 67  (Anh Cảnh — only big events)
+    //   chatti=0.9  → threshold ≈ 35  (Bé Mochi — talks easily)
+    let threshold = 80 - currentPersona.chattiness * 50;
+
+    // Cooldown: avoid back-to-back chatter unless something dramatic.
+    const sinceLast = plyCount - lastChatPly;
+    if (sinceLast <= 1) threshold += 35;
+    else if (sinceLast === 2) threshold += 15;
+
+    return moveImportance(ctx) >= threshold;
+}
+
+async function triggerPersonaChat(eventType, ctx = {}) {
+    if (!currentPersona) return;
+    if (mode !== 'pve') return;
+    if (!shouldChat(eventType, ctx)) return;
+
+    lastChatPly = plyCount;
+    const sys = buildSystemPrompt(currentPersona);
+    const usr = buildEventPrompt(eventType, ctx);
+    // Full convo: system (rebuilt each call so persona/side switches take effect)
+    // + all prior turns this game + the new user turn.
+    const messages = [
+        { role: 'system', content: sys },
+        ...chatHistory,
+        { role: 'user',   content: usr },
+    ];
+    chatBusy = true;
+    refreshChatInputState();
+    showTypingIndicator();
+    try {
+        const text = await requestChat(messages, 110);
+        chatHistory.push({ role: 'user', content: usr });
+        chatHistory.push({ role: 'assistant', content: text });
+        // Safety cap (turns trimmed from oldest; never trim system, it's rebuilt anyway).
+        if (chatHistory.length > MAX_CHAT_TURNS * 2) {
+            chatHistory = chatHistory.slice(-MAX_CHAT_TURNS * 2);
+        }
+        hideTypingIndicator();
+        appendChatMsg('persona', text);
+    } catch (err) {
+        hideTypingIndicator();
+        console.warn('persona chat failed:', err.message);
+    } finally {
+        chatBusy = false;
+        refreshChatInputState();
+    }
+}
+
+// ── Free-form user chat ────────────────────────────────────────────
+
+// Game state as *background knowledge* for the system prompt.
+// Goal: model sees state but is NOT pushed to mention it unless asked.
+function buildGameBackgroundBlock() {
+    const humColor = humanSideEl.value === 'white' ? 'Trắng' : 'Đen';
+    const persColor = humanSideEl.value === 'white' ? 'Đen' : 'Trắng';
+    const turn = game.turn() === 'w' ? 'Trắng' : 'Đen';
+    const movesSan = historySAN.length ? historySAN.join(' ') : '(chưa có nước nào)';
+    const matDesc = materialDescription();
+    return [
+        '— Bối cảnh trận đấu (CHỈ tham khảo nội bộ; KHÔNG đem ra nói nếu người chơi không hỏi về cờ) —',
+        `Bạn cầm bên ${persColor}, người chơi cầm bên ${humColor}.`,
+        `Lượt hiện tại: ${turn} đi.`,
+        `Vật chất: ${matDesc}.`,
+        `Lịch sử nước cờ (SAN): ${movesSan}.`,
+        `FEN: ${game.fen()}.`,
+    ].join('\n');
+}
+
+function buildSystemPromptForFreeChat(persona) {
+    return [
+        persona.system_prompt,
+        '',
+        buildGameBackgroundBlock(),
+        '',
+        `QUY ƯỚC: trong lịch sử trò chuyện, các tin user bắt đầu bằng ${EVENT_TAG} là tường thuật sự kiện cờ (auto). Tin user CUỐI hiện tại KHÔNG có tag → đó là CHAT TRỰC TIẾP của người chơi gửi cho bạn.`,
+        '',
+        '— QUY TẮC TRẢ LỜI CHAT TRỰC TIẾP —',
+        '1. Nếu người chơi nói chuyện thường (chào hỏi, hỏi thăm, hỏi tên/tuổi, tâm sự, đùa giỡn): trả lời TỰ NHIÊN NHƯ NGƯỜI BÌNH THƯỜNG, đúng tính cách. TUYỆT ĐỐI KHÔNG đột ngột lôi nước cờ ra phân tích, KHÔNG kể "vừa rồi e4 rồi Nf3...". Ai chào thì chào lại, ai hỏi thì trả lời câu hỏi đó.',
+        '2. Chỉ nói về cờ khi người chơi HỎI rõ về cờ ("thế cờ sao rồi?", "tớ vừa đi sai à?", "ăn được con gì không?"...).',
+        '3. Tối đa 1-3 câu ngắn, tự nhiên, đúng giọng/dialect persona.',
+        '4. KHÔNG markdown, KHÔNG emoji, KHÔNG xuống dòng nhiều, KHÔNG dấu ngoặc kép quanh cả câu.',
+        '5. KHÔNG bịa quân hay sự kiện không có trong lịch sử SAN ở trên.',
+        '6. KHÔNG nói thay người chơi, KHÔNG đặt câu hỏi tu từ rồi tự trả lời.',
+    ].join('\n');
+}
+
+async function sendUserChat(rawText) {
+    const text = rawText.trim();
+    if (!text) return;
+    if (!currentPersona) {
+        appendChatMsg('system', 'Hãy chọn một nhân vật ở mục “Trận đấu” trước khi chat.');
+        return;
+    }
+    if (mode !== 'pve') {
+        appendChatMsg('system', 'Chế độ hiện tại không có nhân vật để chat.');
+        return;
+    }
+    if (chatBusy) return;
+
+    appendChatMsg('user', text);
+
+    const sys = buildSystemPromptForFreeChat(currentPersona);
+    // user message is raw text — no nested context, no instructions
+    const messages = [
+        { role: 'system', content: sys },
+        ...chatHistory,
+        { role: 'user', content: text },
+    ];
+    chatBusy = true;
+    refreshChatInputState();
+    setChatStatus('đang nghĩ…');
+    showTypingIndicator();
+    try {
+        const reply = await requestChat(messages, 220);
+        chatHistory.push({ role: 'user', content: text });
+        chatHistory.push({ role: 'assistant', content: reply });
+        if (chatHistory.length > MAX_CHAT_TURNS * 2) {
+            chatHistory = chatHistory.slice(-MAX_CHAT_TURNS * 2);
+        }
+        hideTypingIndicator();
+        appendChatMsg('persona', reply);
+    } catch (err) {
+        hideTypingIndicator();
+        appendChatMsg('system', `(không nhận được phản hồi: ${err.message})`);
+    } finally {
+        chatBusy = false;
+        setChatStatus('');
+        refreshChatInputState();
+    }
+}
+
+chatFormEl.addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    const v = chatInputEl.value;
+    chatInputEl.value = '';
+    refreshChatInputState();
+    sendUserChat(v);
+});
+chatInputEl.addEventListener('input', refreshChatInputState);
+chatInputEl.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {
+        ev.preventDefault();
+        chatFormEl.requestSubmit();
+    }
+});
+
+// ── Chat panel rendering ───────────────────────────────────────────
+
+function clearChatLog() {
+    chatLogEl.innerHTML = '';
+    chatTypingNode = null;
+}
+
+function scrollChatToBottom() {
+    chatLogEl.scrollTop = chatLogEl.scrollHeight;
+}
+
+function appendChatMsg(kind, text, opts = {}) {
+    // kind: 'persona' | 'user' | 'system'
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-msg chat-msg-' + kind;
+
+    if (kind !== 'system') {
+        const head = document.createElement('div');
+        head.className = 'chat-msg-head';
+        const emoji = document.createElement('span');
+        emoji.className = 'head-emoji';
+        emoji.textContent = kind === 'persona'
+            ? (opts.emoji || (currentPersona && currentPersona.emoji) || '🤖')
+            : '👤';
+        const name = document.createElement('span');
+        name.textContent = kind === 'persona'
+            ? (opts.name || (currentPersona && currentPersona.name) || 'Đối thủ')
+            : 'Bạn';
+        head.appendChild(emoji); head.appendChild(name);
+        wrap.appendChild(head);
+    }
+    const body = document.createElement('div');
+    body.className = 'chat-msg-body';
+    body.textContent = text;
+    wrap.appendChild(body);
+
+    chatLogEl.appendChild(wrap);
+    scrollChatToBottom();
+    if (kind === 'persona') notifyUnreadIfClosed();
+    return wrap;
+}
+
+function showTypingIndicator() {
+    if (chatTypingNode || !currentPersona) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'chat-msg chat-msg-persona';
+    const head = document.createElement('div');
+    head.className = 'chat-msg-head';
+    const emoji = document.createElement('span');
+    emoji.className = 'head-emoji';
+    emoji.textContent = currentPersona.emoji || '🤖';
+    const name = document.createElement('span');
+    name.textContent = currentPersona.name;
+    head.appendChild(emoji); head.appendChild(name);
+    wrap.appendChild(head);
+    const dots = document.createElement('div');
+    dots.className = 'chat-msg-typing';
+    dots.innerHTML = '<span></span><span></span><span></span>';
+    wrap.appendChild(dots);
+    chatLogEl.appendChild(wrap);
+    chatTypingNode = wrap;
+    scrollChatToBottom();
+}
+function hideTypingIndicator() {
+    if (chatTypingNode) {
+        chatTypingNode.remove();
+        chatTypingNode = null;
+    }
+}
+
+function setChatStatus(text) {
+    if (chatStatusEl) chatStatusEl.textContent = text || '';
+}
+
+function applyChatPanelState() {
+    if (chatPanelOpen) {
+        layoutEl.classList.remove('chat-collapsed');
+        btnChatOpen.classList.remove('visible', 'has-unread');
+        scrollChatToBottom();
+    } else {
+        layoutEl.classList.add('chat-collapsed');
+        btnChatOpen.classList.add('visible');
+    }
+}
+
+function openChatPanel() {
+    chatPanelOpen = true;
+    localStorage.setItem('mychess.chatPanel', 'open');
+    applyChatPanelState();
+    refreshChatInputState();
+}
+function closeChatPanel() {
+    chatPanelOpen = false;
+    localStorage.setItem('mychess.chatPanel', 'closed');
+    applyChatPanelState();
+}
+function notifyUnreadIfClosed() {
+    if (!chatPanelOpen) btnChatOpen.classList.add('has-unread');
+}
+
+btnChatClose.addEventListener('click', closeChatPanel);
+btnChatOpen.addEventListener('click', openChatPanel);
+function refreshChatInputState() {
+    const enabled = !!currentPersona && mode === 'pve' && !chatBusy && engineReady;
+    chatInputEl.disabled = !enabled;
+    chatSendEl.disabled = !enabled || !chatInputEl.value.trim();
+    if (!currentPersona) {
+        chatInputEl.placeholder = 'Chọn nhân vật ở mục Trận đấu để chat…';
+    } else if (mode !== 'pve') {
+        chatInputEl.placeholder = 'Chat chỉ khả dụng ở chế độ Người vs Máy.';
+    } else {
+        chatInputEl.placeholder = 'Nhắn cho đối thủ… (Enter gửi, Shift+Enter xuống dòng)';
+    }
+    if (chatPersonaTagEl) {
+        chatPersonaTagEl.textContent = currentPersona
+            ? `· ${currentPersona.emoji} ${currentPersona.name}`
+            : '';
+    }
+}
+
 // ── Init ────────────────────────────────────────────────────────────
 
 mode = modeEl.value;
 rowSide.style.display = (mode === 'pve') ? '' : 'none';
 rowLevel.style.display = (mode === 'pvp') ? 'none' : '';
+rowEloDetail.style.display = (mode === 'pvp') ? 'none' : '';
+rowPersona.style.display = (mode === 'pve') ? '' : 'none';
 buildBoard();
 renderPosition();
+renderEloLabel();
 renderPlayers();
 setupClockFromSelect();
 updateStatus();
 updateButtons();
 applyViewMode();
+applyChatPanelState();
+refreshChatInputState();
+loadPersonas();
 connect();

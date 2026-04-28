@@ -15,6 +15,10 @@ const HOST = process.env.HOST || '0.0.0.0';
 const ENGINE_PATH = process.env.MYCHESS_UCI_PATH ||
     path.resolve(__dirname, '..', '_build_uci_nodeps', 'MyChessUCI');
 
+const LLM_BASE_URL = process.env.LLM_BASE_URL || 'http://192.168.205.172:3073';
+const LLM_MODEL    = process.env.LLM_MODEL    || 'qwen3.6-35b-a3b';
+const LLM_TIMEOUT_MS = parseInt(process.env.LLM_TIMEOUT_MS || '8000', 10);
+
 const app = express();
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -105,6 +109,39 @@ function parseInfoLine(line) {
         }
     }
     return out;
+}
+
+// ── LLM (vLLM Qwen3.6 OpenAI-compat) ─────────────────────────────────
+
+async function callLLM(messages, maxTokens = 90) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+        throw new Error('callLLM: messages must be a non-empty array');
+    }
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
+    try {
+        const res = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal: ctrl.signal,
+            body: JSON.stringify({
+                model: LLM_MODEL,
+                messages,
+                max_tokens: maxTokens,
+                temperature: 0.85,
+                top_p: 0.9,
+                chat_template_kwargs: { enable_thinking: false },
+            }),
+        });
+        if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
+        const data = await res.json();
+        const msg = data?.choices?.[0]?.message || {};
+        const text = (msg.content || '').trim();
+        if (!text) throw new Error('empty content');
+        return text;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 function parseBestmove(line) {
@@ -220,6 +257,36 @@ wss.on('connection', (ws, req) => {
             case 'stop':
                 engine.send('stop');
                 break;
+
+            case 'chat_request': {
+                // {requestId, messages: [{role, content}, ...], maxTokens?}
+                // Legacy form {systemPrompt, userPrompt} also accepted.
+                const reqId = msg.requestId || null;
+                let messages;
+                if (Array.isArray(msg.messages) && msg.messages.length) {
+                    // Sanitize: drop bad entries, cap each content + total count.
+                    messages = msg.messages
+                        .filter(m => m && typeof m.role === 'string' && typeof m.content === 'string')
+                        .slice(-200)
+                        .map(m => ({ role: m.role, content: m.content.slice(0, 4000) }));
+                } else if (msg.systemPrompt && msg.userPrompt) {
+                    messages = [
+                        { role: 'system', content: String(msg.systemPrompt).slice(0, 4000) },
+                        { role: 'user',   content: String(msg.userPrompt).slice(0, 4000) },
+                    ];
+                }
+                if (!messages || !messages.length) {
+                    sendJson({ type: 'chat', requestId: reqId, ok: false, error: 'missing messages' });
+                    break;
+                }
+                callLLM(messages, msg.maxTokens || 90)
+                    .then(text => sendJson({ type: 'chat', requestId: reqId, ok: true, text }))
+                    .catch(err => {
+                        logErr(`[ws ${id} chat] ${err.message}`);
+                        sendJson({ type: 'chat', requestId: reqId, ok: false, error: err.message });
+                    });
+                break;
+            }
 
             default:
                 sendJson({ type: 'error', msg: `unknown type: ${msg.type}` });
