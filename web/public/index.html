@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MyChess</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="layout">
+    <main class="board-pane">
+      <div class="player-bar" id="player-top">
+        <div class="player-info">
+          <span class="player-icon" id="player-top-icon">🤖</span>
+          <span class="player-name" id="player-top-name">Máy</span>
+        </div>
+        <div class="clock" id="clock-top"></div>
+      </div>
+
+      <div class="board-wrap" id="board-wrap-2d">
+        <div id="files-top" class="coord coord-files"></div>
+        <div id="ranks-left" class="coord coord-ranks"></div>
+        <div id="board" class="board"></div>
+        <div id="ranks-right" class="coord coord-ranks"></div>
+        <div id="files-bottom" class="coord coord-files"></div>
+      </div>
+      <div class="board3d" id="board-wrap-3d" style="display:none;">
+        <button id="btn-reset-view" class="board3d-reset" title="Reset góc nhìn">↺</button>
+      </div>
+
+      <div class="player-bar" id="player-bottom">
+        <div class="player-info">
+          <span class="player-icon" id="player-bottom-icon">👤</span>
+          <span class="player-name" id="player-bottom-name">Bạn</span>
+        </div>
+        <div class="clock" id="clock-bottom"></div>
+      </div>
+
+      <div id="status" class="status">Đang kết nối…</div>
+      <div class="btn-row" style="justify-content:center;margin-top:6px;">
+        <button id="btn-reconnect" style="display:none;">Kết nối lại</button>
+      </div>
+    </main>
+
+    <aside class="sidebar">
+      <section class="card">
+        <h3>Trận đấu</h3>
+
+        <label class="row">
+          Chế độ
+          <select id="mode">
+            <option value="pve" selected>Người vs Máy</option>
+            <option value="pvp">Hai người (cùng máy)</option>
+            <option value="eve">Máy vs Máy</option>
+          </select>
+        </label>
+
+        <label class="row" id="row-side">
+          Bạn cầm bên
+          <select id="human-side">
+            <option value="white" selected>Trắng</option>
+            <option value="black">Đen</option>
+          </select>
+        </label>
+
+        <label class="row" id="row-level">
+          Mức độ máy
+          <select id="level">
+            <option value="200">Rất dễ (0.2s)</option>
+            <option value="500">Dễ (0.5s)</option>
+            <option value="1000" selected>Vừa (1s)</option>
+            <option value="3000">Khó (3s)</option>
+            <option value="8000">Rất khó (8s)</option>
+            <option value="custom">Tự chọn…</option>
+          </select>
+        </label>
+
+        <label class="row">
+          Thời gian
+          <select id="time-control">
+            <option value="none" selected>Không giới hạn</option>
+            <option value="60+0">1 phút (bullet)</option>
+            <option value="180+2">3 + 2 (blitz)</option>
+            <option value="300+0">5 phút (blitz)</option>
+            <option value="600+5">10 + 5 (rapid)</option>
+            <option value="900+10">15 + 10 (rapid)</option>
+            <option value="1800+0">30 phút (classic)</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="card">
+        <h3>Điều khiển</h3>
+        <div class="btn-row">
+          <button id="btn-new">Ván mới</button>
+          <button id="btn-resign">Đầu hàng</button>
+          <button id="btn-hint">Gợi ý</button>
+          <button id="btn-undo">Hoàn nước</button>
+          <button id="btn-flip">Lật bàn</button>
+          <button id="btn-view3d" title="Đổi 2D/3D">3D</button>
+          <button id="btn-sound" title="Bật/tắt âm thanh">🔔</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h3>Lịch sử</h3>
+        <ol id="history" class="history"></ol>
+      </section>
+
+      <details class="card details-card">
+        <summary>Chi tiết engine (nâng cao)</summary>
+
+        <div class="row" id="row-thinktime" style="display:none;">
+          <label for="thinktime">Thời gian nghĩ tự chọn: <span id="thinktime-label">1000</span> ms</label>
+          <input id="thinktime" type="range" min="100" max="10000" step="100" value="1000">
+        </div>
+
+        <div class="info-grid">
+          <div>Depth</div><div id="info-depth">–</div>
+          <div>Score</div><div id="info-score">–</div>
+          <div>Nodes</div><div id="info-nodes">–</div>
+          <div>NPS</div>  <div id="info-nps">–</div>
+        </div>
+        <div class="pv">
+          <div class="pv-label">PV (nước nối tiếp engine dự đoán)</div>
+          <div id="info-pv" class="pv-line">–</div>
+        </div>
+
+        <div class="row">
+          <label for="fen">FEN</label>
+          <textarea id="fen" rows="2" spellcheck="false"></textarea>
+        </div>
+        <div class="btn-row">
+          <button id="btn-fen-copy">Copy FEN</button>
+          <button id="btn-fen-load">Load FEN</button>
+          <button id="btn-stop">Dừng máy</button>
+        </div>
+      </details>
+    </aside>
+  </div>
+
+  <div id="promo-overlay" class="overlay hidden">
+    <div class="promo-box">
+      <div>Phong cấp thành:</div>
+      <div class="promo-pieces">
+        <button data-p="q" title="Hậu"><img alt="Q"></button>
+        <button data-p="r" title="Xe"><img alt="R"></button>
+        <button data-p="b" title="Tượng"><img alt="B"></button>
+        <button data-p="n" title="Mã"><img alt="N"></button>
+      </div>
+    </div>
+  </div>
+
+  <dialog id="end-dialog" class="end-dialog">
+    <div class="end-icon" id="end-icon">🏁</div>
+    <div class="end-title" id="end-title">Ván cờ kết thúc</div>
+    <div class="end-msg" id="end-msg"></div>
+    <div class="btn-row" style="justify-content:center;margin-top:14px;">
+      <button id="btn-end-new" autofocus>Ván mới</button>
+      <button id="btn-end-close">Xem lại bàn</button>
+    </div>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

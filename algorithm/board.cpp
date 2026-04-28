@@ -6,7 +6,24 @@
 #include "attack.h"
 #include "movegen.h"
 
+#ifdef DEBUG_HASH
+#include <cassert>
+#include <cstdio>
+#endif
+
 using namespace kc;
+
+#ifdef DEBUG_HASH
+// So incremental hash với hash tính lại từ đầu — phát hiện lỗi update XOR.
+static inline void debugAssertHash(const Board &b, const char *where) {
+    u64 expected = kc::computeHash(b);
+    if (expected != b.hash) {
+        fprintf(stderr, "[DEBUG_HASH] mismatch at %s: got=%016llx expected=%016llx\n",
+                where, (unsigned long long)b.hash, (unsigned long long)expected);
+        assert(false && "hash integrity failed");
+    }
+}
+#endif
 
 Board::Board() noexcept {
 }
@@ -190,6 +207,10 @@ int kc::Board::doMove(Move move, BoardState &newState) noexcept {
 
     refresh();
 
+#ifdef DEBUG_HASH
+    debugAssertHash(*this, "doMove");
+#endif
+
     return 0;
 }
 
@@ -265,6 +286,10 @@ int Board::undoMove(Move move) noexcept
     hash ^= zobrist::castling[state->castlingRights & 0xF];
     if (state->enPassant != SquareNone)
         hash ^= zobrist::enPassant[state->enPassant];
+
+#ifdef DEBUG_HASH
+    debugAssertHash(*this, "undoMove");
+#endif
 
     return 0;
 }

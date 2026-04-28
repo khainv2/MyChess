@@ -53,6 +53,10 @@ public:
     u64 getNodeCount() const { return nodeCount; }
     void abort() { searchAborted = true; }
 
+    // Truy cập TT để instrumentation (stats, age distribution, resize)
+    TranspositionTable& getTT() { return tt; }
+    const TranspositionTable& getTT() const { return tt; }
+
     // Callback gọi sau mỗi iteration hoàn chỉnh (cho UCI info output)
     using InfoCallback = std::function<void(int depth, int score, int timeMs, u64 nodes, const PVLine &pv)>;
     void setInfoCallback(InfoCallback cb) { infoCallback = std::move(cb); }

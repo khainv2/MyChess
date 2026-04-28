@@ -1,0 +1,16 @@
+// Stub <QDebug> for non-Qt builds (UCI standalone).
+// qDebug() returns a sink that swallows operator<< chains.
+// stderr is intentionally NOT used so UCI stdout stays clean.
+#pragma once
+
+#include <cstdint>
+
+typedef long long qint64;
+
+class QDebug {
+public:
+    template<typename T>
+    QDebug& operator<<(const T&) { return *this; }
+};
+
+inline QDebug qDebug() { return QDebug(); }

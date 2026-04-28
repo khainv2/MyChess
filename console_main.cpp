@@ -2,8 +2,14 @@
  * Console-only WAC test runner (no GUI).
  * Build with MyChessConsole.pro
  * Usage: ./MyChessConsole [--limit N] [--time N] [--threads N] [--epd path] [--csv path]
+ *                          [--tt-stats] [--tt-keep]
  *   --time N    : giới hạn N ms mỗi nước (mặc định: fixed depth 9)
  *   --threads N : số thread chạy song song (mặc định: 1, tối đa 20)
+ *   --tt-stats  : in TT instrumentation (probes/hits/writes/evicts) mỗi vị trí và tổng
+ *   --tt-keep   : KHÔNG reset engine giữa các vị trí, giữ chung TT (sequence mode,
+ *                 bắt buộc numThreads=1). Dùng để đo hiệu quả của age-based replacement.
+ *   --tt-fresh  : Clear TT trước mỗi position (mimic behavior cũ). Dùng cho correctness
+ *                 test: kết quả phải khớp với build cũ.
  */
 #include <QCoreApplication>
 #include <QDebug>
@@ -19,8 +25,10 @@
 #include <algorithm>
 #include <memory>
 #include <functional>
+#ifdef _WIN32
 #include <process.h>
 #include <windows.h>
+#endif
 
 #include "algorithm/attack.h"
 #include "algorithm/board.h"
@@ -148,6 +156,10 @@ struct TestResult {
     int pvCount = 0;
     qint64 elapsedMs = 0;
     bool ok = false;
+    // TT instrumentation (chỉ set khi --tt-stats)
+    u64 ttProbes = 0, ttHits = 0, ttStores = 0, ttWrites = 0;
+    u64 ttEmptyW = 0, ttSameKey = 0, ttAgeEv = 0, ttDepthEv = 0, ttRejected = 0;
+    size_t ttCurAgeEntries = 0;
 };
 
 // ── main ─────────────────────────────────────────────────────────────
@@ -161,6 +173,9 @@ int main(int argc, char *argv[]) {
     int startFrom = 0;      // Bỏ qua N bài đầu
     int timePerMove = 0;    // 0 = fixed depth, >0 = ms per move
     int numThreads = 1;     // Số thread chạy song song
+    bool ttStats = false;   // In TT instrumentation sau mỗi position
+    bool ttKeep = false;    // Sequence mode: bắt buộc threads=1 để giữ TT giữa các position
+    bool ttFresh = false;   // Clear TT trước mỗi position (mimic behavior cũ, dùng so sánh)
 
     QStringList args = app.arguments();
     for (int i = 1; i < args.size(); i++) {
@@ -176,7 +191,16 @@ int main(int argc, char *argv[]) {
             epdPath = args[++i];
         else if (args[i] == "--csv" && i + 1 < args.size())
             csvPath = args[++i];
+        else if (args[i] == "--tt-stats")
+            ttStats = true;
+        else if (args[i] == "--tt-keep")
+            ttKeep = true;
+        else if (args[i] == "--tt-fresh")
+            ttFresh = true;
     }
+
+    // --tt-keep yêu cầu chạy tuần tự để giữ chung TT giữa các position
+    if (ttKeep) numThreads = 1;
 
     // Init engine (read-only globals, chỉ cần gọi 1 lần)
     attack::init();
@@ -236,6 +260,9 @@ int main(int argc, char *argv[]) {
             std::string fenStr = (e.fen + " 0 1").toStdString();
             parseFENString(fenStr, &board);
 
+            // --tt-fresh: clear TT trước mỗi position để mimic behavior cũ
+            if (ttFresh) engine->getTT().clear();
+
             QElapsedTimer timer;
             timer.start();
 
@@ -285,6 +312,21 @@ int main(int argc, char *argv[]) {
             r.elapsedMs = elapsed;
             r.ok = ok;
 
+            // TT instrumentation: đọc stats của engine sau mỗi position
+            if (ttStats) {
+                const auto &s = engine->getTT().getStats();
+                r.ttProbes   = s.probes;
+                r.ttHits     = s.hits;
+                r.ttStores   = s.stores;
+                r.ttWrites   = s.writes;
+                r.ttEmptyW   = s.emptyWrites;
+                r.ttSameKey  = s.sameKeyWrites;
+                r.ttAgeEv    = s.ageEvicts;
+                r.ttDepthEv  = s.depthEvicts;
+                r.ttRejected = s.rejected;
+                r.ttCurAgeEntries = engine->getTT().countCurrentAgeEntries();
+            }
+
             int done = doneCount.fetch_add(1) + 1;
             QString status = ok ? "OK" : "FAIL";
 
@@ -313,11 +355,27 @@ int main(int argc, char *argv[]) {
                 if (!pvStr.isEmpty())
                     line += "  PV: " + pvStr;
                 qDebug().noquote() << line;
+
+                if (ttStats) {
+                    double hitRate = r.ttProbes ? 100.0 * r.ttHits / r.ttProbes : 0.0;
+                    double overwriteRate = r.ttStores ? 100.0 * r.ttWrites / r.ttStores : 0.0;
+                    size_t totalSize = engine->getTT().getSize();
+                    double fillPct = totalSize ? 100.0 * r.ttCurAgeEntries / totalSize : 0.0;
+                    qDebug().noquote() << QString(
+                        "    TT  probes=%1 hits=%2 (%3%)  stores=%4 writes=%5 (%6%)  "
+                        "empty=%7 sameKey=%8 ageEv=%9 depthEv=%10 rej=%11  curAgeFill=%12%")
+                        .arg(r.ttProbes).arg(r.ttHits).arg(hitRate, 0, 'f', 1)
+                        .arg(r.ttStores).arg(r.ttWrites).arg(overwriteRate, 0, 'f', 1)
+                        .arg(r.ttEmptyW).arg(r.ttSameKey).arg(r.ttAgeEv)
+                        .arg(r.ttDepthEv).arg(r.ttRejected)
+                        .arg(fillPct, 0, 'f', 1);
+                }
             }
         }
     };
 
-    // Spawn threads (stack 8MB — negamax deep recursion cần nhiều hơn default 1MB)
+#ifdef _WIN32
+    // Windows: dùng _beginthreadex để có stack 8MB (default 1MB không đủ cho negamax)
     std::vector<HANDLE> threadHandles;
     std::vector<std::function<void()>*> threadFuncs;
     for (int t = 0; t < numThreads; t++) {
@@ -334,10 +392,15 @@ int main(int argc, char *argv[]) {
         threadHandles.push_back(h);
         threadFuncs.push_back(fn);
     }
-    // Wait for all threads
     WaitForMultipleObjects((DWORD)threadHandles.size(), threadHandles.data(), TRUE, INFINITE);
     for (auto h : threadHandles) CloseHandle(h);
     for (auto fn : threadFuncs) delete fn;
+#else
+    // POSIX: std::thread (pthread default stack 8MB trên Linux đã đủ)
+    std::vector<std::thread> threads;
+    for (int t = 0; t < numThreads; t++) threads.emplace_back(worker);
+    for (auto &th : threads) th.join();
+#endif
 
     qint64 wallMs = wallTimer.elapsed();
 
@@ -349,6 +412,7 @@ int main(int argc, char *argv[]) {
 
     int correct = 0;
     qint64 totalCpuMs = 0;
+    TTStats agg;
     for (int i = 0; i < total; i++) {
         const auto &e = entries[i];
         const auto &r = results[i];
@@ -360,6 +424,18 @@ int main(int argc, char *argv[]) {
             << r.expectedUciList.join(",") << ";" << r.gotUci << ";"
             << r.depth << ";" << r.score << ";" << r.elapsedMs << ";" << status
             << ";" << r.pvStr << "\n";
+
+        if (ttStats) {
+            agg.probes        += r.ttProbes;
+            agg.hits          += r.ttHits;
+            agg.stores        += r.ttStores;
+            agg.writes        += r.ttWrites;
+            agg.emptyWrites   += r.ttEmptyW;
+            agg.sameKeyWrites += r.ttSameKey;
+            agg.ageEvicts     += r.ttAgeEv;
+            agg.depthEvicts   += r.ttDepthEv;
+            agg.rejected      += r.ttRejected;
+        }
     }
     csvFile.close();
 
@@ -372,6 +448,19 @@ int main(int argc, char *argv[]) {
         .arg(totalCpuMs / 1000.0, 0, 'f', 1)
         .arg(numThreads);
     qDebug().noquote() << "CSV:" << csvPath;
+
+    if (ttStats) {
+        double hitRate = agg.probes ? 100.0 * agg.hits / agg.probes : 0.0;
+        double writeRate = agg.stores ? 100.0 * agg.writes / agg.stores : 0.0;
+        qDebug().noquote() << "------------------- TT totals -------------------";
+        qDebug().noquote() << QString("probes=%1  hits=%2 (%3%)")
+            .arg(agg.probes).arg(agg.hits).arg(hitRate, 0, 'f', 2);
+        qDebug().noquote() << QString("stores=%1  writes=%2 (%3%)  rejected=%4")
+            .arg(agg.stores).arg(agg.writes).arg(writeRate, 0, 'f', 2).arg(agg.rejected);
+        qDebug().noquote() << QString("  empty=%1  sameKey=%2  ageEvicts=%3  depthEvicts=%4")
+            .arg(agg.emptyWrites).arg(agg.sameKeyWrites)
+            .arg(agg.ageEvicts).arg(agg.depthEvicts);
+    }
 
     return 0;
 }

@@ -69,6 +69,14 @@ Desktop.ini
 *.sublime-*
 .claude/settings.local.json
 .claude/projects/
+.claude/scheduled_tasks.lock
+
+# Web GUI runtime
+web/node_modules/
+web/logs/
+
+# UCI standalone build
+_build_uci_nodeps/
 
 # CMake (nếu có)
 CMakeCache.txt
