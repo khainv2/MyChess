@@ -28,6 +28,7 @@ export class Board3D {
         this.pieces     = new Map(); // square -> Group
         this._pickables = [];        // squares + piece root meshes for raycast
         this._highlightObjs = [];
+        this._activeAnim = null;     // active move animation (or null)
         this._init();
     }
 
@@ -135,6 +136,7 @@ export class Board3D {
 
         this._loop = () => {
             this.controls.update();
+            if (this._activeAnim) this._tickAnim(performance.now());
             this.renderer.render(this.scene, this.camera);
             this._raf = requestAnimationFrame(this._loop);
         };
@@ -192,6 +194,9 @@ export class Board3D {
     }
 
     setBoardFromFen(fen) {
+        // Drop any in-progress animation; the upcoming clearPieces would orphan
+        // its piece refs anyway.
+        this._activeAnim = null;
         this._clearPieces();
         const placement = fen.split(' ')[0];
         let rank = 7, file = 0;
@@ -275,6 +280,164 @@ export class Board3D {
                 this.highlightGroup.add(mesh);
             }
         }
+    }
+
+    // Animate a chess.js verbose move: slide the moving piece, fade-out captured
+    // piece, also relocate rook on castling and replace pawn on promotion.
+    // Returns true if the animation was scheduled, false if state didn't match
+    // (caller should fall back to setBoardFromFen).
+    animateMove(move, opts = {}) {
+        if (!move || !move.from || !move.to) return false;
+        // Snap any in-progress animation to its final state first.
+        this._finishAnimations();
+
+        const piece = this.pieces.get(move.from);
+        if (!piece) return false;
+
+        const duration = opts.duration ?? 280;
+        const animations = [];
+        const isKnight = move.piece === 'n';
+
+        // Captured piece (regular capture or en passant)
+        if (move.captured) {
+            let capSq = move.to;
+            const flags = move.flags || '';
+            if (flags.includes('e')) {
+                const capRank = move.color === 'w'
+                    ? (parseInt(move.to[1], 10) - 1)
+                    : (parseInt(move.to[1], 10) + 1);
+                capSq = move.to[0] + capRank;
+            }
+            const captured = this.pieces.get(capSq);
+            if (captured) {
+                this.pieces.delete(capSq);
+                this._removePiecePickables(captured);
+                animations.push({
+                    type: 'fade',
+                    obj: captured,
+                    start: 0.45, end: 1.0,
+                    onDone: () => this._disposeObject(captured),
+                });
+            }
+        }
+
+        // Moving piece
+        animations.push({
+            type: 'move',
+            obj: piece,
+            startPos: piece.position.clone(),
+            endPos: this._squareToWorld(move.to),
+            arc: isKnight ? 0.55 : 0.08,
+            start: 0.0, end: 1.0,
+        });
+
+        this.pieces.delete(move.from);
+        this.pieces.set(move.to, piece);
+        piece.userData.square = move.to;
+        piece.traverse(o => { if (o.userData && o.userData.isPiece) o.userData.square = move.to; });
+
+        // Castling: also slide the rook
+        const flags = move.flags || '';
+        if (flags.includes('k') || flags.includes('q')) {
+            const rank = move.color === 'w' ? '1' : '8';
+            const isKingside = flags.includes('k');
+            const rookFrom = (isKingside ? 'h' : 'a') + rank;
+            const rookTo   = (isKingside ? 'f' : 'd') + rank;
+            const rook = this.pieces.get(rookFrom);
+            if (rook) {
+                animations.push({
+                    type: 'move',
+                    obj: rook,
+                    startPos: rook.position.clone(),
+                    endPos: this._squareToWorld(rookTo),
+                    arc: 0.05,
+                    start: 0.0, end: 1.0,
+                });
+                this.pieces.delete(rookFrom);
+                this.pieces.set(rookTo, rook);
+                rook.userData.square = rookTo;
+                rook.traverse(o => { if (o.userData && o.userData.isPiece) o.userData.square = rookTo; });
+            }
+        }
+
+        // Promotion: replace pawn with promoted piece when animation ends
+        let promoCallback = null;
+        if (move.promotion) {
+            promoCallback = () => {
+                this._removePiecePickables(piece);
+                this._disposeObject(piece);
+                this.pieces.delete(move.to);
+                this._placePiece(move.to, move.promotion, move.color);
+            };
+        }
+
+        this._activeAnim = {
+            startTime: performance.now(),
+            duration,
+            animations,
+            onComplete: promoCallback,
+        };
+        return true;
+    }
+
+    _tickAnim(now) {
+        const a = this._activeAnim;
+        if (!a) return;
+        let t = (now - a.startTime) / a.duration;
+        if (t > 1) t = 1;
+        // easeInOutQuad
+        const ease = (x) => x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2;
+
+        for (const sub of a.animations) {
+            if (sub.type === 'move') {
+                const span = sub.end - sub.start;
+                let lt = span > 0 ? (t - sub.start) / span : 1;
+                if (lt < 0) lt = 0; else if (lt > 1) lt = 1;
+                const e = ease(lt);
+                sub.obj.position.x = sub.startPos.x + (sub.endPos.x - sub.startPos.x) * e;
+                sub.obj.position.z = sub.startPos.z + (sub.endPos.z - sub.startPos.z) * e;
+                const arcH = sub.arc * Math.sin(lt * Math.PI);
+                sub.obj.position.y = sub.startPos.y + (sub.endPos.y - sub.startPos.y) * e + arcH;
+            } else if (sub.type === 'fade') {
+                const span = sub.end - sub.start;
+                let lt = span > 0 ? (t - sub.start) / span : 1;
+                if (lt < 0) lt = 0; else if (lt > 1) lt = 1;
+                const op = 1 - lt;
+                sub.obj.traverse(o => {
+                    if (!o.material) return;
+                    const apply = (m) => { m.transparent = true; m.opacity = op; m.depthWrite = false; };
+                    if (Array.isArray(o.material)) o.material.forEach(apply);
+                    else apply(o.material);
+                });
+            }
+        }
+
+        if (t >= 1) {
+            for (const sub of a.animations) {
+                if (sub.type === 'fade' && sub.onDone) sub.onDone();
+            }
+            const cb = a.onComplete;
+            this._activeAnim = null;
+            if (cb) cb();
+        }
+    }
+
+    _finishAnimations() {
+        const a = this._activeAnim;
+        if (!a) return;
+        for (const sub of a.animations) {
+            if (sub.type === 'move') sub.obj.position.copy(sub.endPos);
+            else if (sub.type === 'fade' && sub.onDone) sub.onDone();
+        }
+        const cb = a.onComplete;
+        this._activeAnim = null;
+        if (cb) cb();
+    }
+
+    _removePiecePickables(piece) {
+        const meshes = new Set();
+        piece.traverse(o => { if (o.isMesh) meshes.add(o); });
+        this._pickables = this._pickables.filter(p => !meshes.has(p));
     }
 
     pause() {
