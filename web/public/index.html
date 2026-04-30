@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="site-header">
-    <div class="brand">KChess</div>
+    <div class="brand">KChess - Engine cờ vua - thiết kế bởi Khảinv9</div>
   </header>
 
   <div class="layout">
@@ -44,12 +44,12 @@
         <div class="row persona-summary" id="persona-summary" style="display:none;"></div>
 
         <label class="row" id="row-level">
-          Độ khó (Elo)
+          Độ khó
           <input id="elo-slider" type="range" min="600" max="2200" step="50" value="1400">
         </label>
-        <div class="row elo-row" id="elo-row">
-          <span id="elo-label">Elo: 1400</span>
-          <span id="elo-detail" class="elo-detail">~400ms · blunder 4%</span>
+        <div class="row elo-row" id="elo-row" style="display:none;">
+          <span id="elo-label"></span>
+          <span id="elo-detail" class="elo-detail"></span>
         </div>
 
         <label class="row">
@@ -90,6 +90,11 @@
         <div class="row" id="row-thinktime" style="display:none;">
           <label for="thinktime">Thời gian nghĩ tự chọn: <span id="thinktime-label">1000</span> ms</label>
           <input id="thinktime" type="range" min="100" max="10000" step="100" value="1000">
+        </div>
+
+        <div class="ff-section">
+          <div class="ff-section-title">Tính năng nhân vật (thử nghiệm)</div>
+          <div id="feature-flags"></div>
         </div>
 
         <div class="info-grid">
@@ -190,10 +195,6 @@
       </div>
     </div>
   </div>
-
-  <footer class="site-footer">
-    Engine cờ vua – Thiết kế bởi Khainv9
-  </footer>
 
   <dialog id="end-dialog" class="end-dialog">
     <div class="end-icon" id="end-icon">🏁</div>

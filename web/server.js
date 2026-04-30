@@ -113,25 +113,29 @@ function parseInfoLine(line) {
 
 // ── LLM (vLLM Qwen3.6 OpenAI-compat) ─────────────────────────────────
 
-async function callLLM(messages, maxTokens = 90) {
+async function callLLM(messages, maxTokens = 90, opts = {}) {
     if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('callLLM: messages must be a non-empty array');
     }
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), LLM_TIMEOUT_MS);
+    const body = {
+        model: LLM_MODEL,
+        messages,
+        max_tokens: maxTokens,
+        temperature: typeof opts.temperature === 'number' ? opts.temperature : 0.85,
+        top_p: typeof opts.top_p === 'number' ? opts.top_p : 0.9,
+        chat_template_kwargs: { enable_thinking: false },
+    };
+    if (typeof opts.seed === 'number' && Number.isFinite(opts.seed)) {
+        body.seed = Math.floor(opts.seed);
+    }
     try {
         const res = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             signal: ctrl.signal,
-            body: JSON.stringify({
-                model: LLM_MODEL,
-                messages,
-                max_tokens: maxTokens,
-                temperature: 0.85,
-                top_p: 0.9,
-                chat_template_kwargs: { enable_thinking: false },
-            }),
+            body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error(`LLM HTTP ${res.status}`);
         const data = await res.json();
@@ -211,6 +215,43 @@ wss.on('connection', (ws, req) => {
     engine.send('uci');
     engine.send('isready');
 
+    // ── Precompute engine (Phase 3) ────────────────────────────────────
+    // Engine thứ 2 chạy song song, chuyên dùng để tính top-1 nước cho phía
+    // user trước khi user đi. Dùng làm nguồn cho "tiên tri" và so sánh
+    // hậu kiểm. Tách ra để không race với engine chính.
+    let preReqId = null;          // requestId hiện tại
+    let preLastInfo = null;       // info cuối cùng (lưu để có score)
+    const preEngine = new EngineProcess(
+        ENGINE_PATH,
+        (line) => {
+            if (line === 'uciok' || line === 'readyok') return;
+            if (line.startsWith('info')) {
+                const info = parseInfoLine(line);
+                if (info && info.score) preLastInfo = info;
+                return;
+            }
+            if (line.startsWith('bestmove')) {
+                const bm = parseBestmove(line);
+                const reqId = preReqId;
+                if (!reqId) return;          // không ai chờ
+                const score = preLastInfo?.score || null;
+                preReqId = null;
+                preLastInfo = null;
+                sendJson({
+                    type: 'precompute',
+                    requestId: reqId,
+                    ok: true,
+                    uci: bm?.uci || null,
+                    score,
+                });
+            }
+        },
+        () => { /* die quietly; main engine death handles teardown */ },
+        `ws${id}-pre`,
+    );
+    preEngine.send('uci');
+    preEngine.send('isready');
+
     ws.on('message', (data) => {
         if (!alive) return;
         let msg;
@@ -258,6 +299,25 @@ wss.on('connection', (ws, req) => {
                 engine.send('stop');
                 break;
 
+            case 'precompute_request': {
+                // {requestId, fen, moves?, movetimeMs?}
+                // Nếu đang có request cũ chưa xong → stop và override.
+                if (preReqId) preEngine.send('stop');
+                preReqId = msg.requestId || `pre-${Date.now()}`;
+                preLastInfo = null;
+                let posCmd;
+                if (typeof msg.fen === 'string' && msg.fen) posCmd = `position fen ${msg.fen}`;
+                else                                          posCmd = 'position startpos';
+                if (Array.isArray(msg.moves) && msg.moves.length) {
+                    posCmd += ' moves ' + msg.moves.join(' ');
+                }
+                preEngine.send(posCmd);
+                const mt = (Number.isInteger(msg.movetimeMs) && msg.movetimeMs > 0)
+                    ? msg.movetimeMs : 400;
+                preEngine.send(`go movetime ${mt}`);
+                break;
+            }
+
             case 'chat_request': {
                 // {requestId, messages: [{role, content}, ...], maxTokens?}
                 // Legacy form {systemPrompt, userPrompt} also accepted.
@@ -279,7 +339,11 @@ wss.on('connection', (ws, req) => {
                     sendJson({ type: 'chat', requestId: reqId, ok: false, error: 'missing messages' });
                     break;
                 }
-                callLLM(messages, msg.maxTokens || 90)
+                const llmOpts = {};
+                if (typeof msg.temperature === 'number') llmOpts.temperature = msg.temperature;
+                if (typeof msg.top_p === 'number')       llmOpts.top_p       = msg.top_p;
+                if (typeof msg.seed === 'number')        llmOpts.seed        = msg.seed;
+                callLLM(messages, msg.maxTokens || 90, llmOpts)
                     .then(text => sendJson({ type: 'chat', requestId: reqId, ok: true, text }))
                     .catch(err => {
                         logErr(`[ws ${id} chat] ${err.message}`);
@@ -298,11 +362,13 @@ wss.on('connection', (ws, req) => {
         const reasonStr = reason && reason.length ? reason.toString() : '';
         log(`[ws ${id}] disconnect code=${code} reason="${reasonStr}" life=${lifeMs}ms alive=${alive}`);
         engine.kill();
+        preEngine.kill();
     });
 
     ws.on('error', (err) => {
         logErr(`[ws ${id} error] ${err.message}`);
         engine.kill();
+        preEngine.kill();
     });
 });
 

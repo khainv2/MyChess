@@ -613,6 +613,24 @@ textarea { resize: vertical; font-family: ui-monospace, monospace; font-size: 12
 .details-card > :not(summary) { margin-left: 12px; margin-right: 12px; }
 .details-card > :last-child { margin-bottom: 12px; }
 
+/* ── Feature flag toggles ──────────────────────────────────────────── */
+.ff-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.ff-section-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
+  text-transform: uppercase; color: #888; margin-bottom: 8px;
+}
+.ff-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 6px 0; cursor: pointer;
+  font-size: 13px; line-height: 1.35;
+}
+.ff-row input[type="checkbox"] { margin-top: 2px; flex-shrink: 0; }
+.ff-row .ff-meta { display: flex; flex-direction: column; gap: 1px; }
+.ff-row .ff-title { color: var(--fg); font-weight: 500; }
+.ff-row .ff-desc  { color: #888; font-size: 11px; }
+.ff-row-disabled { cursor: not-allowed; opacity: 0.55; }
+.ff-row-disabled .ff-title { color: #888; }
+
 /* ── End-of-game dialog ─────────────────────────────────────────────── */
 
 .end-dialog {

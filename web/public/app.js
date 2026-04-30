@@ -1,142 +1,137 @@
-// MyChess web GUI controller.
-// Uses chess.js for rule logic on the client; talks to MyChessUCI via the
-// Node WebSocket bridge.
+// MyChess web GUI — entry point.
+//
+// Responsibilities kept here (glue):
+//   • WebSocket lifecycle (connect, reconnect, message dispatch).
+//   • Game flow: user/engine move application, undo, new game.
+//   • Engine config (Elo → movetime + blunder probability).
+//   • Top-level button/select event bindings.
+//   • Init: build board, load personas, connect.
+//
+// Everything else lives in dedicated modules; see imports below.
 
 import { Chess } from './vendor/chess.js';
 import { Board3D } from './board3d.js';
+import { state, send, MAX_RECONNECT } from './state.js';
+import {
+    buildBoard,
+    renderPosition,
+    syncBoard3D,
+    renderHistory,
+    renderInfo,
+    clearInfo,
+    renderPlayers,
+    askPromotion,
+    setStatus,
+    updateStatus,
+    sqEl,
+    canDragLive,
+    sideToMoveLive,
+    isHumanTurn,
+    currentEloValue,
+} from './board-render.js';
+import {
+    setupClockFromSelect,
+    startClock,
+    stopClock,
+    renderClocks,
+    applyIncrement,
+    setOnTimeOutHandler,
+} from './clock.js';
+import {
+    playMoveSound,
+    playMateSound,
+    playStartSound,
+} from './sound.js';
+import {
+    applyChatPanelState,
+    refreshChatInputState,
+    appendChatMsg,
+    clearChatLog,
+    setSendChatHandler,
+} from './chat-panel.js';
+import {
+    loadPersonas,
+    triggerPersonaChat,
+    sendUserChat,
+    resolveChatMessage,
+    setEloLabelHandler,
+} from './persona-chat.js';
+import { initFeatureFlagsUI } from './feature-flags.js';
+import {
+    updateMoodFromEval,
+    resetMood,
+} from './persona-mood.js';
+import {
+    requestPrecompute,
+    handlePrecomputeResponse,
+    resetPrecompute,
+    compareUserMove,
+    shouldPrecomputeForPersona,
+} from './persona-precompute.js';
 
-// ── DOM ──────────────────────────────────────────────────────────────
+// ── DOM refs we still need at the entry level ──────────────────────
 
 const $ = (id) => document.getElementById(id);
-const boardEl = $('board');
-const statusEl = $('status');
-const filesTop = $('files-top'), filesBottom = $('files-bottom');
-const ranksLeft = $('ranks-left'), ranksRight = $('ranks-right');
-const fenEl = $('fen');
-const histEl = $('history');
-const modeEl = $('mode');
-const humanSideEl = $('human-side');
-const personaEl = $('persona');
-const personaSummaryEl = $('persona-summary');
-const eloSliderEl = $('elo-slider');
-const eloLabelEl = $('elo-label');
-const eloDetailEl = $('elo-detail');
-const timeControlEl = $('time-control');
-const thinktimeEl = $('thinktime');
-const thinktimeLabel = $('thinktime-label');
-const rowThinktime = $('row-thinktime');
-const rowSide = $('row-side');
-const rowLevel = $('row-level');
-const rowPersona = $('row-persona');
-const rowEloDetail = $('elo-row');
-const chatLogEl = $('chat-log');
-const chatFormEl = $('chat-form');
-const chatInputEl = $('chat-input');
-const chatSendEl = $('chat-send');
-const chatStatusEl = $('chat-status');
-const chatPersonaTagEl = $('chat-persona-tag');
-const btnChatClose = $('btn-chat-close');
-const btnChatOpen = $('btn-chat-open');
-const layoutEl = document.querySelector('.layout');
-const promoOverlay = $('promo-overlay');
-const infoDepth = $('info-depth'), infoScore = $('info-score');
-const infoNodes = $('info-nodes'), infoNps = $('info-nps');
-const infoPv = $('info-pv');
-const playerTopName = $('player-top-name');
-const playerBottomName = $('player-bottom-name');
-const playerTopIcon = $('player-top-icon');
-const playerBottomIcon = $('player-bottom-icon');
-const clockTopEl = $('clock-top');
-const clockBottomEl = $('clock-bottom');
-const endDialog = $('end-dialog');
-const endTitleEl = $('end-title');
-const endMsgEl = $('end-msg');
-const endIconEl = $('end-icon');
-const btnSound = $('btn-sound');
-const btnHint = $('btn-hint');
-const btnResign = $('btn-resign');
-const btnUndo = $('btn-undo');
+const boardEl       = $('board');
+const fenEl         = $('fen');
+const modeEl        = $('mode');
+const humanSideEl   = $('human-side');
+const eloSliderEl   = $('elo-slider');
+const eloLabelEl    = $('elo-label');
+const eloDetailEl   = $('elo-detail');
+const rowSide       = $('row-side');
+const rowLevel      = $('row-level');
+const rowPersona    = $('row-persona');
+const rowEloDetail  = $('elo-row');
+const endDialog     = $('end-dialog');
+const endTitleEl    = $('end-title');
+const endMsgEl      = $('end-msg');
+const endIconEl     = $('end-icon');
+const btnHint       = $('btn-hint');
+const btnResign     = $('btn-resign');
+const btnUndo       = $('btn-undo');
 
-const FILES = ['a','b','c','d','e','f','g','h'];
-
-// ── State ────────────────────────────────────────────────────────────
-
-const game = new Chess();
-let flipped = false;
-let selected = null;          // square algebra ("e2") or null
-let legalForSelected = [];    // chess.js verbose moves from selected
-let lastMove = null;          // {from, to}
-let historySAN = [];          // for display
-let viewIdx = -1;             // which history index is being viewed (-1 = live)
-let engineReady = false;
-let waitingBestmove = false;
-let pendingHint = false;
-let mode = 'pve';             // 'pve' | 'eve' | 'pvp'
-let gameOver = false;
-let board3d = null;
-let view3D = localStorage.getItem('mychess.view3d') !== 'off';
-let personas = [];
-let currentPersona = null;
-let chatReqSeq = 0;
-const pendingChatRequests = new Map(); // requestId -> resolver
-let plyCount = 0;
-let lastChatPly = -10; // ensure first chat opportunity isn't gated by cooldown
-let chatHistory = [];   // [{role:'user'|'assistant', content}] — full convo within current game
-const MAX_CHAT_TURNS = 60; // 60 pairs = 120 messages; safety cap (Qwen3.6 ctx is 256k anyway)
-let chatBusy = false;   // a chat request (auto or manual) is in flight
-let chatTypingNode = null;
-let chatPanelOpen = localStorage.getItem('mychess.chatPanel') !== 'closed';
-
-// ── WebSocket ────────────────────────────────────────────────────────
+// ── WebSocket ──────────────────────────────────────────────────────
 
 const wsUrl = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host;
-let ws = null;
-let reconnectAttempts = 0;
-let reconnectTimer = null;
-let resumingSession = false;
-const MAX_RECONNECT = 5;
 
 function connect() {
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+    if (state.reconnectTimer) { clearTimeout(state.reconnectTimer); state.reconnectTimer = null; }
     const reconnectBtn = $('btn-reconnect');
-    ws = new WebSocket(wsUrl);
-    ws.addEventListener('open', () => {
-        reconnectAttempts = 0;
+    state.ws = new WebSocket(wsUrl);
+    state.ws.addEventListener('open', () => {
+        state.reconnectAttempts = 0;
         if (reconnectBtn) reconnectBtn.style.display = 'none';
-        setStatus(resumingSession ? 'Đang khôi phục phiên…' : 'Đang khởi tạo máy…');
+        setStatus(state.resumingSession ? 'Đang khôi phục phiên…' : 'Đang khởi tạo máy…');
     });
-    ws.addEventListener('close', () => {
-        engineReady = false;
-        waitingBestmove = false;
-        if (reconnectAttempts < MAX_RECONNECT) {
-            reconnectAttempts++;
-            const delay = Math.min(8000, 1000 * Math.pow(2, reconnectAttempts - 1));
-            setStatus(`Mất kết nối. Thử lại ${reconnectAttempts}/${MAX_RECONNECT} sau ${Math.round(delay/1000)}s…`);
-            resumingSession = true;
-            reconnectTimer = setTimeout(connect, delay);
+    state.ws.addEventListener('close', () => {
+        state.engineReady = false;
+        state.waitingBestmove = false;
+        if (state.reconnectAttempts < MAX_RECONNECT) {
+            state.reconnectAttempts++;
+            const delay = Math.min(8000, 1000 * Math.pow(2, state.reconnectAttempts - 1));
+            setStatus(`Mất kết nối. Thử lại ${state.reconnectAttempts}/${MAX_RECONNECT} sau ${Math.round(delay/1000)}s…`);
+            state.resumingSession = true;
+            state.reconnectTimer = setTimeout(connect, delay);
         } else {
             setStatus('Mất kết nối máy. Bấm "Kết nối lại" để thử lại.');
             if (reconnectBtn) reconnectBtn.style.display = '';
         }
     });
-    ws.addEventListener('error', () => { /* close fires too — handled there */ });
-    ws.addEventListener('message', (ev) => {
+    state.ws.addEventListener('error', () => { /* close fires too — handled there */ });
+    state.ws.addEventListener('message', (ev) => {
         let msg;
         try { msg = JSON.parse(ev.data); } catch (_) { return; }
         handleServerMessage(msg);
     });
 }
 
-function send(obj) {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
-}
-
 function handleServerMessage(msg) {
     switch (msg.type) {
         case 'ready':
-            engineReady = true;
-            if (resumingSession) {
-                resumingSession = false;
+            state.engineReady = true;
+            if (state.resumingSession) {
+                state.resumingSession = false;
                 syncEngine();
             } else {
                 sendNewGame();
@@ -148,14 +143,15 @@ function handleServerMessage(msg) {
             break;
         case 'info':
             renderInfo(msg);
+            updateMoodFromEval(msg);
             break;
         case 'bestmove':
-            waitingBestmove = false;
+            state.waitingBestmove = false;
             clearInfo();
-            if (pendingHint) {
-                pendingHint = false;
+            if (state.pendingHint) {
+                state.pendingHint = false;
                 if (msg.uci) showHint(msg.uci);
-                if (timeControl && !gameOver) startClock();
+                if (state.timeControl && !state.gameOver) startClock();
                 updateStatus();
                 updateButtons();
                 return;
@@ -163,173 +159,81 @@ function handleServerMessage(msg) {
             if (msg.uci) applyEngineMove(msg.uci);
             else { updateStatus(); updateButtons(); }
             break;
-        case 'chat': {
-            const resolver = pendingChatRequests.get(msg.requestId);
-            if (resolver) {
-                pendingChatRequests.delete(msg.requestId);
-                resolver(msg);
-            }
+        case 'chat':
+            resolveChatMessage(msg);
             break;
-        }
+        case 'precompute':
+            handlePrecomputeResponse(msg);
+            break;
         case 'error':
             setStatus('Máy báo lỗi: ' + msg.msg);
             break;
     }
 }
 
-// ── Board rendering ──────────────────────────────────────────────────
+// ── Engine config (Elo → movetime + blunder probability) ───────────
+// Engine MyChess has no UCI Skill option, so weakening is purely external.
 
-function squareName(rank, file) { return FILES[file] + (rank + 1); }
+function eloConfig(elo) {
+    // Engine baseline ~2200 ELO ở 1000ms/move (xem plans/elo_measurements.md).
+    // Không có UCI Skill → weakening = giảm movetime + random blunder.
+    if (elo <= 600)  return { movetimeMs: 10,   blunderProb: 0.80  };
+    if (elo <= 800)  return { movetimeMs: 20,   blunderProb: 0.55  };
+    if (elo <= 1000) return { movetimeMs: 30,   blunderProb: 0.40  };
+    if (elo <= 1200) return { movetimeMs: 60,   blunderProb: 0.25  };
+    if (elo <= 1400) return { movetimeMs: 150,  blunderProb: 0.12  };
+    if (elo <= 1600) return { movetimeMs: 400,  blunderProb: 0.05  };
+    if (elo <= 1800) return { movetimeMs: 1000, blunderProb: 0.015 };
+    if (elo <= 2000) return { movetimeMs: 2500, blunderProb: 0     };
+    return                  { movetimeMs: 5000, blunderProb: 0     };
+}
+function currentMovetimeMs()  { return eloConfig(currentEloValue()).movetimeMs; }
+function currentBlunderProb() { return eloConfig(currentEloValue()).blunderProb; }
 
-function buildBoard() {
-    boardEl.innerHTML = '';
-    for (let displayRow = 0; displayRow < 8; displayRow++) {
-        for (let displayCol = 0; displayCol < 8; displayCol++) {
-            const rank = flipped ? displayRow : 7 - displayRow;
-            const file = flipped ? 7 - displayCol : displayCol;
-            const sq = document.createElement('div');
-            sq.className = 'sq ' + (((rank + file) % 2 === 0) ? 'dark' : 'light');
-            sq.dataset.sq = squareName(rank, file);
-            boardEl.appendChild(sq);
-        }
-    }
-
-    const fileLabels = flipped ? [...FILES].reverse() : FILES;
-    const rankLabels = flipped ? [1,2,3,4,5,6,7,8] : [8,7,6,5,4,3,2,1];
-    filesTop.innerHTML = filesBottom.innerHTML =
-        fileLabels.map(f => `<div>${f}</div>`).join('');
-    ranksLeft.innerHTML = ranksRight.innerHTML =
-        rankLabels.map(r => `<div>${r}</div>`).join('');
+function renderEloLabel() {
+    const elo = currentEloValue();
+    const cfg = eloConfig(elo);
+    eloLabelEl.textContent = `Elo: ${elo}`;
+    const blunderPct = (cfg.blunderProb * 100).toFixed(cfg.blunderProb < 0.01 ? 1 : 0);
+    eloDetailEl.textContent = `~${cfg.movetimeMs}ms · blunder ${blunderPct}%`;
 }
 
-function renderPosition(opts = {}) {
-    const display = boardForView();
+function sendNewGame() { send({ type: 'newgame' }); }
 
-    document.querySelectorAll('.sq').forEach(sq => {
-        sq.classList.remove('from','to','check','selected','has-piece','hint');
-        sq.innerHTML = '';
-        const piece = display.get(sq.dataset.sq);
-        if (piece) {
-            sq.classList.add('has-piece');
-            const div = document.createElement('div');
-            div.className = 'piece';
-            const color = piece.color === 'w' ? 'w' : 'b';
-            const type = piece.type.toUpperCase();
-            div.style.backgroundImage = `url("pieces/${color}${type}.svg")`;
-            div.draggable = canDragLive() && piece.color === sideToMoveLive() && viewIdx === -1;
-            div.dataset.sq = sq.dataset.sq;
-            sq.appendChild(div);
-        }
-        const dot = document.createElement('div');
-        dot.className = 'legal-dot';
-        dot.style.display = 'none';
-        sq.appendChild(dot);
-    });
-
-    if (lastMove && viewIdx === -1) {
-        const a = sqEl(lastMove.from), b = sqEl(lastMove.to);
-        if (a) a.classList.add('from');
-        if (b) b.classList.add('to');
-    }
-
-    if (display.inCheck()) {
-        const turn = display.turn();
-        const kingSq = findKingSquare(display, turn);
-        if (kingSq) sqEl(kingSq).classList.add('check');
-    }
-
-    if (selected) {
-        const s = sqEl(selected);
-        if (s) s.classList.add('selected');
-        for (const m of legalForSelected) {
-            const d = sqEl(m.to);
-            if (d) {
-                const dot = d.querySelector('.legal-dot');
-                if (dot) dot.style.display = 'block';
-            }
-        }
-    }
-
-    fenEl.value = game.fen();
-    syncBoard3D(opts.animatedMove);
+function syncEngine() {
+    const uciHistory = state.game.history({ verbose: true })
+        .map(m => m.from + m.to + (m.promotion || ''));
+    send({ type: 'position', moves: uciHistory });
 }
 
-function syncBoard3D(animatedMove = null) {
-    if (!board3d || !view3D) return;
-    const display = boardForView();
-    let animated = false;
-    if (animatedMove && viewIdx === -1) {
-        animated = board3d.animateMove(animatedMove);
-    }
-    if (!animated) {
-        board3d.setBoardFromFen(display.fen());
-    }
-    let checkSq = null;
-    if (display.inCheck()) checkSq = findKingSquare(display, display.turn());
-    board3d.setHighlights({
-        from: viewIdx === -1 ? lastMove?.from : null,
-        to:   viewIdx === -1 ? lastMove?.to   : null,
-        selected: viewIdx === -1 ? selected : null,
-        legalSquares: viewIdx === -1 ? legalForSelected.map(m => m.to) : [],
-        checkSquare: checkSq,
-    });
+function maybeTriggerEngine() {
+    if (!state.engineReady) return;
+    if (state.gameOver) return;
+    if (state.game.isGameOver()) return;
+    if (state.mode === 'pvp') return;
+    if (state.mode === 'pve' && isHumanTurn()) return;
+    state.waitingBestmove = true;
+    if (state.timeControl) startClock();
+    updateStatus();
+    updateButtons();
+    send({ type: 'go', movetimeMs: currentMovetimeMs() });
 }
 
-function sqEl(name) { return boardEl.querySelector(`.sq[data-sq="${name}"]`); }
-
-function findKingSquare(chess, color) {
-    const board = chess.board();
-    for (let r = 0; r < 8; r++) for (let f = 0; f < 8; f++) {
-        const p = board[r][f];
-        if (p && p.type === 'k' && p.color === color) {
-            return FILES[f] + (8 - r);
-        }
-    }
-    return null;
-}
-
-function boardForView() {
-    if (viewIdx === -1) return game;
-    const tmp = new Chess();
-    const moves = game.history({ verbose: true });
-    for (let i = 0; i <= viewIdx && i < moves.length; i++) {
-        tmp.move({ from: moves[i].from, to: moves[i].to, promotion: moves[i].promotion });
-    }
-    return tmp;
-}
-
-// ── Selection / move logic ──────────────────────────────────────────
-
-function canDragLive() {
-    if (gameOver) return false;
-    if (mode === 'eve') return false;
-    if (waitingBestmove) return false;
-    if (game.isGameOver()) return false;
-    return true;
-}
-
-function sideToMoveLive() { return game.turn(); }
-
-function isHumanTurn() {
-    if (mode === 'pvp') return true;
-    if (mode === 'eve') return false;
-    const humanColor = humanSideEl.value === 'white' ? 'w' : 'b';
-    return game.turn() === humanColor;
-}
+// ── Move flow ──────────────────────────────────────────────────────
 
 function selectSquare(sq) {
-    selected = sq;
-    legalForSelected = game.moves({ square: sq, verbose: true });
+    state.selected = sq;
+    state.legalForSelected = state.game.moves({ square: sq, verbose: true });
     renderPosition();
 }
 function clearSelection() {
-    selected = null;
-    legalForSelected = [];
+    state.selected = null;
+    state.legalForSelected = [];
     renderPosition();
 }
 
 async function tryUserMove(from, to) {
-    const candidates = game.moves({ square: from, verbose: true })
+    const candidates = state.game.moves({ square: from, verbose: true })
         .filter(m => m.to === to);
     if (!candidates.length) { clearSelection(); return false; }
 
@@ -339,27 +243,31 @@ async function tryUserMove(from, to) {
         if (!promo) { clearSelection(); return false; }
     }
 
+    // Lưu FEN trước khi đi để precompute compare hậu kiểm.
+    const fenBefore = state.game.fen();
+    const uciPlayed = from + to + (promo || '');
+
     let result;
-    try { result = game.move({ from, to, promotion: promo }); }
+    try { result = state.game.move({ from, to, promotion: promo }); }
     catch (_) { result = null; }
     if (!result) { clearSelection(); return false; }
 
+    cancelIdleTimer();
+    const moveQuality = compareUserMove(uciPlayed, fenBefore);
+
     onMoveDone(result);
-    triggerPersonaChat('user_move', { san: result.san, result });
+    triggerPersonaChat('user_move', { san: result.san, result, moveQuality });
     return true;
 }
 
 function onMoveDone(result) {
-    selected = null; legalForSelected = [];
-    lastMove = { from: result.from, to: result.to };
-    historySAN.push(result.san);
-    viewIdx = -1;
-    plyCount++;
+    state.selected = null; state.legalForSelected = [];
+    state.lastMove = { from: result.from, to: result.to };
+    state.historySAN.push(result.san);
+    state.viewIdx = -1;
+    state.plyCount++;
 
-    // Clock: increment to mover, then it's the other side's turn.
     applyIncrement(result.color);
-
-    // Sound for the move type.
     playMoveSound(result);
 
     renderPosition({ animatedMove: result });
@@ -371,7 +279,6 @@ function onMoveDone(result) {
         updateButtons();
         return;
     }
-
     renderClocks();
     updateStatus();
     updateButtons();
@@ -381,11 +288,9 @@ function onMoveDone(result) {
 function applyEngineMove(uci) {
     if (uci.length < 4) return;
 
-    // Elo-based weakening: with `blunderProb`, replace engine's bestmove with a
-    // random legal move. Only applied when engine is the side to move (PvE/EvE).
     const blunderP = currentBlunderProb();
     if (blunderP > 0 && Math.random() < blunderP) {
-        const legal = game.moves({ verbose: true });
+        const legal = state.game.moves({ verbose: true });
         if (legal.length > 1) {
             const pick = legal[Math.floor(Math.random() * legal.length)];
             uci = pick.from + pick.to + (pick.promotion || '');
@@ -395,7 +300,7 @@ function applyEngineMove(uci) {
     const from = uci.slice(0, 2), to = uci.slice(2, 4);
     const promo = uci.length >= 5 ? uci[4] : undefined;
     let result;
-    try { result = game.move({ from, to, promotion: promo }); }
+    try { result = state.game.move({ from, to, promotion: promo }); }
     catch (_) { result = null; }
     if (!result) {
         setStatus('Máy trả về nước không hợp lệ: ' + uci);
@@ -403,351 +308,56 @@ function applyEngineMove(uci) {
     }
     onMoveDone(result);
     triggerPersonaChat('engine_move', { san: result.san, uci, result });
-}
-
-// ── Engine ────────────────────────────────────────────────────────────
-
-function sendNewGame() {
-    send({ type: 'newgame' });
-}
-function syncEngine() {
-    const uciHistory = game.history({ verbose: true })
-        .map(m => m.from + m.to + (m.promotion || ''));
-    send({ type: 'position', moves: uciHistory });
-}
-// Map Elo target to engine think-time and a blunder probability that the
-// client uses to override the engine's bestmove with a random legal move.
-// Engine MyChess has no UCI Skill option, so weakening is purely external.
-function eloConfig(elo) {
-    if (elo <= 600)  return { movetimeMs: 50,   blunderProb: 0.50 };
-    if (elo <= 800)  return { movetimeMs: 80,   blunderProb: 0.30 };
-    if (elo <= 1000) return { movetimeMs: 120,  blunderProb: 0.18 };
-    if (elo <= 1200) return { movetimeMs: 200,  blunderProb: 0.10 };
-    if (elo <= 1400) return { movetimeMs: 400,  blunderProb: 0.05 };
-    if (elo <= 1600) return { movetimeMs: 800,  blunderProb: 0.02 };
-    if (elo <= 1800) return { movetimeMs: 1500, blunderProb: 0.005 };
-    if (elo <= 2000) return { movetimeMs: 3000, blunderProb: 0    };
-    return                  { movetimeMs: 6000, blunderProb: 0    };
-}
-
-function currentEloValue() {
-    return parseInt(eloSliderEl.value, 10) || 1400;
-}
-
-function currentMovetimeMs() {
-    return eloConfig(currentEloValue()).movetimeMs;
-}
-
-function currentBlunderProb() {
-    return eloConfig(currentEloValue()).blunderProb;
-}
-
-function renderEloLabel() {
-    const elo = currentEloValue();
-    const cfg = eloConfig(elo);
-    eloLabelEl.textContent = `Elo: ${elo}`;
-    const blunderPct = (cfg.blunderProb * 100).toFixed(cfg.blunderProb < 0.01 ? 1 : 0);
-    eloDetailEl.textContent = `~${cfg.movetimeMs}ms · blunder ${blunderPct}%`;
-}
-function maybeTriggerEngine() {
-    if (!engineReady) return;
-    if (gameOver) return;
-    if (game.isGameOver()) return;
-    if (mode === 'pvp') return;
-    if (mode === 'pve' && isHumanTurn()) return;
-    waitingBestmove = true;
-    if (timeControl) startClock();
-    updateStatus();
-    updateButtons();
-    send({ type: 'go', movetimeMs: currentMovetimeMs() });
-}
-
-// ── Promotion dialog ────────────────────────────────────────────────
-
-function askPromotion() {
-    const turn = game.turn();
-    const color = turn === 'w' ? 'w' : 'b';
-    promoOverlay.querySelectorAll('button').forEach(btn => {
-        const p = btn.dataset.p.toUpperCase();
-        const img = btn.querySelector('img');
-        img.src = `pieces/${color}${p}.svg`;
-    });
-    promoOverlay.classList.remove('hidden');
-    return new Promise(resolve => {
-        const onClick = (ev) => {
-            const btn = ev.target.closest('button[data-p]');
-            if (!btn) return;
-            cleanup();
-            resolve(btn.dataset.p);
-        };
-        const onKey = (ev) => {
-            if (ev.key === 'Escape') { cleanup(); resolve(null); }
-        };
-        function cleanup() {
-            promoOverlay.classList.add('hidden');
-            promoOverlay.removeEventListener('click', onClick);
-            document.removeEventListener('keydown', onKey);
-        }
-        promoOverlay.addEventListener('click', onClick);
-        document.addEventListener('keydown', onKey);
-    });
-}
-
-// ── History panel ───────────────────────────────────────────────────
-
-function renderHistory() {
-    histEl.innerHTML = '';
-    for (let i = 0; i < historySAN.length; i += 2) {
-        const num = (i / 2) + 1;
-        const li = document.createElement('li');
-        li.dataset.idx = i;
-        li.innerHTML =
-            `<span style="color:#888">${num}.</span>` +
-            `<span class="san" data-ply="${i}">${historySAN[i] || ''}</span>` +
-            (historySAN[i+1] ? `<span class="san" data-ply="${i+1}">${historySAN[i+1]}</span>` : '');
-        histEl.appendChild(li);
-    }
-    const cur = histEl.querySelector(`[data-ply="${viewIdx === -1 ? historySAN.length - 1 : viewIdx}"]`);
-    if (cur) cur.parentElement.classList.add('current');
-}
-
-histEl.addEventListener('click', (ev) => {
-    const span = ev.target.closest('[data-ply]');
-    if (!span) return;
-    const ply = parseInt(span.dataset.ply, 10);
-    viewIdx = (ply === historySAN.length - 1) ? -1 : ply;
-    renderPosition();
-    renderHistory();
-});
-
-// ── Status / info ───────────────────────────────────────────────────
-
-function setStatus(text) { statusEl.textContent = text; }
-
-function updateStatus() {
-    if (!engineReady) { setStatus('Đang kết nối máy…'); return; }
-    if (gameOver) return;
-    if (game.isCheckmate()) {
-        const winner = game.turn() === 'w' ? 'Đen' : 'Trắng';
-        setStatus(`Chiếu hết. ${winner} thắng.`);
-        return;
-    }
-    if (game.isStalemate()) { setStatus('Hết nước (stalemate). Hòa.'); return; }
-    if (game.isInsufficientMaterial()) { setStatus('Hòa (không đủ quân).'); return; }
-    if (game.isThreefoldRepetition()) { setStatus('Hòa (lặp ba lần).'); return; }
-    if (game.isDraw()) { setStatus('Hòa (luật 50 nước).'); return; }
-    const turn = game.turn() === 'w' ? 'Trắng' : 'Đen';
-    if (waitingBestmove && pendingHint) setStatus(`Đang tính gợi ý…`);
-    else if (waitingBestmove) setStatus(`Máy đang suy nghĩ (${turn})…`);
-    else if (game.inCheck()) setStatus(`${turn} bị chiếu — đến lượt ${turn}.`);
-    else setStatus(`Lượt: ${turn}`);
-}
-
-function clearInfo() {
-    infoDepth.textContent = '–';
-    infoScore.textContent = '–';
-    infoNodes.textContent = '–';
-    infoNps.textContent = '–';
-    infoPv.textContent = '–';
-}
-
-function renderInfo(msg) {
-    if (msg.depth != null) infoDepth.textContent = msg.depth;
-    if (msg.nodes != null) infoNodes.textContent = msg.nodes.toLocaleString();
-    if (msg.nps != null) infoNps.textContent = msg.nps.toLocaleString();
-    if (msg.score) {
-        let perspective = msg.score.value;
-        if (game.turn() === 'b') perspective = -perspective;
-        if (msg.score.kind === 'cp') {
-            const sign = perspective >= 0 ? '+' : '';
-            infoScore.textContent = `${sign}${(perspective / 100).toFixed(2)}`;
-        } else if (msg.score.kind === 'mate') {
-            infoScore.textContent = `M${msg.score.value}`;
-        }
-    }
-    if (msg.pv) {
-        try {
-            const tmp = new Chess(game.fen());
-            const sans = [];
-            for (const u of msg.pv) {
-                if (u.length < 4) break;
-                const mv = tmp.move({
-                    from: u.slice(0,2), to: u.slice(2,4),
-                    promotion: u.length >= 5 ? u[4] : undefined,
-                });
-                if (!mv) break;
-                sans.push(mv.san);
-            }
-            infoPv.textContent = sans.join(' ');
-        } catch (_) {
-            infoPv.textContent = msg.pv.join(' ');
-        }
+    // Phase 3: tới lượt user → spawn precompute để biết top-1 nước user nên đi.
+    // Đồng thời start idle timer cho "tiên tri" nếu user nghĩ lâu.
+    if (!state.gameOver && shouldPrecomputeForPersona(state.currentPersona)) {
+        // Delay nhỏ cho UI settle trước khi gửi command engine.
+        setTimeout(() => requestPrecompute(), 100);
+        scheduleIdleTimer();
     }
 }
 
-// ── Player names ────────────────────────────────────────────────────
+// ── Idle timer cho precognition (Phase 3) ──────────────────────────
 
-function topPlayerColor() {
-    // Without flip: white is at bottom, so black is on top.
-    // With flip: white at top.
-    return flipped ? 'w' : 'b';
+const IDLE_DELAY_MS = 6000;       // sau N giây user chưa đi → có cơ hội
+const PRECOG_BASE_PROB = 0.20;    // xác suất base, scale theo chattiness
+
+function scheduleIdleTimer() {
+    cancelIdleTimer();
+    state.idleTimerHandle = setTimeout(() => {
+        state.idleTimerHandle = null;
+        if (state.gameOver) return;
+        if (!isHumanTurn()) return;
+        if (!state.currentPersona) return;
+        const chat = state.currentPersona.chattiness || 0.5;
+        if (Math.random() > PRECOG_BASE_PROB * chat) return;
+        triggerPersonaChat('precognition', {});
+    }, IDLE_DELAY_MS);
 }
 
-function levelLabel() {
-    return `Elo ${currentEloValue()}`;
-}
-
-function renderPlayers() {
-    let names, icons;
-    if (mode === 'pve') {
-        const human = humanSideEl.value === 'white' ? 'w' : 'b';
-        const engine = human === 'w' ? 'b' : 'w';
-        names = {};
-        names[human] = 'Bạn';
-        names[engine] = `Máy (${levelLabel()})`;
-        icons = {};
-        icons[human] = '👤';
-        icons[engine] = '🤖';
-    } else if (mode === 'eve') {
-        names = { w: `Máy Trắng (${levelLabel()})`, b: `Máy Đen (${levelLabel()})` };
-        icons = { w: '🤖', b: '🤖' };
-    } else { // pvp
-        names = { w: 'Trắng', b: 'Đen' };
-        icons = { w: '👤', b: '👤' };
-    }
-    const top = topPlayerColor();
-    const bot = top === 'w' ? 'b' : 'w';
-    playerTopName.textContent = names[top];
-    playerBottomName.textContent = names[bot];
-    playerTopIcon.textContent = icons[top];
-    playerBottomIcon.textContent = icons[bot];
-}
-
-// ── Clock system ────────────────────────────────────────────────────
-
-let timeControl = null; // { initial: ms, increment: ms } | null
-let clockMs = { w: 0, b: 0 };
-let clockRunning = false;
-let clockTickHandle = null;
-let lastTickTs = 0;
-
-function setupClockFromSelect() {
-    const tcStr = timeControlEl.value;
-    if (tcStr === 'none') {
-        timeControl = null;
-        clockMs = { w: 0, b: 0 };
-        stopClock();
-        renderClocks();
-        return;
-    }
-    const [secs, inc] = tcStr.split('+').map(Number);
-    timeControl = { initial: secs * 1000, increment: inc * 1000 };
-    clockMs = { w: timeControl.initial, b: timeControl.initial };
-    stopClock();
-    renderClocks();
-}
-
-function formatMs(ms) {
-    if (ms < 0) ms = 0;
-    if (ms < 10000) {
-        const totalSec = Math.floor(ms / 1000);
-        const tenths = Math.floor((ms % 1000) / 100);
-        return `${totalSec}.${tenths}`;
-    }
-    const totalSec = Math.ceil(ms / 1000);
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return `${m}:${String(s).padStart(2,'0')}`;
-}
-
-function renderClocks() {
-    if (!timeControl) {
-        clockTopEl.textContent = '';
-        clockBottomEl.textContent = '';
-        clockTopEl.className = 'clock';
-        clockBottomEl.className = 'clock';
-        return;
-    }
-    const top = topPlayerColor();
-    const bot = top === 'w' ? 'b' : 'w';
-    clockTopEl.textContent = formatMs(clockMs[top]);
-    clockBottomEl.textContent = formatMs(clockMs[bot]);
-    const stm = game.turn();
-    setClockClass(clockTopEl, top, stm);
-    setClockClass(clockBottomEl, bot, stm);
-}
-
-function setClockClass(el, color, stm) {
-    el.classList.remove('active', 'warn', 'dead');
-    if (clockMs[color] <= 0) { el.classList.add('dead'); return; }
-    if (clockRunning && stm === color && !gameOver) el.classList.add('active');
-    if (clockMs[color] < 30000) el.classList.add('warn');
-}
-
-function startClock() {
-    if (!timeControl || gameOver) return;
-    if (game.isGameOver()) return;
-    if (clockRunning) return;
-    clockRunning = true;
-    lastTickTs = performance.now();
-    if (clockTickHandle) clearInterval(clockTickHandle);
-    clockTickHandle = setInterval(tickClock, 100);
-    renderClocks();
-}
-function stopClock() {
-    clockRunning = false;
-    if (clockTickHandle) { clearInterval(clockTickHandle); clockTickHandle = null; }
-    renderClocks();
-}
-function tickClock() {
-    if (!clockRunning || !timeControl) return;
-    const now = performance.now();
-    const delta = now - lastTickTs;
-    lastTickTs = now;
-    const stm = game.turn();
-    clockMs[stm] -= delta;
-    if (clockMs[stm] <= 0) {
-        clockMs[stm] = 0;
-        stopClock();
-        onTimeOut(stm);
-        return;
-    }
-    renderClocks();
-}
-function applyIncrement(colorThatJustMoved) {
-    if (!timeControl) return;
-    if (clockMs[colorThatJustMoved] > 0) {
-        clockMs[colorThatJustMoved] += timeControl.increment;
+function cancelIdleTimer() {
+    if (state.idleTimerHandle) {
+        clearTimeout(state.idleTimerHandle);
+        state.idleTimerHandle = null;
     }
 }
-function onTimeOut(loserColor) {
-    const winner = loserColor === 'w' ? 'Đen' : 'Trắng';
-    showEndDialog('⏰', 'Hết giờ', `${winner} thắng do đối thủ hết giờ.`);
-    setStatus(`Hết giờ. ${winner} thắng.`);
-    gameOver = true;
-    waitingBestmove = false;
-    send({ type: 'stop' });
-    updateButtons();
-}
 
-// ── End-of-game ─────────────────────────────────────────────────────
+// ── End-of-game ────────────────────────────────────────────────────
 
 function personaSideColor() {
-    if (mode !== 'pve' || !currentPersona) return null;
+    if (state.mode !== 'pve' || !state.currentPersona) return null;
     return humanSideEl.value === 'white' ? 'b' : 'w';
 }
 
 function announceEnd(icon, title, msg, outcome) {
     showEndDialog(icon, title, msg);
-    gameOver = true; stopClock(); updateStatus();
+    state.gameOver = true; stopClock(); updateStatus();
     if (outcome === 'mate') playMateSound();
-    // outcome: 'win' (persona won), 'lose' (persona lost), 'draw'
     const personaColor = personaSideColor();
     if (personaColor) {
         let evt = 'draw';
         if (outcome === 'mate') {
-            // game.turn() is the side who got checkmated.
-            const losingColor = game.turn();
+            const losingColor = state.game.turn();
             evt = (losingColor === personaColor) ? 'lose' : 'win';
         }
         triggerPersonaChat(evt);
@@ -755,24 +365,24 @@ function announceEnd(icon, title, msg, outcome) {
 }
 
 function checkAndAnnounceEnd() {
-    if (game.isCheckmate()) {
-        const winner = game.turn() === 'w' ? 'Đen' : 'Trắng';
+    if (state.game.isCheckmate()) {
+        const winner = state.game.turn() === 'w' ? 'Đen' : 'Trắng';
         announceEnd('♚', 'Chiếu hết', `${winner} thắng.`, 'mate');
         return true;
     }
-    if (game.isStalemate()) {
+    if (state.game.isStalemate()) {
         announceEnd('🤝', 'Hòa', 'Hết nước đi (stalemate).', 'draw');
         return true;
     }
-    if (game.isInsufficientMaterial()) {
+    if (state.game.isInsufficientMaterial()) {
         announceEnd('🤝', 'Hòa', 'Hai bên không đủ quân chiếu hết.', 'draw');
         return true;
     }
-    if (game.isThreefoldRepetition()) {
+    if (state.game.isThreefoldRepetition()) {
         announceEnd('🤝', 'Hòa', 'Lặp lại vị trí ba lần.', 'draw');
         return true;
     }
-    if (game.isDraw()) {
+    if (state.game.isDraw()) {
         announceEnd('🤝', 'Hòa', 'Luật 50 nước không bắt/đẩy tốt.', 'draw');
         return true;
     }
@@ -789,15 +399,15 @@ function showEndDialog(icon, title, msg) {
 $('btn-end-new').addEventListener('click', () => { endDialog.close(); newGame(); });
 $('btn-end-close').addEventListener('click', () => endDialog.close());
 
-// ── Hint ────────────────────────────────────────────────────────────
+// ── Hint ───────────────────────────────────────────────────────────
 
 function requestHint() {
-    if (!engineReady || waitingBestmove || gameOver || game.isGameOver()) return;
-    if (mode === 'eve') return;
-    if (mode === 'pve' && !isHumanTurn()) return;
-    pendingHint = true;
-    waitingBestmove = true;
-    stopClock(); // pause clock during hint computation
+    if (!state.engineReady || state.waitingBestmove || state.gameOver || state.game.isGameOver()) return;
+    if (state.mode === 'eve') return;
+    if (state.mode === 'pve' && !isHumanTurn()) return;
+    state.pendingHint = true;
+    state.waitingBestmove = true;
+    stopClock();
     updateStatus();
     updateButtons();
     send({ type: 'go', movetimeMs: 500 });
@@ -813,20 +423,20 @@ function showHint(uci) {
     setStatus(`Gợi ý: ${from} → ${to}`);
     setTimeout(() => {
         document.querySelectorAll('.sq.hint').forEach(s => s.classList.remove('hint'));
-        if (!gameOver) updateStatus();
+        if (!state.gameOver) updateStatus();
     }, 2700);
 }
 
-// ── Resign ───────────────────────────────────────────────────────────
+// ── Resign ─────────────────────────────────────────────────────────
 
 function resignCurrentSide() {
-    if (gameOver) return;
-    if (mode === 'eve') return;
-    const sideName = game.turn() === 'w' ? 'Trắng' : 'Đen';
+    if (state.gameOver) return;
+    if (state.mode === 'eve') return;
+    const sideName = state.game.turn() === 'w' ? 'Trắng' : 'Đen';
     let title, msg;
-    if (mode === 'pve') {
+    if (state.mode === 'pve') {
         const humanColor = humanSideEl.value === 'white' ? 'w' : 'b';
-        if (game.turn() !== humanColor) return; // engine doesn't resign
+        if (state.game.turn() !== humanColor) return;
         if (!confirm('Bạn xác nhận đầu hàng?')) return;
         const winnerName = humanColor === 'w' ? 'Đen' : 'Trắng';
         title = 'Đầu hàng';
@@ -837,115 +447,60 @@ function resignCurrentSide() {
         title = 'Đầu hàng';
         msg = `${sideName} đầu hàng. ${winnerName} thắng.`;
     }
-    gameOver = true;
+    state.gameOver = true;
     stopClock();
-    waitingBestmove = false;
-    pendingHint = false;
+    state.waitingBestmove = false;
+    state.pendingHint = false;
     send({ type: 'stop' });
     showEndDialog('🏳️', title, msg);
     setStatus(msg);
     updateButtons();
 }
 
-// ── Sound (WebAudio) ────────────────────────────────────────────────
+// ── Time-out hook (clock fires, app.js handles end-of-game) ────────
 
-let audioCtx = null;
-let soundOn = localStorage.getItem('mychess.sound') !== 'off';
-
-function syncSoundButton() {
-    btnSound.textContent = soundOn ? '🔔' : '🔕';
-    btnSound.classList.toggle('muted', !soundOn);
-}
-
-function ensureAudio() {
-    if (!soundOn) return null;
-    try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        return audioCtx;
-    } catch (_) { return null; }
-}
-
-function tone(freq, duration = 80, type = 'sine', vol = 0.13, delay = 0) {
-    const ctx = ensureAudio();
-    if (!ctx) return;
-    const t0 = ctx.currentTime + delay / 1000;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, t0);
-    gain.gain.setValueAtTime(vol, t0);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration / 1000);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(t0);
-    osc.stop(t0 + duration / 1000 + 0.01);
-}
-
-function playMoveSound(result) {
-    if (!result) return;
-    if (game.inCheck()) { playCheckSound(); return; }
-    const flags = result.flags || '';
-    if (result.captured || flags.includes('e')) {
-        tone(220, 60, 'triangle', 0.12);
-        tone(330, 90, 'triangle', 0.10, 50);
-    } else if (flags.includes('k') || flags.includes('q')) {
-        tone(330, 60, 'sine', 0.12);
-        tone(440, 90, 'sine', 0.10, 60);
-    } else {
-        tone(330, 60, 'sine', 0.10);
-    }
-}
-function playCheckSound() {
-    tone(880, 100, 'square', 0.10);
-    tone(660, 130, 'square', 0.08, 110);
-}
-function playMateSound() {
-    tone(220, 200, 'sawtooth', 0.12);
-    tone(180, 280, 'sawtooth', 0.12, 200);
-}
-function playStartSound() {
-    tone(523, 70, 'sine', 0.08);
-    tone(659, 70, 'sine', 0.08, 70);
-    tone(784, 110, 'sine', 0.08, 140);
-}
-
-btnSound.addEventListener('click', () => {
-    soundOn = !soundOn;
-    localStorage.setItem('mychess.sound', soundOn ? 'on' : 'off');
-    syncSoundButton();
-    if (soundOn) tone(660, 60); // confirm
+setOnTimeOutHandler((loserColor) => {
+    const winner = loserColor === 'w' ? 'Đen' : 'Trắng';
+    showEndDialog('⏰', 'Hết giờ', `${winner} thắng do đối thủ hết giờ.`);
+    setStatus(`Hết giờ. ${winner} thắng.`);
+    state.gameOver = true;
+    state.waitingBestmove = false;
+    send({ type: 'stop' });
+    updateButtons();
 });
-syncSoundButton();
 
-// ── Drag and drop / click ───────────────────────────────────────────
+// Cross-module callbacks: persona-chat + chat-panel
+setEloLabelHandler(renderEloLabel);
+setSendChatHandler(sendUserChat);
+
+// ── Click / drag handlers on board ─────────────────────────────────
 
 boardEl.addEventListener('click', (ev) => {
     const sqDiv = ev.target.closest('.sq');
     if (!sqDiv) return;
-    if (viewIdx !== -1) { viewIdx = -1; renderPosition(); renderHistory(); return; }
-    if (gameOver) return;
-    if (!isHumanTurn() || waitingBestmove) return;
+    if (state.viewIdx !== -1) { state.viewIdx = -1; renderPosition(); renderHistory(); return; }
+    if (state.gameOver) return;
+    if (!isHumanTurn() || state.waitingBestmove) return;
     const sq = sqDiv.dataset.sq;
-    const piece = game.get(sq);
+    const piece = state.game.get(sq);
 
-    if (selected) {
-        if (sq === selected) { clearSelection(); return; }
-        if (piece && piece.color === game.turn()) { selectSquare(sq); return; }
-        tryUserMove(selected, sq);
+    if (state.selected) {
+        if (sq === state.selected) { clearSelection(); return; }
+        if (piece && piece.color === state.game.turn()) { selectSquare(sq); return; }
+        tryUserMove(state.selected, sq);
         return;
     }
-    if (piece && piece.color === game.turn()) selectSquare(sq);
+    if (piece && piece.color === state.game.turn()) selectSquare(sq);
 });
 
 boardEl.addEventListener('dragstart', (ev) => {
-    if (viewIdx !== -1 || gameOver) { ev.preventDefault(); return; }
-    if (!isHumanTurn() || waitingBestmove) { ev.preventDefault(); return; }
+    if (state.viewIdx !== -1 || state.gameOver) { ev.preventDefault(); return; }
+    if (!isHumanTurn() || state.waitingBestmove) { ev.preventDefault(); return; }
     const piece = ev.target.closest('.piece');
     if (!piece) return;
     const sq = piece.dataset.sq;
-    const p = game.get(sq);
-    if (!p || p.color !== game.turn()) { ev.preventDefault(); return; }
+    const p = state.game.get(sq);
+    if (!p || p.color !== state.game.turn()) { ev.preventDefault(); return; }
     selectSquare(sq);
     ev.dataTransfer.setData('text/plain', sq);
     piece.classList.add('dragging');
@@ -963,52 +518,41 @@ boardEl.addEventListener('drop', (ev) => {
     tryUserMove(from, target.dataset.sq);
 });
 
-// ── Buttons / selects ───────────────────────────────────────────────
-
-$('btn-new').addEventListener('click', newGame);
-btnUndo.addEventListener('click', undoMove);
-$('btn-flip').addEventListener('click', () => {
-    flipped = !flipped;
-    buildBoard();
-    if (board3d) board3d.setFlipped(flipped);
-    renderPosition();
-    renderPlayers();
-    renderClocks();
-});
-
 function handleSquareClick3D(sq) {
-    if (viewIdx !== -1) { viewIdx = -1; renderPosition(); renderHistory(); return; }
-    if (gameOver) return;
-    if (!isHumanTurn() || waitingBestmove) return;
-    const piece = game.get(sq);
-    if (selected) {
-        if (sq === selected) { clearSelection(); return; }
-        if (piece && piece.color === game.turn()) { selectSquare(sq); return; }
-        tryUserMove(selected, sq);
+    if (state.viewIdx !== -1) { state.viewIdx = -1; renderPosition(); renderHistory(); return; }
+    if (state.gameOver) return;
+    if (!isHumanTurn() || state.waitingBestmove) return;
+    const piece = state.game.get(sq);
+    if (state.selected) {
+        if (sq === state.selected) { clearSelection(); return; }
+        if (piece && piece.color === state.game.turn()) { selectSquare(sq); return; }
+        tryUserMove(state.selected, sq);
         return;
     }
-    if (piece && piece.color === game.turn()) selectSquare(sq);
+    if (piece && piece.color === state.game.turn()) selectSquare(sq);
 }
 
+// ── 3D view toggle ─────────────────────────────────────────────────
+
 function ensure3D() {
-    if (board3d) return;
+    if (state.board3d) return;
     const c = $('board-wrap-3d');
     c.style.display = '';
-    board3d = new Board3D(c, { onSquareClick: handleSquareClick3D });
-    board3d.setFlipped(flipped);
+    state.board3d = new Board3D(c, { onSquareClick: handleSquareClick3D });
+    state.board3d.setFlipped(state.flipped);
 }
 
 function applyViewMode() {
     const wrap2d = $('board-wrap-2d');
     const wrap3d = $('board-wrap-3d');
     const btn = $('btn-view3d');
-    if (view3D) {
+    if (state.view3D) {
         try {
             ensure3D();
         } catch (err) {
             console.error('[3D] init failed:', err);
             setStatus('Không khởi tạo được 3D: ' + (err && err.message ? err.message : err));
-            view3D = false;
+            state.view3D = false;
             localStorage.setItem('mychess.view3d', 'off');
             wrap2d.style.display = '';
             wrap3d.style.display = 'none';
@@ -1017,37 +561,50 @@ function applyViewMode() {
         }
         wrap2d.style.display = 'none';
         wrap3d.style.display = '';
-        board3d.resume();
+        state.board3d.resume();
         syncBoard3D();
         btn.textContent = '2D';
     } else {
         wrap2d.style.display = '';
         wrap3d.style.display = 'none';
-        if (board3d) board3d.pause();
+        if (state.board3d) state.board3d.pause();
         btn.textContent = '3D';
     }
 }
 
 $('btn-view3d').addEventListener('click', () => {
-    view3D = !view3D;
-    localStorage.setItem('mychess.view3d', view3D ? 'on' : 'off');
+    state.view3D = !state.view3D;
+    localStorage.setItem('mychess.view3d', state.view3D ? 'on' : 'off');
     applyViewMode();
 });
 $('btn-reset-view').addEventListener('click', () => {
-    if (board3d) board3d.resetView();
+    if (state.board3d) state.board3d.resetView();
+});
+
+// ── Buttons / selects ──────────────────────────────────────────────
+
+$('btn-new').addEventListener('click', newGame);
+btnUndo.addEventListener('click', undoMove);
+$('btn-flip').addEventListener('click', () => {
+    state.flipped = !state.flipped;
+    buildBoard();
+    if (state.board3d) state.board3d.setFlipped(state.flipped);
+    renderPosition();
+    renderPlayers();
+    renderClocks();
 });
 $('btn-stop').addEventListener('click', () => {
     send({ type: 'stop' });
-    waitingBestmove = false;
-    pendingHint = false;
+    state.waitingBestmove = false;
+    state.pendingHint = false;
     updateStatus();
     updateButtons();
 });
 btnHint.addEventListener('click', requestHint);
 btnResign.addEventListener('click', resignCurrentSide);
 $('btn-reconnect').addEventListener('click', () => {
-    reconnectAttempts = 0;
-    resumingSession = true;
+    state.reconnectAttempts = 0;
+    state.resumingSession = true;
     $('btn-reconnect').style.display = 'none';
     setStatus('Đang kết nối lại…');
     connect();
@@ -1055,30 +612,30 @@ $('btn-reconnect').addEventListener('click', () => {
 
 document.addEventListener('visibilitychange', () => {
     if (document.visibilityState !== 'visible') return;
-    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return;
-    reconnectAttempts = 0;
-    resumingSession = true;
+    if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) return;
+    state.reconnectAttempts = 0;
+    state.resumingSession = true;
     $('btn-reconnect').style.display = 'none';
     setStatus('Đang kết nối lại…');
     connect();
 });
 
 $('btn-fen-copy').addEventListener('click', async () => {
-    try { await navigator.clipboard.writeText(game.fen()); setStatus('Đã copy FEN.'); }
+    try { await navigator.clipboard.writeText(state.game.fen()); setStatus('Đã copy FEN.'); }
     catch (_) { fenEl.select(); document.execCommand('copy'); }
 });
 $('btn-fen-load').addEventListener('click', () => {
     const fen = fenEl.value.trim();
     try {
         new Chess(fen);
-        game.load(fen);
-        historySAN = [];
-        lastMove = null;
-        viewIdx = -1;
-        gameOver = false;
-        plyCount = 0;
-        lastChatPly = -10;
-        chatHistory = [];
+        state.game.load(fen);
+        state.historySAN = [];
+        state.lastMove = null;
+        state.viewIdx = -1;
+        state.gameOver = false;
+        state.plyCount = 0;
+        state.lastChatPly = -10;
+        state.chatHistory = [];
         clearChatLog();
         appendChatMsg('system', '— Đã nạp FEN, bắt đầu lại cuộc trò chuyện —');
         refreshChatInputState();
@@ -1091,18 +648,18 @@ $('btn-fen-load').addEventListener('click', () => {
         send({ type: 'newgame', fen });
         updateStatus();
         updateButtons();
-        if (mode !== 'pvp') setTimeout(maybeTriggerEngine, 50);
+        if (state.mode !== 'pvp') setTimeout(maybeTriggerEngine, 50);
     } catch (e) {
         setStatus('FEN không hợp lệ.');
     }
 });
 
 modeEl.addEventListener('change', () => {
-    mode = modeEl.value;
-    rowSide.style.display = (mode === 'pve') ? '' : 'none';
-    rowLevel.style.display = (mode === 'pvp') ? 'none' : '';
-    rowEloDetail.style.display = (mode === 'pvp') ? 'none' : '';
-    rowPersona.style.display = (mode === 'pve') ? '' : 'none';
+    state.mode = modeEl.value;
+    rowSide.style.display     = (state.mode === 'pve') ? '' : 'none';
+    rowLevel.style.display    = (state.mode === 'pvp') ? 'none' : '';
+    rowEloDetail.style.display= (state.mode === 'pvp') ? 'none' : '';
+    rowPersona.style.display  = (state.mode === 'pve') ? '' : 'none';
     refreshChatInputState();
     renderPlayers();
     updateStatus();
@@ -1110,7 +667,7 @@ modeEl.addEventListener('change', () => {
     setTimeout(maybeTriggerEngine, 50);
 });
 humanSideEl.addEventListener('change', () => {
-    flipped = humanSideEl.value === 'black';
+    state.flipped = humanSideEl.value === 'black';
     buildBoard();
     renderPosition();
     renderPlayers();
@@ -1121,24 +678,20 @@ eloSliderEl.addEventListener('input', () => {
     renderEloLabel();
     renderPlayers();
 });
-timeControlEl.addEventListener('change', () => {
-    setupClockFromSelect();
-    if (!gameOver && historySAN.length > 0 && timeControl) {
-        // If a game is in progress and a side is currently to move, restart the clock.
-        startClock();
-    }
-});
+
+// ── newGame / undoMove ─────────────────────────────────────────────
 
 function newGame() {
     send({ type: 'stop' });
-    waitingBestmove = false;
-    pendingHint = false;
-    gameOver = false;
-    game.reset();
-    historySAN = [];
-    lastMove = null;
-    selected = null; legalForSelected = [];
-    viewIdx = -1;
+    state.waitingBestmove = false;
+    state.pendingHint = false;
+    state.gameOver = false;
+    state.game.reset();
+    state.historySAN = [];
+    state.lastMove = null;
+    state.selected = null;
+    state.legalForSelected = [];
+    state.viewIdx = -1;
     clearInfo();
     setupClockFromSelect();
     renderPosition();
@@ -1149,42 +702,47 @@ function newGame() {
     updateStatus();
     updateButtons();
     playStartSound();
-    plyCount = 0;
-    lastChatPly = -10;
-    chatHistory = [];
+    state.plyCount = 0;
+    state.lastChatPly = -10;
+    state.chatHistory = [];
+    state.recentReplies = [];
+    state.lastMoveQuality = null;
+    resetMood();
+    resetPrecompute();
+    cancelIdleTimer();
     clearChatLog();
-    if (mode === 'pve' && currentPersona) {
-        appendChatMsg('system', `— Ván mới · đối thủ ${currentPersona.emoji} ${currentPersona.name} —`);
+    if (state.mode === 'pve' && state.currentPersona) {
+        appendChatMsg('system', `— Ván mới · đối thủ ${state.currentPersona.emoji} ${state.currentPersona.name} —`);
     } else {
         appendChatMsg('system', '— Ván mới —');
     }
     refreshChatInputState();
     triggerPersonaChat('start');
-    // Start clock now (white's clock begins ticking on game start).
-    if (timeControl) startClock();
+    if (state.timeControl) startClock();
     setTimeout(maybeTriggerEngine, 50);
 }
 
 function undoMove() {
-    if (!historySAN.length || gameOver) return;
+    if (!state.historySAN.length || state.gameOver) return;
     let count = 1;
-    if (mode === 'pve') {
+    if (state.mode === 'pve') {
         const humanColor = humanSideEl.value === 'white' ? 'w' : 'b';
-        if (waitingBestmove) {
+        if (state.waitingBestmove) {
             send({ type: 'stop' });
-            waitingBestmove = false;
-            pendingHint = false;
+            state.waitingBestmove = false;
+            state.pendingHint = false;
         }
-        const sim = new Chess(game.fen());
+        const sim = new Chess(state.game.fen());
         if (sim.turn() === humanColor) count = 2;
     }
-    for (let i = 0; i < count && historySAN.length; i++) {
-        game.undo();
-        historySAN.pop();
+    for (let i = 0; i < count && state.historySAN.length; i++) {
+        state.game.undo();
+        state.historySAN.pop();
     }
-    lastMove = null;
-    selected = null; legalForSelected = [];
-    viewIdx = -1;
+    state.lastMove = null;
+    state.selected = null;
+    state.legalForSelected = [];
+    state.viewIdx = -1;
     clearInfo();
     renderPosition();
     renderHistory();
@@ -1195,498 +753,27 @@ function undoMove() {
     setTimeout(maybeTriggerEngine, 50);
 }
 
-// ── Button enable/disable ───────────────────────────────────────────
+// ── Button enable/disable ──────────────────────────────────────────
 
 function updateButtons() {
-    const over = gameOver || game.isGameOver();
-    btnResign.disabled = over || mode === 'eve';
-    if (mode === 'pve') {
+    const over = state.gameOver || state.game.isGameOver();
+    btnResign.disabled = over || state.mode === 'eve';
+    if (state.mode === 'pve') {
         btnResign.disabled = btnResign.disabled || !isHumanTurn();
     }
-    btnHint.disabled = over || waitingBestmove || mode === 'eve' ||
-                       (mode === 'pve' && !isHumanTurn()) ||
-                       !engineReady;
-    btnUndo.disabled = over || !historySAN.length;
+    btnHint.disabled = over || state.waitingBestmove || state.mode === 'eve' ||
+                       (state.mode === 'pve' && !isHumanTurn()) ||
+                       !state.engineReady;
+    btnUndo.disabled = over || !state.historySAN.length;
 }
 
-// ── Persona + LLM chat ─────────────────────────────────────────────
+// ── Init ───────────────────────────────────────────────────────────
 
-async function loadPersonas() {
-    try {
-        const res = await fetch('personas.json', { cache: 'no-cache' });
-        personas = await res.json();
-    } catch (e) {
-        personas = [];
-        console.warn('Không tải được personas.json', e);
-    }
-    // Populate dropdown (preserve the leading "no persona" option)
-    while (personaEl.options.length > 1) personaEl.remove(1);
-    for (const p of personas) {
-        const opt = document.createElement('option');
-        opt.value = p.id;
-        opt.textContent = `${p.emoji} ${p.name} · ${p.elo} elo`;
-        personaEl.appendChild(opt);
-    }
-    const saved = localStorage.getItem('mychess.persona');
-    if (saved && personas.some(p => p.id === saved)) {
-        personaEl.value = saved;
-    }
-    applyPersonaSelection();
-}
-
-function applyPersonaSelection() {
-    const id = personaEl.value;
-    const prev = currentPersona;
-    currentPersona = personas.find(p => p.id === id) || null;
-    localStorage.setItem('mychess.persona', id || '');
-    if (currentPersona) {
-        eloSliderEl.value = String(currentPersona.elo);
-        renderEloLabel();
-        personaSummaryEl.style.display = '';
-        personaSummaryEl.textContent = `${currentPersona.emoji} ${currentPersona.summary}`;
-    } else {
-        personaSummaryEl.style.display = 'none';
-        personaSummaryEl.textContent = '';
-    }
-    // Different persona = different conversation. Clear so the new persona
-    // doesn't see the old one's lines and try to "continue" them.
-    if (!prev || !currentPersona || prev.id !== currentPersona.id) {
-        chatHistory = [];
-        clearChatLog();
-        if (currentPersona) {
-            appendChatMsg('system',
-                `— Đã chọn ${currentPersona.emoji} ${currentPersona.name} (${currentPersona.elo} elo) —`);
-        }
-    }
-    refreshChatInputState();
-    renderPlayers();
-}
-
-personaEl.addEventListener('change', applyPersonaSelection);
-
-function pieceNameVN(type) {
-    return ({ p: 'Tốt', n: 'Mã', b: 'Tượng', r: 'Xe', q: 'Hậu', k: 'Vua' })[type] || type;
-}
-
-// Material delta from persona's perspective (positive = persona ahead).
-function materialBalanceForPersona() {
-    if (!currentPersona) return 0;
-    const personaColor = humanSideEl.value === 'white' ? 'b' : 'w';
-    const VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-    let pSum = 0, oSum = 0;
-    const board = game.board();
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-        const sq = board[r][c];
-        if (!sq) continue;
-        const v = VALUES[sq.type] || 0;
-        if (sq.color === personaColor) pSum += v;
-        else oSum += v;
-    }
-    return pSum - oSum;
-}
-
-function materialDescription() {
-    const d = materialBalanceForPersona();
-    if (d >=  5) return 'bạn đang ưu thế quân lớn';
-    if (d >=  2) return 'bạn đang nhỉnh hơn về quân';
-    if (d >=  1) return 'bạn đang nhỉnh hơn 1 chút';
-    if (d <= -5) return 'bạn đang lép vế quân lớn';
-    if (d <= -2) return 'bạn đang kém hơn về quân';
-    if (d <= -1) return 'bạn đang kém hơn 1 chút';
-    return 'thế cờ cân bằng về quân';
-}
-
-// Plain-Vietnamese description of a chess.js verbose move result.
-function describeMove(result, eventType) {
-    if (!result) return '';
-    const parts = [`đi quân ${pieceNameVN(result.piece)} (ký hiệu ${result.san})`];
-    if (result.captured) parts.push(`ăn quân ${pieceNameVN(result.captured)} của đối thủ`);
-    if (result.promotion) parts.push(`phong cấp thành ${pieceNameVN(result.promotion)}`);
-    const flags = result.flags || '';
-    if (flags.includes('k')) parts.push('nhập thành cánh Vua (O-O)');
-    if (flags.includes('q')) parts.push('nhập thành cánh Hậu (O-O-O)');
-    if (flags.includes('e')) parts.push('bắt tốt qua đường (en passant)');
-    if (game.inCheck()) {
-        parts.push(eventType === 'engine_move'
-            ? 'nước này chiếu vua đối thủ'
-            : 'nước này chiếu vua của bạn');
-    }
-    return parts.join(', ');
-}
-
-// Convention: user-role messages from auto-commentary start with the EVENT_TAG.
-// Free-chat user messages do NOT have it. The system prompts explain the
-// distinction so the bot knows when to talk chess vs. when to just chat.
-const EVENT_TAG = '[SỰ-KIỆN-BÀN-CỜ]';
-
-function buildSystemPrompt(persona) {
-    const humanColor = humanSideEl.value === 'white' ? 'Trắng' : 'Đen';
-    const personaColor = humanSideEl.value === 'white' ? 'Đen' : 'Trắng';
-    return [
-        persona.system_prompt,
-        '',
-        `Bối cảnh trận đấu: bạn cầm bên ${personaColor}. Đối thủ của bạn (người chơi) cầm bên ${humanColor}.`,
-        '',
-        `QUY ƯỚC: tin nhắn user bắt đầu bằng ${EVENT_TAG} là tường thuật sự kiện cờ — hãy bình luận 1 câu ngắn về sự kiện đó. Tin user KHÔNG có tag là CHAT TRỰC TIẾP của người chơi (xem khối quy tắc free-chat ở dưới nếu có).`,
-        '',
-        'Yêu cầu nghiêm ngặt khi bình luận sự kiện cờ: trả lời thật ngắn 1 câu (tối đa 2 câu). Tiếng Việt thuần. Không emoji, không markdown, không xuống dòng.',
-        'TUYỆT ĐỐI KHÔNG bịa thông tin về quân cờ. Chỉ nhắc đến những quân/sự kiện đã được nêu trong tin user. Nếu không chắc, nói chung chung ("lại đi rồi", "thấy ghê chưa", "không tệ") thay vì gọi sai tên quân.',
-    ].join('\n');
-}
-
-function buildEventPrompt(eventType, ctx) {
-    const movesSan = historySAN.length ? historySAN.slice(-6).join(' ') : '(chưa có nước nào)';
-    const matDesc  = materialDescription();
-    const TAG = EVENT_TAG + ' ';
-    switch (eventType) {
-        case 'start':
-            return TAG + `Ván đấu vừa bắt đầu. Hãy chào đối thủ một câu thật ngắn theo đúng tính cách của bạn.`;
-        case 'engine_move':
-            return TAG + [
-                `Bạn vừa ${describeMove(ctx.result, eventType)}.`,
-                `Tình thế tổng quan: ${matDesc}.`,
-                `Lịch sử gần đây: ${movesSan}.`,
-                `Hãy nói 1 câu thật ngắn theo đúng tính cách (trash-talk nhẹ, bình luận về nước mình, hoặc tự nói chuyện). Không phân tích chuyên môn dài dòng.`,
-            ].join(' ');
-        case 'user_move':
-            return TAG + [
-                `Đối thủ vừa ${describeMove(ctx.result, eventType)}.`,
-                `Tình thế tổng quan: ${matDesc}.`,
-                `Lịch sử gần đây: ${movesSan}.`,
-                `Hãy phản ứng 1 câu ngắn theo đúng tính cách (chê, khen, trêu, hoặc dửng dưng — tùy bạn).`,
-            ].join(' ');
-        case 'win':
-            return TAG + `Bạn vừa thắng ván này (${matDesc}). Nói 1 câu cảm nghĩ thật ngắn theo tính cách.`;
-        case 'lose':
-            return TAG + `Bạn vừa thua ván này. Nói 1 câu phản ứng thật ngắn theo tính cách (cay cú, chấp nhận, đùa cợt — tùy bạn).`;
-        case 'draw':
-            return TAG + `Ván cờ vừa hòa (${matDesc}). Nói 1 câu thật ngắn theo tính cách.`;
-        default:
-            return TAG + `Hãy nói 1 câu phù hợp tình huống.`;
-    }
-}
-
-function requestChat(messages, maxTokens = 110) {
-    return new Promise((resolve, reject) => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) {
-            reject(new Error('ws not open'));
-            return;
-        }
-        const requestId = `chat-${++chatReqSeq}`;
-        const timer = setTimeout(() => {
-            pendingChatRequests.delete(requestId);
-            reject(new Error('timeout'));
-        }, 12000);
-        pendingChatRequests.set(requestId, (msg) => {
-            clearTimeout(timer);
-            if (msg.ok) resolve(msg.text);
-            else reject(new Error(msg.error || 'chat failed'));
-        });
-        send({ type: 'chat_request', requestId, messages, maxTokens });
-    });
-}
-
-// Importance score of a just-played move (per chess.js verbose result).
-// Higher = more "noteworthy" → more likely to trigger LLM commentary.
-function moveImportance(ctx) {
-    const r = ctx.result;
-    if (!r) return 0;
-    let score = 0;
-    if (r.captured) {
-        score += ({ q: 80, r: 50, b: 32, n: 32, p: 12 }[r.captured]) || 0;
-    }
-    const flags = r.flags || '';
-    if (flags.includes('e')) score += 18;                     // en passant
-    if (r.promotion) score += 70;                              // promotion
-    if (flags.includes('k') || flags.includes('q')) score += 40; // castling
-    if (game.inCheck()) score += 55;                           // delivers check
-    if (plyCount <= 3) score += 28;                            // opening 1-3 plies
-    // Re-engage if there's been long silence (player may feel persona is "off")
-    const sinceLast = plyCount - lastChatPly;
-    if (sinceLast >= 9) score += 25;
-    return score;
-}
-
-function shouldChat(eventType, ctx) {
-    // Game-state milestones always speak.
-    if (['start', 'win', 'lose', 'draw'].includes(eventType)) return true;
-    if (!currentPersona) return false;
-
-    // Threshold scales with persona chattiness:
-    //   chatti=0.25 → threshold ≈ 67  (Anh Cảnh — only big events)
-    //   chatti=0.9  → threshold ≈ 35  (Bé Mochi — talks easily)
-    let threshold = 80 - currentPersona.chattiness * 50;
-
-    // Cooldown: avoid back-to-back chatter unless something dramatic.
-    const sinceLast = plyCount - lastChatPly;
-    if (sinceLast <= 1) threshold += 35;
-    else if (sinceLast === 2) threshold += 15;
-
-    return moveImportance(ctx) >= threshold;
-}
-
-async function triggerPersonaChat(eventType, ctx = {}) {
-    if (!currentPersona) return;
-    if (mode !== 'pve') return;
-    if (!shouldChat(eventType, ctx)) return;
-
-    lastChatPly = plyCount;
-    const sys = buildSystemPrompt(currentPersona);
-    const usr = buildEventPrompt(eventType, ctx);
-    // Full convo: system (rebuilt each call so persona/side switches take effect)
-    // + all prior turns this game + the new user turn.
-    const messages = [
-        { role: 'system', content: sys },
-        ...chatHistory,
-        { role: 'user',   content: usr },
-    ];
-    chatBusy = true;
-    refreshChatInputState();
-    showTypingIndicator();
-    try {
-        const text = await requestChat(messages, 110);
-        chatHistory.push({ role: 'user', content: usr });
-        chatHistory.push({ role: 'assistant', content: text });
-        // Safety cap (turns trimmed from oldest; never trim system, it's rebuilt anyway).
-        if (chatHistory.length > MAX_CHAT_TURNS * 2) {
-            chatHistory = chatHistory.slice(-MAX_CHAT_TURNS * 2);
-        }
-        hideTypingIndicator();
-        appendChatMsg('persona', text);
-    } catch (err) {
-        hideTypingIndicator();
-        console.warn('persona chat failed:', err.message);
-    } finally {
-        chatBusy = false;
-        refreshChatInputState();
-    }
-}
-
-// ── Free-form user chat ────────────────────────────────────────────
-
-// Game state as *background knowledge* for the system prompt.
-// Goal: model sees state but is NOT pushed to mention it unless asked.
-function buildGameBackgroundBlock() {
-    const humColor = humanSideEl.value === 'white' ? 'Trắng' : 'Đen';
-    const persColor = humanSideEl.value === 'white' ? 'Đen' : 'Trắng';
-    const turn = game.turn() === 'w' ? 'Trắng' : 'Đen';
-    const movesSan = historySAN.length ? historySAN.join(' ') : '(chưa có nước nào)';
-    const matDesc = materialDescription();
-    return [
-        '— Bối cảnh trận đấu (CHỈ tham khảo nội bộ; KHÔNG đem ra nói nếu người chơi không hỏi về cờ) —',
-        `Bạn cầm bên ${persColor}, người chơi cầm bên ${humColor}.`,
-        `Lượt hiện tại: ${turn} đi.`,
-        `Vật chất: ${matDesc}.`,
-        `Lịch sử nước cờ (SAN): ${movesSan}.`,
-        `FEN: ${game.fen()}.`,
-    ].join('\n');
-}
-
-function buildSystemPromptForFreeChat(persona) {
-    return [
-        persona.system_prompt,
-        '',
-        buildGameBackgroundBlock(),
-        '',
-        `QUY ƯỚC: trong lịch sử trò chuyện, các tin user bắt đầu bằng ${EVENT_TAG} là tường thuật sự kiện cờ (auto). Tin user CUỐI hiện tại KHÔNG có tag → đó là CHAT TRỰC TIẾP của người chơi gửi cho bạn.`,
-        '',
-        '— QUY TẮC TRẢ LỜI CHAT TRỰC TIẾP —',
-        '1. Nếu người chơi nói chuyện thường (chào hỏi, hỏi thăm, hỏi tên/tuổi, tâm sự, đùa giỡn): trả lời TỰ NHIÊN NHƯ NGƯỜI BÌNH THƯỜNG, đúng tính cách. TUYỆT ĐỐI KHÔNG đột ngột lôi nước cờ ra phân tích, KHÔNG kể "vừa rồi e4 rồi Nf3...". Ai chào thì chào lại, ai hỏi thì trả lời câu hỏi đó.',
-        '2. Chỉ nói về cờ khi người chơi HỎI rõ về cờ ("thế cờ sao rồi?", "tớ vừa đi sai à?", "ăn được con gì không?"...).',
-        '3. Tối đa 1-3 câu ngắn, tự nhiên, đúng giọng/dialect persona.',
-        '4. KHÔNG markdown, KHÔNG emoji, KHÔNG xuống dòng nhiều, KHÔNG dấu ngoặc kép quanh cả câu.',
-        '5. KHÔNG bịa quân hay sự kiện không có trong lịch sử SAN ở trên.',
-        '6. KHÔNG nói thay người chơi, KHÔNG đặt câu hỏi tu từ rồi tự trả lời.',
-    ].join('\n');
-}
-
-async function sendUserChat(rawText) {
-    const text = rawText.trim();
-    if (!text) return;
-    if (!currentPersona) {
-        appendChatMsg('system', 'Hãy chọn một nhân vật ở mục “Trận đấu” trước khi chat.');
-        return;
-    }
-    if (mode !== 'pve') {
-        appendChatMsg('system', 'Chế độ hiện tại không có nhân vật để chat.');
-        return;
-    }
-    if (chatBusy) return;
-
-    appendChatMsg('user', text);
-
-    const sys = buildSystemPromptForFreeChat(currentPersona);
-    // user message is raw text — no nested context, no instructions
-    const messages = [
-        { role: 'system', content: sys },
-        ...chatHistory,
-        { role: 'user', content: text },
-    ];
-    chatBusy = true;
-    refreshChatInputState();
-    setChatStatus('đang nghĩ…');
-    showTypingIndicator();
-    try {
-        const reply = await requestChat(messages, 220);
-        chatHistory.push({ role: 'user', content: text });
-        chatHistory.push({ role: 'assistant', content: reply });
-        if (chatHistory.length > MAX_CHAT_TURNS * 2) {
-            chatHistory = chatHistory.slice(-MAX_CHAT_TURNS * 2);
-        }
-        hideTypingIndicator();
-        appendChatMsg('persona', reply);
-    } catch (err) {
-        hideTypingIndicator();
-        appendChatMsg('system', `(không nhận được phản hồi: ${err.message})`);
-    } finally {
-        chatBusy = false;
-        setChatStatus('');
-        refreshChatInputState();
-    }
-}
-
-chatFormEl.addEventListener('submit', (ev) => {
-    ev.preventDefault();
-    const v = chatInputEl.value;
-    chatInputEl.value = '';
-    refreshChatInputState();
-    sendUserChat(v);
-});
-chatInputEl.addEventListener('input', refreshChatInputState);
-chatInputEl.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' && !ev.shiftKey && !ev.isComposing) {
-        ev.preventDefault();
-        chatFormEl.requestSubmit();
-    }
-});
-
-// ── Chat panel rendering ───────────────────────────────────────────
-
-function clearChatLog() {
-    chatLogEl.innerHTML = '';
-    chatTypingNode = null;
-}
-
-function scrollChatToBottom() {
-    chatLogEl.scrollTop = chatLogEl.scrollHeight;
-}
-
-function appendChatMsg(kind, text, opts = {}) {
-    // kind: 'persona' | 'user' | 'system'
-    const wrap = document.createElement('div');
-    wrap.className = 'chat-msg chat-msg-' + kind;
-
-    if (kind !== 'system') {
-        const head = document.createElement('div');
-        head.className = 'chat-msg-head';
-        const emoji = document.createElement('span');
-        emoji.className = 'head-emoji';
-        emoji.textContent = kind === 'persona'
-            ? (opts.emoji || (currentPersona && currentPersona.emoji) || '🤖')
-            : '👤';
-        const name = document.createElement('span');
-        name.textContent = kind === 'persona'
-            ? (opts.name || (currentPersona && currentPersona.name) || 'Đối thủ')
-            : 'Bạn';
-        head.appendChild(emoji); head.appendChild(name);
-        wrap.appendChild(head);
-    }
-    const body = document.createElement('div');
-    body.className = 'chat-msg-body';
-    body.textContent = text;
-    wrap.appendChild(body);
-
-    chatLogEl.appendChild(wrap);
-    scrollChatToBottom();
-    if (kind === 'persona') notifyUnreadIfClosed();
-    return wrap;
-}
-
-function showTypingIndicator() {
-    if (chatTypingNode || !currentPersona) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'chat-msg chat-msg-persona';
-    const head = document.createElement('div');
-    head.className = 'chat-msg-head';
-    const emoji = document.createElement('span');
-    emoji.className = 'head-emoji';
-    emoji.textContent = currentPersona.emoji || '🤖';
-    const name = document.createElement('span');
-    name.textContent = currentPersona.name;
-    head.appendChild(emoji); head.appendChild(name);
-    wrap.appendChild(head);
-    const dots = document.createElement('div');
-    dots.className = 'chat-msg-typing';
-    dots.innerHTML = '<span></span><span></span><span></span>';
-    wrap.appendChild(dots);
-    chatLogEl.appendChild(wrap);
-    chatTypingNode = wrap;
-    scrollChatToBottom();
-}
-function hideTypingIndicator() {
-    if (chatTypingNode) {
-        chatTypingNode.remove();
-        chatTypingNode = null;
-    }
-}
-
-function setChatStatus(text) {
-    if (chatStatusEl) chatStatusEl.textContent = text || '';
-}
-
-function applyChatPanelState() {
-    if (chatPanelOpen) {
-        layoutEl.classList.remove('chat-collapsed');
-        btnChatOpen.classList.remove('visible', 'has-unread');
-        scrollChatToBottom();
-    } else {
-        layoutEl.classList.add('chat-collapsed');
-        btnChatOpen.classList.add('visible');
-    }
-}
-
-function openChatPanel() {
-    chatPanelOpen = true;
-    localStorage.setItem('mychess.chatPanel', 'open');
-    applyChatPanelState();
-    refreshChatInputState();
-}
-function closeChatPanel() {
-    chatPanelOpen = false;
-    localStorage.setItem('mychess.chatPanel', 'closed');
-    applyChatPanelState();
-}
-function notifyUnreadIfClosed() {
-    if (!chatPanelOpen) btnChatOpen.classList.add('has-unread');
-}
-
-btnChatClose.addEventListener('click', closeChatPanel);
-btnChatOpen.addEventListener('click', openChatPanel);
-function refreshChatInputState() {
-    const enabled = !!currentPersona && mode === 'pve' && !chatBusy && engineReady;
-    chatInputEl.disabled = !enabled;
-    chatSendEl.disabled = !enabled || !chatInputEl.value.trim();
-    if (!currentPersona) {
-        chatInputEl.placeholder = 'Chọn nhân vật ở mục Trận đấu để chat…';
-    } else if (mode !== 'pve') {
-        chatInputEl.placeholder = 'Chat chỉ khả dụng ở chế độ Người vs Máy.';
-    } else {
-        chatInputEl.placeholder = 'Nhắn cho đối thủ… (Enter gửi, Shift+Enter xuống dòng)';
-    }
-    if (chatPersonaTagEl) {
-        chatPersonaTagEl.textContent = currentPersona
-            ? `· ${currentPersona.emoji} ${currentPersona.name}`
-            : '';
-    }
-}
-
-// ── Init ────────────────────────────────────────────────────────────
-
-mode = modeEl.value;
-rowSide.style.display = (mode === 'pve') ? '' : 'none';
-rowLevel.style.display = (mode === 'pvp') ? 'none' : '';
-rowEloDetail.style.display = (mode === 'pvp') ? 'none' : '';
-rowPersona.style.display = (mode === 'pve') ? '' : 'none';
+state.mode = modeEl.value;
+rowSide.style.display      = (state.mode === 'pve') ? '' : 'none';
+rowLevel.style.display     = (state.mode === 'pvp') ? 'none' : '';
+rowEloDetail.style.display = (state.mode === 'pvp') ? 'none' : '';
+rowPersona.style.display   = (state.mode === 'pve') ? '' : 'none';
 buildBoard();
 renderPosition();
 renderEloLabel();
@@ -1697,5 +784,6 @@ updateButtons();
 applyViewMode();
 applyChatPanelState();
 refreshChatInputState();
+initFeatureFlagsUI('feature-flags');
 loadPersonas();
 connect();
